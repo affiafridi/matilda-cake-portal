@@ -53,6 +53,29 @@ export async function createOrder(input: CreateOrderInput) {
           createdById: input.createdById,
           assignedChefId: input.assignedChefId,
           // orderStatus omitted → Prisma default RECEIVED
+
+          // Structured line items — created atomically via nested write.
+          // Empty array stays an empty array (no items relation written).
+          ...(input.items && input.items.length > 0
+            ? {
+                items: {
+                  create: input.items.map((it) => ({
+                    itemName: it.itemName,
+                    quantity: it.quantity,
+                    unitPrice: it.unitPrice,
+                    totalPrice: it.totalPrice,
+                    sizeLabel: it.sizeLabel,
+                    notes: it.notes,
+                    woocommerceProductId: it.woocommerceProductId,
+                    woocommerceVariationId: it.woocommerceVariationId,
+                    variationName: it.variationName,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          items: { orderBy: { createdAt: "asc" } },
         },
       });
     } catch (e) {
@@ -88,6 +111,7 @@ export function getOrderByTrackingCode(trackingCode: string) {
       assignedChef: {
         select: { id: true, name: true, email: true, role: true },
       },
+      items: { orderBy: { createdAt: "asc" } },
       statusHistory: {
         orderBy: { createdAt: "desc" },
         include: {
@@ -123,6 +147,9 @@ export async function listOrders(filters: ListOrdersQuery) {
       orderBy: { createdAt: "desc" },
       take: filters.take,
       skip: filters.skip,
+      include: {
+        items: { orderBy: { createdAt: "asc" } },
+      },
     }),
     prisma.order.count({ where }),
   ]);

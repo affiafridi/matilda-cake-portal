@@ -30,6 +30,48 @@ export const orderSourceSchema = z.enum([
 ]);
 
 // =====================================================
+// Order item (structured line item)
+// =====================================================
+
+/**
+ * Schema for a single OrderItem on POST /api/orders.
+ * Optional in `createOrderSchema` for backward compatibility — older callers
+ * that don't yet pass `items` are accepted unchanged.
+ */
+export const orderItemSchema = z.object({
+  itemName: z.string().trim().min(1, "Item name is required").max(200),
+  quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+  unitPrice: z.coerce.number().nonnegative(),
+  totalPrice: z.coerce.number().nonnegative(),
+  sizeLabel: z
+    .string()
+    .trim()
+    .max(50)
+    .nullish()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  notes: z
+    .string()
+    .trim()
+    .max(500)
+    .nullish()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+  woocommerceProductId: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  woocommerceVariationId: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+  variationName: z
+    .string()
+    .nullish()
+    .transform((v) => v ?? null),
+});
+
+export type OrderItemInput = z.infer<typeof orderItemSchema>;
+
+// =====================================================
 // POST /api/orders body
 // =====================================================
 
@@ -97,6 +139,9 @@ export const createOrderSchema = z
     notes: optionalString,
     createdById: z.string().cuid().nullish().transform((v) => v ?? null),
     assignedChefId: z.string().cuid().nullish().transform((v) => v ?? null),
+
+    // Structured line items — optional for backward compatibility
+    items: z.array(orderItemSchema).optional().default([]),
   })
   .refine(
     (d) =>

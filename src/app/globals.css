@@ -1,19 +1,29 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/**
+ * Matilda Cakes — warm bakery design tokens.
+ * Adjust hex values here and the entire UI rethemes.
+ */
+@theme {
+  --color-brand: #6b2e1a;       /* primary brown */
+  --color-brand-dark: #4a1f12;  /* hover / pressed */
+  --color-caramel: #c08a5b;     /* secondary accent */
+  --color-cream: #f5e6d3;       /* soft cream tint */
+  --color-canvas: #faf7f2;      /* page + input background */
+  --color-surface: #ffffff;     /* card background */
+  --color-ink: #2b1a12;         /* primary text */
+  --color-ink-muted: #7a5c4d;   /* secondary text */
+  --color-rule: #e8ddd4;        /* borders */
+  --color-success: #2e7d32;
+  --color-danger: #c62828;
+  --color-focus: #c08a5b;       /* matches caramel */
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

@@ -1,6 +1,3 @@
-// Prisma schema for WhatsApp Order Tracking — Matilda Cakes.
-// Docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,9 +7,127 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// =====================================================
-// Enums
-// =====================================================
+/// Internal staff / operator accounts.
+/// `passwordHash` is optional for now — auth is being added later.
+model User {
+  id             String               @id @default(cuid())
+  name           String
+  email          String               @unique
+  phone          String?
+  passwordHash   String?
+  role           UserRole
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  ordersAssigned Order[]              @relation("OrderAssignedChef")
+  ordersCreated  Order[]              @relation("OrderCreatedBy")
+  statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+/// Persistent customer profile. An Order may reference one, but the Order
+/// also stores a snapshot of customer fields so historical data is preserved
+/// even when the profile changes.
+model Customer {
+  id             String   @id @default(cuid())
+  name           String
+  phone          String   @unique
+  whatsappNumber String?
+  email          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orders         Order[]
+}
+
+/// A single cake order. Snapshots customer/contact details at creation time
+/// so the historical record is stable regardless of later profile edits.
+model Order {
+  id              String               @id @default(cuid())
+  orderNumber     String               @unique
+  trackingCode    String               @unique
+  customerId      String?
+  customerName    String
+  customerPhone   String
+  whatsappNumber  String?
+  customerEmail   String?
+  deliveryDate    DateTime
+  deliveryTime    String
+  deliveryAddress String
+  deliveryMapLink String?
+  orderItems      String
+  cakeFlavor      CakeFlavor
+  cakeMessage     String?
+  cakeSponge      String?
+  cakeSize        CakeSize
+  /// Required at the application layer when `cakeSize = CUSTOM`.
+  customCakeSize  String?
+  paymentMethod   PaymentMethod
+  paymentStatus   PaymentStatus        @default(UNPAID)
+  totalAmount     Decimal?             @db.Decimal(10, 2)
+  advanceAmount   Decimal?             @db.Decimal(10, 2)
+  balanceAmount   Decimal?             @db.Decimal(10, 2)
+  orderStatus     OrderStatus          @default(RECEIVED)
+  source          OrderSource
+  notes           String?
+  createdById     String?
+  assignedChefId  String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  assignedChef    User?                @relation("OrderAssignedChef", fields: [assignedChefId], references: [id])
+  createdBy       User?                @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  customer        Customer?            @relation(fields: [customerId], references: [id])
+  statusHistory   OrderStatusHistory[]
+  items           OrderItem[]
+
+  @@index([customerPhone])
+  @@index([orderStatus])
+  @@index([deliveryDate])
+  @@index([createdById])
+  @@index([assignedChefId])
+  @@index([customerId])
+}
+
+/// Append-only audit trail for order status transitions.
+model OrderStatusHistory {
+  id          String       @id @default(cuid())
+  orderId     String
+  oldStatus   OrderStatus?
+  newStatus   OrderStatus
+  changedById String?
+  note        String?
+  createdAt   DateTime     @default(now())
+  changedBy   User?        @relation("StatusChangedBy", fields: [changedById], references: [id])
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([changedById])
+  @@index([createdAt])
+}
+
+/// Structured line items per order. Coexists with the existing
+/// `Order.orderItems` free-text field — that column is preserved unchanged.
+model OrderItem {
+  id                     String   @id @default(cuid())
+  orderId                String
+  order                  Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemName               String
+  quantity               Int      @default(1)
+  unitPrice              Decimal  @db.Decimal(10, 2)
+  totalPrice             Decimal  @db.Decimal(10, 2)
+  woocommerceProductId   String?
+  woocommerceVariationId String?
+  variationName          String?
+  sizeLabel              String?
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([woocommerceProductId])
+  @@index([woocommerceVariationId])
+}
 
 enum UserRole {
   SUPER_ADMIN
@@ -60,128 +175,4 @@ enum OrderSource {
   WEBSITE
   WALK_IN
   PHONE
-}
-
-// =====================================================
-// Models
-// =====================================================
-
-/// Internal staff / operator accounts.
-/// `passwordHash` is optional for now — auth is being added later.
-model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  phone        String?
-  passwordHash String?
-  role         UserRole
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Reverse relations
-  ordersCreated  Order[]              @relation("OrderCreatedBy")
-  ordersAssigned Order[]              @relation("OrderAssignedChef")
-  statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
-
-  @@index([role])
-  @@index([isActive])
-}
-
-/// Persistent customer profile. An Order may reference one, but the Order
-/// also stores a snapshot of customer fields so historical data is preserved
-/// even when the profile changes.
-model Customer {
-  id             String   @id @default(cuid())
-  name           String
-  phone          String   @unique
-  whatsappNumber String?
-  email          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  orders Order[]
-}
-
-/// A single cake order. Snapshots customer/contact details at creation time
-/// so the historical record is stable regardless of later profile edits.
-model Order {
-  id           String @id @default(cuid())
-  orderNumber  String @unique
-  trackingCode String @unique
-
-  // Optional link to the persistent Customer profile.
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-
-  // Snapshot of customer/contact data at order time.
-  customerName   String
-  customerPhone  String
-  whatsappNumber String?
-  customerEmail  String?
-
-  // Delivery
-  deliveryDate    DateTime
-  deliveryTime    String
-  deliveryAddress String
-  deliveryMapLink String?
-
-  // Items & cake spec
-  orderItems     String
-  cakeFlavor     CakeFlavor
-  cakeMessage    String?
-  cakeSponge     String?
-  cakeSize       CakeSize
-  /// Required at the application layer when `cakeSize = CUSTOM`.
-  customCakeSize String?
-
-  // Payment
-  paymentMethod PaymentMethod
-  paymentStatus PaymentStatus @default(UNPAID)
-  totalAmount   Decimal?      @db.Decimal(10, 2)
-  advanceAmount Decimal?      @db.Decimal(10, 2)
-  balanceAmount Decimal?      @db.Decimal(10, 2)
-
-  // Workflow
-  orderStatus OrderStatus @default(RECEIVED)
-  source      OrderSource
-  notes       String?
-
-  // Staff
-  createdById    String?
-  createdBy      User?   @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  assignedChefId String?
-  assignedChef   User?   @relation("OrderAssignedChef", fields: [assignedChefId], references: [id], onDelete: SetNull)
-
-  // History
-  statusHistory OrderStatusHistory[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Note: `trackingCode` and `orderNumber` already get unique indexes from @unique;
-  // not duplicated here.
-  @@index([customerPhone])
-  @@index([orderStatus])
-  @@index([deliveryDate])
-  @@index([createdById])
-  @@index([assignedChefId])
-  @@index([customerId])
-}
-
-/// Append-only audit trail for order status transitions.
-model OrderStatusHistory {
-  id          String       @id @default(cuid())
-  orderId     String
-  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  oldStatus   OrderStatus?
-  newStatus   OrderStatus
-  changedById String?
-  changedBy   User?        @relation("StatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
-  note        String?
-  createdAt   DateTime     @default(now())
-
-  @@index([orderId])
-  @@index([changedById])
-  @@index([createdAt])
 }
