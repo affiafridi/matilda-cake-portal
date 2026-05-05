@@ -40,7 +40,7 @@ class WooApiError extends Error {
   }
 }
 
-function assertConfigured(): asserts WOO_URL is string {
+function assertConfigured() {
   if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
     throw new WooConfigError();
   }
@@ -63,12 +63,23 @@ function decodeEntities(s: string): string {
 
 async function wooFetch<T>(path: string): Promise<T> {
   assertConfigured();
-  const base = WOO_URL.replace(/\/$/, "");
+
+  const wooUrl = WOO_URL;
+  const wooKey = WOO_KEY;
+  const wooSecret = WOO_SECRET;
+
+  if (!wooUrl || !wooKey || !wooSecret) {
+    throw new WooConfigError();
+  }
+
+  const base = wooUrl.replace(/\/$/, "");
   const url = `${base}${path.startsWith("/") ? path : "/" + path}`;
+
+  const token = Buffer.from(`${wooKey}:${wooSecret}`).toString("base64");
 
   const res = await fetch(url, {
     headers: {
-      Authorization: authHeader(),
+      Authorization: `Basic ${token}`,
       Accept: "application/json",
     },
     cache: "no-store",
