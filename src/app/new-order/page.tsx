@@ -1,24 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { normalizeUaePhone } from "@/lib/phone";
+import type {
+  WooProductSummary,
+  WooVariation,
+} from "@/lib/woocommerce-types";
 
 // =====================================================
 // Constants
 // =====================================================
-
-const CAKE_FLAVORS = [
-  { value: "VANILLA", label: "Vanilla" },
-  { value: "CHOCOLATE", label: "Chocolate" },
-  { value: "RED_VELVET", label: "Red Velvet" },
-] as const;
-
-const CAKE_SIZES = [
-  { value: "SIZE_750G", label: "750 g" },
-  { value: "SIZE_1_2KG", label: "1.2 kg" },
-  { value: "CUSTOM", label: "Custom" },
-] as const;
 
 const PAYMENT_METHODS = [
   { value: "CASH", label: "Cash" },
@@ -55,6 +53,12 @@ type ItemRow = {
   sizeLabel: string;
   unitPrice: string;
   notes: string;
+  /** WooCommerce product ID, set when a Woo product is linked (otherwise ""). */
+  woocommerceProductId: string;
+  /** WooCommerce variation ID, set when a variation is picked (otherwise ""). */
+  woocommerceVariationId: string;
+  /** Full Woo variation name (e.g. "Chocolate / 1.2 kg"); empty for unlinked rows. */
+  variationName: string;
 };
 
 const EMPTY_ITEM: ItemRow = {
@@ -63,6 +67,9 @@ const EMPTY_ITEM: ItemRow = {
   sizeLabel: "",
   unitPrice: "",
   notes: "",
+  woocommerceProductId: "",
+  woocommerceVariationId: "",
+  variationName: "",
 };
 
 type FormState = {
@@ -74,10 +81,8 @@ type FormState = {
   deliveryTime: string;
   deliveryAddress: string;
   deliveryMapLink: string;
-  cakeFlavor: string;
+  /** Cake message — rendered at the bottom of the Order Items section. */
   cakeMessage: string;
-  cakeSize: string;
-  customCakeSize: string;
   paymentMethod: string;
   paymentStatus: string;
   totalAmount: string;
@@ -95,10 +100,7 @@ const INITIAL_FORM: FormState = {
   deliveryTime: "",
   deliveryAddress: "",
   deliveryMapLink: "",
-  cakeFlavor: "",
   cakeMessage: "",
-  cakeSize: "SIZE_1_2KG", // smart default
-  customCakeSize: "",
   paymentMethod: "CASH", // smart default
   paymentStatus: "UNPAID", // smart default
   totalAmount: "",
@@ -106,6 +108,35 @@ const INITIAL_FORM: FormState = {
   notes: "",
   items: [{ ...EMPTY_ITEM }],
 };
+
+// =====================================================
+// Derivation helpers — populate legacy cake spec columns
+// from the structured item list so the API contract stays
+// backward-compatible even though the UI no longer asks
+// for them directly.
+// =====================================================
+
+type CakeFlavor = "VANILLA" | "CHOCOLATE" | "RED_VELVET";
+type CakeSize = "SIZE_750G" | "SIZE_1_2KG" | "CUSTOM";
+
+function deriveCakeFlavor(items: { itemName: string }[]): CakeFlavor {
+  const haystack = items.map((i) => i.itemName).join(" ").toLowerCase();
+  if (/red\s*velvet/.test(haystack)) return "RED_VELVET";
+  if (/chocolate|choco/.test(haystack)) return "CHOCOLATE";
+  return "VANILLA";
+}
+
+function deriveCakeSize(
+  items: { sizeLabel?: string | null }[],
+): { size: CakeSize; customLabel?: string } {
+  const first = items[0];
+  const raw = first?.sizeLabel ?? "";
+  const label = raw.toLowerCase().trim();
+  if (!label) return { size: "SIZE_1_2KG" };
+  if (/750\s*g/.test(label)) return { size: "SIZE_750G" };
+  if (/1[.,]?2\s*kg/.test(label)) return { size: "SIZE_1_2KG" };
+  return { size: "CUSTOM", customLabel: raw };
+}
 
 type FormErrors = Partial<Record<keyof FormState, string>> & {
   /** Per-row errors for the items repeater. Keyed by row index. */
@@ -129,6 +160,26 @@ export default function NewOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<SuccessResult | null>(null);
+  /** True once the coordinator types in the Total field; stops auto-sync. */
+  const [totalTouched, setTotalTouched] = useState(false);
+
+  // Auto-fill payment Total from items when at least one item is linked to
+  // a WooCommerce product, until the coordinator manually edits the field.
+  useEffect(() => {
+    if (totalTouched) return;
+    const hasWooItem = form.items.some((r) => r.woocommerceProductId);
+    if (!hasWooItem) return;
+    const subtotal = form.items.reduce((sum, r) => {
+      const q = parseInt(r.quantity, 10) || 0;
+      const p = Number(r.unitPrice) || 0;
+      return sum + q * p;
+    }, 0);
+    if (subtotal <= 0) return;
+    const formatted = subtotal.toFixed(2);
+    setForm((f) =>
+      f.totalAmount === formatted ? f : { ...f, totalAmount: formatted },
+    );
+  }, [form.items, totalTouched]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -210,12 +261,7 @@ export default function NewOrderPage() {
     if (!form.deliveryDate) e.deliveryDate = "Required";
     if (!form.deliveryTime) e.deliveryTime = "Required";
     if (!form.deliveryAddress.trim()) e.deliveryAddress = "Required";
-    if (!form.cakeFlavor) e.cakeFlavor = "Pick a flavor";
-    if (!form.cakeSize) e.cakeSize = "Pick a size";
     if (!form.paymentMethod) e.paymentMethod = "Pick a method";
-    if (form.cakeSize === "CUSTOM" && !form.customCakeSize.trim()) {
-      e.customCakeSize = "Describe the custom size";
-    }
 
     // Items — at least one filled row, each filled row valid.
     const itemRows: Record<
@@ -301,6 +347,9 @@ export default function NewOrderPage() {
             totalPrice: Number((quantity * unitPrice).toFixed(2)),
             sizeLabel: r.sizeLabel || undefined,
             notes: r.notes.trim() || undefined,
+            woocommerceProductId: r.woocommerceProductId || undefined,
+            woocommerceVariationId: r.woocommerceVariationId || undefined,
+            variationName: r.variationName || undefined,
           };
         });
 
@@ -327,11 +376,12 @@ export default function NewOrderPage() {
 
         orderItems: orderItemsText,
         items,
-        cakeFlavor: form.cakeFlavor,
+        // Legacy cake-spec columns derived from items so the API stays
+        // backward-compatible. The structured `items` array is canonical.
+        cakeFlavor: deriveCakeFlavor(items),
         cakeMessage: form.cakeMessage.trim() || undefined,
-        cakeSize: form.cakeSize,
-        customCakeSize:
-          form.cakeSize === "CUSTOM" ? form.customCakeSize.trim() : undefined,
+        cakeSize: deriveCakeSize(items).size,
+        customCakeSize: deriveCakeSize(items).customLabel,
 
         paymentMethod: form.paymentMethod,
         paymentStatus: form.paymentStatus,
@@ -378,6 +428,7 @@ export default function NewOrderPage() {
     setErrors({});
     setServerError(null);
     setResult(null);
+    setTotalTouched(false);
   }
 
   /** On blur, auto-format a valid UAE number to its display form. */
@@ -547,74 +598,9 @@ export default function NewOrderPage() {
               onUpdate={updateItem}
               onAdd={addItemRow}
               onRemove={removeItemRow}
+              cakeMessage={form.cakeMessage}
+              onCakeMessageChange={(v) => update("cakeMessage", v)}
             />
-
-            <Section title="Cake Details">
-              <Grid>
-                <Field
-                  name="cakeFlavor"
-                  label="Flavor"
-                  required
-                  full
-                  error={errors.cakeFlavor}
-                >
-                  <ChipGroup
-                    options={CAKE_FLAVORS}
-                    value={form.cakeFlavor}
-                    onChange={(v) => update("cakeFlavor", v)}
-                    error={!!errors.cakeFlavor}
-                  />
-                </Field>
-
-                <Field
-                  name="cakeSize"
-                  label="Size"
-                  required
-                  full
-                  error={errors.cakeSize}
-                >
-                  <ChipGroup
-                    options={CAKE_SIZES}
-                    value={form.cakeSize}
-                    onChange={(v) => update("cakeSize", v)}
-                    error={!!errors.cakeSize}
-                  />
-                </Field>
-
-                {form.cakeSize === "CUSTOM" && (
-                  <Field
-                    name="customCakeSize"
-                    label="Custom size"
-                    required
-                    full
-                    error={errors.customCakeSize}
-                  >
-                    <input
-                      type="text"
-                      className={inputCls(errors.customCakeSize)}
-                      value={form.customCakeSize}
-                      onChange={(e) => update("customCakeSize", e.target.value)}
-                      placeholder="e.g. 2.5 kg, two-tier"
-                    />
-                  </Field>
-                )}
-
-                <Field
-                  name="cakeMessage"
-                  label="Cake message"
-                  hint="Optional · written on the cake"
-                  full
-                >
-                  <input
-                    type="text"
-                    className={inputCls()}
-                    value={form.cakeMessage}
-                    onChange={(e) => update("cakeMessage", e.target.value)}
-                    placeholder="Happy Birthday Sara!"
-                  />
-                </Field>
-              </Grid>
-            </Section>
 
             <Section title="Payment Details">
               <div className="space-y-5">
@@ -641,7 +627,16 @@ export default function NewOrderPage() {
                 </Field>
 
                 <Grid>
-                  <Field name="totalAmount" label="Total" hint="Optional">
+                  <Field
+                    name="totalAmount"
+                    label="Total"
+                    hint={
+                      !totalTouched &&
+                      form.items.some((r) => r.woocommerceProductId)
+                        ? "Auto-filled from items"
+                        : "Optional"
+                    }
+                  >
                     <input
                       type="number"
                       inputMode="decimal"
@@ -649,7 +644,10 @@ export default function NewOrderPage() {
                       min="0"
                       className={inputCls()}
                       value={form.totalAmount}
-                      onChange={(e) => update("totalAmount", e.target.value)}
+                      onChange={(e) => {
+                        setTotalTouched(true);
+                        update("totalAmount", e.target.value);
+                      }}
                       placeholder="0.00"
                     />
                   </Field>
@@ -822,6 +820,505 @@ function ChipGroup({
   );
 }
 
+// =====================================================
+// Hooks (local)
+// =====================================================
+
+function useDebouncedValue<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}
+
+// =====================================================
+// Per-item row — encapsulates Woo search & variation state
+// =====================================================
+
+type RowUpdate = <K extends keyof ItemRow>(
+  idx: number,
+  key: K,
+  value: ItemRow[K],
+) => void;
+
+type SearchStatus = "idle" | "loading" | "ready" | "error";
+
+// =====================================================
+// Inline icon primitives — kept tiny to avoid a dep
+// =====================================================
+
+function Spinner({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={`animate-spin ${className}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeOpacity="0.2"
+        strokeWidth="4"
+      />
+      <path
+        d="M22 12a10 10 0 0 1-10 10"
+        stroke="currentColor"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="9" r="6" />
+      <path d="m14 14 4 4" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41 41 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function PlusIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+    </svg>
+  );
+}
+
+// =====================================================
+// Per-item row
+// =====================================================
+
+function ItemRowFields({
+  row,
+  idx,
+  errors,
+  onUpdate,
+  onRemove,
+}: {
+  row: ItemRow;
+  idx: number;
+  errors?: Partial<Record<keyof ItemRow, string>>;
+  onUpdate: RowUpdate;
+  onRemove: (idx: number) => void;
+}) {
+  const rowErrors = errors ?? {};
+  const qty = parseInt(row.quantity, 10) || 0;
+  const price = Number(row.unitPrice) || 0;
+  const lineTotal = qty * price;
+
+  // ----- Product search -----
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchStatus, setSearchStatus] = useState<SearchStatus>("idle");
+  const [searchResults, setSearchResults] = useState<WooProductSummary[]>([]);
+  const debouncedQuery = useDebouncedValue(row.itemName, 300);
+
+  // ----- Variations (when a Woo product is linked) -----
+  const [variations, setVariations] = useState<WooVariation[]>([]);
+  const [variationStatus, setVariationStatus] = useState<SearchStatus>("idle");
+
+  // ----- Notes are collapsed by default — fewer fields on screen -----
+  const [notesOpen, setNotesOpen] = useState(!!row.notes);
+
+  // Close search dropdown on outside click.
+  useEffect(() => {
+    if (!searchOpen) return;
+    function handler(e: MouseEvent | TouchEvent) {
+      if (!wrapperRef.current) return;
+      if (wrapperRef.current.contains(e.target as Node)) return;
+      setSearchOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [searchOpen]);
+
+  // Run a debounced product search whenever the dropdown is open.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const q = debouncedQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setSearchStatus("loading");
+    fetch(`/api/woocommerce/products/search?q=${encodeURIComponent(q)}`)
+      .then(async (r) => {
+        const json = (await r.json().catch(() => null)) as
+          | { ok: true; data: WooProductSummary[] }
+          | { ok: false; error: string }
+          | null;
+        if (cancelled) return;
+        if (json && json.ok) {
+          setSearchResults(json.data);
+          setSearchStatus("ready");
+        } else {
+          setSearchResults([]);
+          setSearchStatus("error");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSearchResults([]);
+        setSearchStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery, searchOpen]);
+
+  // Fetch variations whenever the linked Woo product changes.
+  useEffect(() => {
+    const id = row.woocommerceProductId;
+    if (!id) {
+      setVariations([]);
+      setVariationStatus("idle");
+      return;
+    }
+    let cancelled = false;
+    setVariationStatus("loading");
+    fetch(`/api/woocommerce/products/${encodeURIComponent(id)}/variations`)
+      .then(async (r) => {
+        const json = (await r.json().catch(() => null)) as
+          | { ok: true; data: WooVariation[] }
+          | { ok: false; error: string }
+          | null;
+        if (cancelled) return;
+        if (json && json.ok) {
+          setVariations(json.data);
+          setVariationStatus("ready");
+        } else {
+          setVariations([]);
+          setVariationStatus("error");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setVariations([]);
+        setVariationStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [row.woocommerceProductId]);
+
+  function selectProduct(p: WooProductSummary) {
+    onUpdate(idx, "itemName", p.name);
+    onUpdate(idx, "woocommerceProductId", String(p.id));
+    onUpdate(idx, "woocommerceVariationId", "");
+    onUpdate(idx, "variationName", "");
+    if (p.price) onUpdate(idx, "unitPrice", p.price);
+    setSearchOpen(false);
+  }
+
+  function clearLinkedProduct() {
+    onUpdate(idx, "woocommerceProductId", "");
+    onUpdate(idx, "woocommerceVariationId", "");
+    onUpdate(idx, "variationName", "");
+  }
+
+  function selectVariation(varId: string) {
+    if (!varId) {
+      onUpdate(idx, "woocommerceVariationId", "");
+      onUpdate(idx, "variationName", "");
+      return;
+    }
+    const v = variations.find((x) => String(x.id) === varId);
+    if (!v) return;
+    onUpdate(idx, "woocommerceVariationId", String(v.id));
+    onUpdate(idx, "variationName", v.name);
+    const sizeAttr = v.attributes.find((a) =>
+      /size|weight|kg|gram/i.test(a.name),
+    );
+    onUpdate(idx, "sizeLabel", sizeAttr?.option ?? v.name);
+    if (v.price) onUpdate(idx, "unitPrice", v.price);
+  }
+
+  const useVariations =
+    !!row.woocommerceProductId && variations.length > 0;
+  const linkedLabel =
+    row.variationName ||
+    (row.itemName && row.itemName.trim()) ||
+    `Product #${row.woocommerceProductId}`;
+  const compactLabelCls =
+    "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-muted";
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-rule bg-canvas">
+      {/* Header strip */}
+      <div className="flex items-center justify-between border-b border-rule bg-cream/40 px-4 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+          Item {idx + 1}
+        </span>
+        <button
+          type="button"
+          onClick={() => onRemove(idx)}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ink-muted transition hover:bg-cream/80 hover:text-danger"
+          aria-label={`Remove item ${idx + 1}`}
+        >
+          <TrashIcon className="h-3.5 w-3.5" />
+          Remove
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="space-y-4 p-4 sm:p-5">
+        {/* Product search */}
+        <div ref={wrapperRef}>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            Item<span className="ml-0.5 text-brand">*</span>
+          </label>
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="text"
+              className={`${inputCls(rowErrors.itemName)} pl-9`}
+              value={row.itemName}
+              onChange={(e) => onUpdate(idx, "itemName", e.target.value)}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="Search products or type a custom name"
+              autoComplete="off"
+            />
+            {searchOpen && row.itemName.trim().length >= 2 && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto rounded-lg border border-rule bg-surface shadow-lg">
+                {searchStatus === "loading" && (
+                  <div className="flex items-center justify-center px-3 py-4">
+                    <Spinner className="h-4 w-4 text-brand" />
+                  </div>
+                )}
+                {searchStatus === "error" && (
+                  <div className="px-3 py-2 text-xs text-danger">
+                    Search unavailable. You can still type a custom name.
+                  </div>
+                )}
+                {searchStatus === "ready" && searchResults.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-ink-muted">
+                    No matches — keep typing for a custom item.
+                  </div>
+                )}
+                {searchResults.map((p) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectProduct(p)}
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-cream/60"
+                  >
+                    <span className="truncate text-ink">{p.name}</span>
+                    {p.price && (
+                      <span className="shrink-0 text-xs text-ink-muted">
+                        AED {p.price}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {rowErrors.itemName && (
+            <p className="mt-1.5 text-xs font-medium text-danger">
+              {rowErrors.itemName}
+            </p>
+          )}
+          {row.woocommerceProductId && (
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs text-ink">
+              <CheckIcon className="h-3.5 w-3.5 text-success" />
+              <span className="font-medium">Linked to</span>
+              <span className="text-ink-muted">{linkedLabel}</span>
+              <button
+                type="button"
+                onClick={clearLinkedProduct}
+                className="ml-1 leading-none text-ink-muted hover:text-danger"
+                aria-label="Unlink WooCommerce product"
+              >
+                ×
+              </button>
+            </span>
+          )}
+        </div>
+
+        {/* Compact 4-up: Qty / Size / Price / Total */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-12">
+          <div className="sm:col-span-2">
+            <label className={compactLabelCls}>
+              Qty<span className="ml-0.5 text-brand">*</span>
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              className={inputCls(rowErrors.quantity)}
+              value={row.quantity}
+              onChange={(e) => onUpdate(idx, "quantity", e.target.value)}
+            />
+            {rowErrors.quantity && (
+              <p className="mt-1 text-xs font-medium text-danger">
+                {rowErrors.quantity}
+              </p>
+            )}
+          </div>
+
+          <div className="sm:col-span-4">
+            <label className={`${compactLabelCls} flex items-center gap-1.5`}>
+              <span>Size</span>
+              {variationStatus === "loading" && (
+                <Spinner className="h-3 w-3 text-ink-muted" />
+              )}
+            </label>
+            {useVariations ? (
+              <select
+                className={inputCls()}
+                value={row.woocommerceVariationId}
+                onChange={(e) => selectVariation(e.target.value)}
+              >
+                <option value="">Select size…</option>
+                {variations.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                    {v.price ? ` — AED ${v.price}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <select
+                className={inputCls()}
+                value={row.sizeLabel}
+                onChange={(e) => onUpdate(idx, "sizeLabel", e.target.value)}
+              >
+                {ITEM_SIZE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="sm:col-span-3">
+            <label className={compactLabelCls}>
+              Price (AED)<span className="ml-0.5 text-brand">*</span>
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="0.01"
+              className={inputCls(rowErrors.unitPrice)}
+              value={row.unitPrice}
+              onChange={(e) => onUpdate(idx, "unitPrice", e.target.value)}
+              placeholder="0.00"
+            />
+            {rowErrors.unitPrice && (
+              <p className="mt-1 text-xs font-medium text-danger">
+                {rowErrors.unitPrice}
+              </p>
+            )}
+          </div>
+
+          <div className="sm:col-span-3 sm:flex sm:flex-col sm:items-end sm:justify-end">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+              Line total
+            </span>
+            <span className="mt-0.5 text-base font-semibold text-ink">
+              {AED.format(lineTotal)}
+            </span>
+          </div>
+        </div>
+
+        {/* Notes — collapsed by default */}
+        {notesOpen ? (
+          <div>
+            <label className={compactLabelCls}>Note</label>
+            <input
+              type="text"
+              className={inputCls()}
+              value={row.notes}
+              onChange={(e) => onUpdate(idx, "notes", e.target.value)}
+              placeholder="Allergies, decoration, special instructions"
+              autoFocus
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setNotesOpen(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted transition hover:text-ink"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            Add note
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// Items section — repeater + total + cake message
+// =====================================================
+
 function ItemsSection({
   items,
   errors,
@@ -829,13 +1326,21 @@ function ItemsSection({
   onUpdate,
   onAdd,
   onRemove,
+  cakeMessage,
+  onCakeMessageChange,
 }: {
   items: ItemRow[];
   errors?: Record<number, Partial<Record<keyof ItemRow, string>>>;
   listError?: string;
-  onUpdate: <K extends keyof ItemRow>(idx: number, key: K, value: ItemRow[K]) => void;
+  onUpdate: <K extends keyof ItemRow>(
+    idx: number,
+    key: K,
+    value: ItemRow[K],
+  ) => void;
   onAdd: () => void;
   onRemove: (idx: number) => void;
+  cakeMessage: string;
+  onCakeMessageChange: (v: string) => void;
 }) {
   const subtotal = items.reduce((sum, r) => {
     const q = parseInt(r.quantity, 10) || 0;
@@ -851,165 +1356,62 @@ function ItemsSection({
       <div className="mb-5 flex items-baseline justify-between gap-3">
         <h2 className="text-base font-semibold text-ink">Order Items</h2>
         <span className="text-xs font-medium text-ink-muted">
-          {items.length} {items.length === 1 ? "row" : "rows"}
+          {items.length} {items.length === 1 ? "item" : "items"}
         </span>
       </div>
 
-      <div className="space-y-4">
-        {items.map((row, idx) => {
-          const rowErrors = errors?.[idx] ?? {};
-          const qty = parseInt(row.quantity, 10) || 0;
-          const price = Number(row.unitPrice) || 0;
-          const lineTotal = qty * price;
-          return (
-            <div
-              key={idx}
-              className="rounded-xl border border-rule bg-canvas p-4 sm:p-5"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                  Item {idx + 1}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onRemove(idx)}
-                  className="text-xs font-medium text-ink-muted hover:text-danger"
-                  aria-label={`Remove item ${idx + 1}`}
-                >
-                  Remove
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
-                <div className="sm:col-span-3">
-                  <label className="mb-1.5 block text-sm font-medium text-ink">
-                    Item name<span className="ml-0.5 text-brand">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={inputCls(rowErrors.itemName)}
-                    value={row.itemName}
-                    onChange={(e) => onUpdate(idx, "itemName", e.target.value)}
-                    placeholder="e.g. Chocolate cake"
-                  />
-                  {rowErrors.itemName && (
-                    <p className="mt-1.5 text-xs font-medium text-danger">
-                      {rowErrors.itemName}
-                    </p>
-                  )}
-                </div>
-
-                <div className="sm:col-span-1">
-                  <label className="mb-1.5 block text-sm font-medium text-ink">
-                    Qty<span className="ml-0.5 text-brand">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    step={1}
-                    className={inputCls(rowErrors.quantity)}
-                    value={row.quantity}
-                    onChange={(e) => onUpdate(idx, "quantity", e.target.value)}
-                  />
-                  {rowErrors.quantity && (
-                    <p className="mt-1.5 text-xs font-medium text-danger">
-                      {rowErrors.quantity}
-                    </p>
-                  )}
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-sm font-medium text-ink">
-                    Size
-                  </label>
-                  <select
-                    className={inputCls()}
-                    value={row.sizeLabel}
-                    onChange={(e) => onUpdate(idx, "sizeLabel", e.target.value)}
-                  >
-                    {ITEM_SIZE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-3">
-                  <label className="mb-1.5 block text-sm font-medium text-ink">
-                    Unit price<span className="ml-0.5 text-brand">*</span>
-                    <span className="ml-2 text-xs font-normal text-ink-muted">AED</span>
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.01"
-                    className={inputCls(rowErrors.unitPrice)}
-                    value={row.unitPrice}
-                    onChange={(e) => onUpdate(idx, "unitPrice", e.target.value)}
-                    placeholder="0.00"
-                  />
-                  {rowErrors.unitPrice && (
-                    <p className="mt-1.5 text-xs font-medium text-danger">
-                      {rowErrors.unitPrice}
-                    </p>
-                  )}
-                </div>
-
-                <div className="sm:col-span-3 sm:flex sm:items-end sm:justify-end">
-                  <div className="rounded-lg bg-cream/50 px-3 py-2.5 text-right text-sm">
-                    <span className="text-xs uppercase tracking-wider text-ink-muted">
-                      Line total
-                    </span>{" "}
-                    <span className="ml-2 font-semibold text-ink">
-                      {AED.format(lineTotal)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="sm:col-span-6">
-                  <label className="mb-1.5 block text-sm font-medium text-ink">
-                    Notes{" "}
-                    <span className="ml-1 text-xs font-normal text-ink-muted">
-                      Optional
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    className={inputCls()}
-                    value={row.notes}
-                    onChange={(e) => onUpdate(idx, "notes", e.target.value)}
-                    placeholder="Allergies, decoration, special instructions"
-                  />
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="space-y-3">
+        {items.map((row, idx) => (
+          <ItemRowFields
+            key={idx}
+            row={row}
+            idx={idx}
+            errors={errors?.[idx]}
+            onUpdate={onUpdate}
+            onRemove={onRemove}
+          />
+        ))}
       </div>
 
       {listError && (
         <p className="mt-3 text-xs font-medium text-danger">{listError}</p>
       )}
 
-      <div className="mt-5 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <button
-          type="button"
-          onClick={onAdd}
-          className="rounded-lg border border-rule bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-cream/60"
-        >
-          + Add item
-        </button>
-        <div className="text-right">
-          <span className="text-xs uppercase tracking-wider text-ink-muted">
-            Items total
-          </span>{" "}
-          <span className="ml-2 text-base font-semibold text-ink">
-            {AED.format(subtotal)}
+      {/* Add another item — full-width dashed CTA */}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-rule bg-transparent py-3.5 text-sm font-medium text-ink-muted transition hover:border-brand/40 hover:bg-cream/40 hover:text-ink"
+      >
+        <PlusIcon className="h-4 w-4" />
+        Add another item
+      </button>
+
+      {/* Items total */}
+      <div className="mt-5 flex items-center justify-between rounded-xl bg-cream/50 px-4 py-3">
+        <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
+          Items total
+        </span>
+        <span className="text-lg font-semibold text-ink">
+          {AED.format(subtotal)}
+        </span>
+      </div>
+
+      {/* Cake message — moved here from the old Cake Details section */}
+      <div className="mt-6 border-t border-rule pt-5">
+        <label className="mb-1.5 flex items-baseline gap-2 text-sm font-medium text-ink">
+          <span>Cake message</span>
+          <span className="text-xs font-normal text-ink-muted">
+            Optional · written on the cake
           </span>
-        </div>
+        </label>
+        <input
+          type="text"
+          className={inputCls()}
+          value={cakeMessage}
+          onChange={(e) => onCakeMessageChange(e.target.value)}
+          placeholder="Happy Birthday Sara!"
+        />
       </div>
     </section>
   );
