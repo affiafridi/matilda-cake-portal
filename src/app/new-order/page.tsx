@@ -443,8 +443,8 @@ export default function NewOrderPage() {
 
   return (
     <div className="min-h-screen pb-24 sm:pb-12">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-        <header className="mb-8">
+      <div className="mx-auto max-w-[1400px] px-3 py-7 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+        <header className="mb-8 sm:mb-10">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-caramel">
             Matilda Cakes · Coordinator
           </p>
@@ -459,8 +459,9 @@ export default function NewOrderPage() {
         {result ? (
           <SuccessCard result={result} onReset={reset} />
         ) : (
-          <form onSubmit={onSubmit} noValidate className="space-y-6 sm:space-y-8">
-            <Section title="Customer Details">
+          <form onSubmit={onSubmit} noValidate className="space-y-3 sm:space-y-5">
+            <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
+              <Section title="Customer Details">
               <Grid>
                 <Field
                   name="customerName"
@@ -590,6 +591,7 @@ export default function NewOrderPage() {
                 </Field>
               </Grid>
             </Section>
+            </div>
 
             <ItemsSection
               items={form.items}
@@ -602,7 +604,8 @@ export default function NewOrderPage() {
               onCakeMessageChange={(v) => update("cakeMessage", v)}
             />
 
-            <Section title="Payment Details">
+            <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
+              <Section title="Payment Details">
               <div className="space-y-5">
                 <Field
                   name="paymentMethod"
@@ -686,6 +689,7 @@ export default function NewOrderPage() {
                 />
               </Field>
             </Section>
+            </div>
 
             {serverError && (
               <div
@@ -722,15 +726,15 @@ export default function NewOrderPage() {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-rule bg-surface p-6 shadow-sm sm:p-7">
-      <h2 className="mb-5 text-base font-semibold text-ink">{title}</h2>
+    <section className="rounded-2xl border border-rule bg-surface p-5 shadow-sm sm:p-6">
+      <h2 className="mb-4 text-base font-semibold text-ink">{title}</h2>
       {children}
     </section>
   );
 }
 
 function Grid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">{children}</div>;
+  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>;
 }
 
 function Field({
@@ -769,7 +773,8 @@ function Field({
 
 function inputCls(error?: string) {
   return [
-    "block w-full rounded-lg border bg-canvas px-3.5 py-2.5 text-sm text-ink shadow-sm",
+    // text-base on mobile (≥16px) prevents iOS Safari from auto-zooming on focus.
+    "block w-full rounded-lg border bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink shadow-sm",
     "placeholder:text-ink-muted/70",
     "transition focus:outline-none focus:ring-2",
     error
@@ -1105,9 +1110,9 @@ function ItemRowFields({
     "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-muted";
 
   return (
-    <div className="overflow-hidden rounded-xl border border-rule bg-canvas">
-      {/* Header strip */}
-      <div className="flex items-center justify-between border-b border-rule bg-cream/40 px-4 py-2.5">
+    <div className="rounded-xl border border-rule bg-canvas">
+      {/* Header strip — rounded-t-xl matches card corners without clipping the dropdown below */}
+      <div className="flex items-center justify-between rounded-t-xl border-b border-rule bg-cream/40 px-4 py-2.5">
         <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
           Item {idx + 1}
         </span>
@@ -1127,7 +1132,7 @@ function ItemRowFields({
         {/* Product search */}
         <div ref={wrapperRef}>
           <label className="mb-1.5 block text-sm font-medium text-ink">
-            Item<span className="ml-0.5 text-brand">*</span>
+            Item Name<span className="ml-0.5 text-brand">*</span>
           </label>
           <div className="relative">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
@@ -1141,7 +1146,7 @@ function ItemRowFields({
               autoComplete="off"
             />
             {searchOpen && row.itemName.trim().length >= 2 && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-auto rounded-lg border border-rule bg-surface shadow-lg">
+              <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-lg border border-rule bg-surface shadow-lg">
                 {searchStatus === "loading" && (
                   <div className="flex items-center justify-center px-3 py-4">
                     <Spinner className="h-4 w-4 text-brand" />
@@ -1351,9 +1356,9 @@ function ItemsSection({
   return (
     <section
       data-field="items"
-      className="rounded-2xl border border-rule bg-surface p-6 shadow-sm sm:p-7"
+      className="rounded-2xl border border-rule bg-surface p-5 shadow-sm sm:p-6"
     >
-      <div className="mb-5 flex items-baseline justify-between gap-3">
+      <div className="mb-4 flex items-baseline justify-between gap-3">
         <h2 className="text-base font-semibold text-ink">Order Items</h2>
         <span className="text-xs font-medium text-ink-muted">
           {items.length} {items.length === 1 ? "item" : "items"}
@@ -1431,7 +1436,7 @@ function ActionBar({
         "sm:static sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0",
       ].join(" ")}
     >
-      <div className="mx-auto flex max-w-3xl flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+      <div className="mx-auto flex max-w-[1400px] flex-col-reverse gap-2 px-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={onReset}
