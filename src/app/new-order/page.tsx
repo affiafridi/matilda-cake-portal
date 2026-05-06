@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -9,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { normalizeUaePhone } from "@/lib/phone";
+import { compressImage } from "@/lib/images/compress-image";
 import type {
   WooProductSummary,
   WooVariation,
@@ -181,6 +183,14 @@ export default function NewOrderPage() {
   const [result, setResult] = useState<SuccessResult | null>(null);
   /** True once the coordinator types in the Total field; stops auto-sync. */
   const [totalTouched, setTotalTouched] = useState(false);
+  /**
+   * Number of item rows currently compressing or uploading an image.
+   * Submit is disabled while > 0 so the form can't fire mid-upload.
+   */
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const onItemUploadingChange = useCallback((busy: boolean) => {
+    setUploadingCount((c) => (busy ? c + 1 : Math.max(0, c - 1)));
+  }, []);
 
   // Auto-fill payment Total from items when at least one item is linked to
   // a WooCommerce product, until the coordinator manually edits the field.
@@ -633,6 +643,7 @@ export default function NewOrderPage() {
               onRemove={removeItemRow}
               cakeMessage={form.cakeMessage}
               onCakeMessageChange={(v) => update("cakeMessage", v)}
+              onUploadingChange={onItemUploadingChange}
             />
 
             <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
@@ -743,7 +754,11 @@ export default function NewOrderPage() {
               </div>
             )}
 
-            <ActionBar submitting={submitting} onReset={reset} />
+            <ActionBar
+              submitting={submitting}
+              isUploading={uploadingCount > 0}
+              onReset={reset}
+            />
           </form>
         )}
       </div>
@@ -1048,22 +1063,56 @@ function ReferenceImageUpload({
   idx,
   onUpdate,
   onPreview,
+  onUploadingChange,
 }: {
   row: ItemRow;
   idx: number;
   onUpdate: RowUpdate;
   onPreview: (src: string, label: string) => void;
+  onUploadingChange?: (busy: boolean) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  type Phase = "idle" | "compressing" | "uploading";
+  const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  // Track whether we've reported "busy" upward, so unmount cleans up.
+  const reportedBusyRef = useRef(false);
+  function reportBusy(busy: boolean) {
+    if (busy === reportedBusyRef.current) return;
+    reportedBusyRef.current = busy;
+    onUploadingChange?.(busy);
+  }
+  useEffect(
+    () => () => {
+      // If the row is removed mid-upload, signal idle so the parent counter resets.
+      if (reportedBusyRef.current) onUploadingChange?.(false);
+    },
+    [onUploadingChange],
+  );
 
   async function handleFile(file: File) {
     setError(null);
-    setUploading(true);
+    reportBusy(true);
     try {
+      // 1. Compress in the browser to keep the upload payload small.
+      setPhase("compressing");
+      let toUpload: File;
+      try {
+        toUpload = await compressImage(file);
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Couldn't process this image. Try a different file.",
+        );
+        return;
+      }
+
+      // 2. Upload the (likely smaller) result to GCS via our API.
+      setPhase("uploading");
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", toUpload);
       const res = await fetch("/api/uploads/order-item-reference", {
         method: "POST",
         body: fd,
@@ -1086,13 +1135,15 @@ function ReferenceImageUpload({
         );
         return;
       }
+
       onUpdate(idx, "referenceImageUrl", json.data.referenceImageUrl);
       onUpdate(idx, "referenceImageName", json.data.referenceImageName);
       onUpdate(idx, "referenceImageType", json.data.referenceImageType);
     } catch {
       setError("Upload failed. Please try again.");
     } finally {
-      setUploading(false);
+      setPhase("idle");
+      reportBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
@@ -1103,6 +1154,10 @@ function ReferenceImageUpload({
     onUpdate(idx, "referenceImageType", "");
     setError(null);
   }
+
+  const busy = phase !== "idle";
+  const phaseLabel =
+    phase === "compressing" ? "Compressing image…" : "Uploading image…";
 
   return (
     <div className="mt-2 rounded-lg border border-dashed border-rule bg-canvas/60 p-2.5">
@@ -1140,27 +1195,29 @@ function ReferenceImageUpload({
             Remove
           </button>
         </div>
+      ) : busy ? (
+        <div className="space-y-2 py-1">
+          <div className="flex items-center gap-2 text-xs font-medium text-ink">
+            <Spinner className="h-4 w-4 text-brand" />
+            <span>{phaseLabel}</span>
+          </div>
+          {/* Indeterminate stripe — gives the eye something to track */}
+          <div className="h-1 overflow-hidden rounded-full bg-cream/70">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-brand" />
+          </div>
+        </div>
       ) : (
         <button
           type="button"
-          disabled={uploading}
+          disabled={busy}
           onClick={() => fileInputRef.current?.click()}
           className="flex w-full items-center justify-center gap-2 rounded-md py-2 text-xs font-medium text-ink-muted transition hover:text-ink disabled:opacity-60"
         >
-          {uploading ? (
-            <>
-              <Spinner className="h-4 w-4 text-brand" />
-              Uploading…
-            </>
-          ) : (
-            <>
-              <PlusIcon className="h-4 w-4" />
-              Add reference image
-              <span className="text-ink-muted/80">
-                · jpg, png, webp · max 5 MB
-              </span>
-            </>
-          )}
+          <PlusIcon className="h-4 w-4" />
+          Add reference image
+          <span className="text-ink-muted/80">
+            · jpg, png, webp · max 5 MB
+          </span>
         </button>
       )}
       <input
@@ -1190,12 +1247,14 @@ function ItemRowFields({
   errors,
   onUpdate,
   onRemove,
+  onUploadingChange,
 }: {
   row: ItemRow;
   idx: number;
   errors?: Partial<Record<keyof ItemRow, string>>;
   onUpdate: RowUpdate;
   onRemove: (idx: number) => void;
+  onUploadingChange?: (busy: boolean) => void;
 }) {
   const rowErrors = errors ?? {};
   const qty = parseInt(row.quantity, 10) || 0;
@@ -1531,6 +1590,7 @@ function ItemRowFields({
                 setPreviewSrc(src);
                 setPreviewLabel(label);
               }}
+              onUploadingChange={onUploadingChange}
             />
           )}
         </div>
@@ -1687,6 +1747,7 @@ function ItemsSection({
   onRemove,
   cakeMessage,
   onCakeMessageChange,
+  onUploadingChange,
 }: {
   items: ItemRow[];
   errors?: Record<number, Partial<Record<keyof ItemRow, string>>>;
@@ -1700,6 +1761,8 @@ function ItemsSection({
   onRemove: (idx: number) => void;
   cakeMessage: string;
   onCakeMessageChange: (v: string) => void;
+  /** Bubbled from each row's image upload component. */
+  onUploadingChange?: (busy: boolean) => void;
 }) {
   const subtotal = items.reduce((sum, r) => {
     const q = parseInt(r.quantity, 10) || 0;
@@ -1728,6 +1791,7 @@ function ItemsSection({
             errors={errors?.[idx]}
             onUpdate={onUpdate}
             onRemove={onRemove}
+            onUploadingChange={onUploadingChange}
           />
         ))}
       </div>
@@ -1778,11 +1842,19 @@ function ItemsSection({
 
 function ActionBar({
   submitting,
+  isUploading,
   onReset,
 }: {
   submitting: boolean;
+  isUploading?: boolean;
   onReset: () => void;
 }) {
+  const disabled = submitting || !!isUploading;
+  const label = submitting
+    ? "Creating…"
+    : isUploading
+      ? "Wait — uploading…"
+      : "Create order";
   return (
     <div
       className={[
@@ -1800,10 +1872,10 @@ function ActionBar({
         </button>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={disabled}
           className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-dark active:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-focus/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? "Creating…" : "Create order"}
+          {label}
         </button>
       </div>
     </div>
