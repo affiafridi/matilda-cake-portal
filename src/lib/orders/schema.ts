@@ -38,36 +38,70 @@ export const orderSourceSchema = z.enum([
  * Optional in `createOrderSchema` for backward compatibility — older callers
  * that don't yet pass `items` are accepted unchanged.
  */
-export const orderItemSchema = z.object({
-  itemName: z.string().trim().min(1, "Item name is required").max(200),
-  quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-  unitPrice: z.coerce.number().nonnegative(),
-  totalPrice: z.coerce.number().nonnegative(),
-  sizeLabel: z
-    .string()
-    .trim()
-    .max(50)
-    .nullish()
-    .transform((v) => (v && v.length > 0 ? v : null)),
-  notes: z
-    .string()
-    .trim()
-    .max(500)
-    .nullish()
-    .transform((v) => (v && v.length > 0 ? v : null)),
-  woocommerceProductId: z
-    .string()
-    .nullish()
-    .transform((v) => v ?? null),
-  woocommerceVariationId: z
-    .string()
-    .nullish()
-    .transform((v) => v ?? null),
-  variationName: z
-    .string()
-    .nullish()
-    .transform((v) => v ?? null),
-});
+export const orderItemSchema = z
+  .object({
+    itemName: z.string().trim().min(1, "Item name is required").max(200),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+    unitPrice: z.coerce.number().nonnegative(),
+    totalPrice: z.coerce.number().nonnegative(),
+    sizeLabel: z
+      .string()
+      .trim()
+      .max(50)
+      .nullish()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+    notes: z
+      .string()
+      .trim()
+      .max(500)
+      .nullish()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+    woocommerceProductId: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? null),
+    woocommerceVariationId: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? null),
+    variationName: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? null),
+    // Custom-item additions — all optional; the form derives `isCustom`
+    // from the absence of `woocommerceProductId`.
+    isCustom: z.boolean().optional().default(false),
+    customSize: z
+      .string()
+      .trim()
+      .max(200)
+      .nullish()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+    referenceImageUrl: z
+      .string()
+      .max(2000)
+      .nullish()
+      .transform((v) => v ?? null),
+    referenceImageName: z
+      .string()
+      .max(255)
+      .nullish()
+      .transform((v) => v ?? null),
+    referenceImageType: z
+      .string()
+      .max(100)
+      .nullish()
+      .transform((v) => v ?? null),
+  })
+  .refine(
+    (item) =>
+      item.sizeLabel !== "Custom" ||
+      (typeof item.customSize === "string" && item.customSize.length > 0),
+    {
+      message: "customSize is required when sizeLabel is Custom",
+      path: ["customSize"],
+    },
+  );
 
 export type OrderItemInput = z.infer<typeof orderItemSchema>;
 

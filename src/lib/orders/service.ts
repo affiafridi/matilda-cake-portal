@@ -69,6 +69,11 @@ export async function createOrder(input: CreateOrderInput) {
                     woocommerceProductId: it.woocommerceProductId,
                     woocommerceVariationId: it.woocommerceVariationId,
                     variationName: it.variationName,
+                    isCustom: it.isCustom,
+                    customSize: it.customSize,
+                    referenceImageUrl: it.referenceImageUrl,
+                    referenceImageName: it.referenceImageName,
+                    referenceImageType: it.referenceImageType,
                   })),
                 },
               }

@@ -59,6 +59,16 @@ type ItemRow = {
   woocommerceVariationId: string;
   /** Full Woo variation name (e.g. "Chocolate / 1.2 kg"); empty for unlinked rows. */
   variationName: string;
+  /** Cached product image URL — display only, not sent to the API. */
+  productImage: string;
+  /** Free-text size description shown when sizeLabel === "Custom". */
+  customSize: string;
+  /** Coordinator-uploaded reference image URL (custom items). */
+  referenceImageUrl: string;
+  /** Original filename of the uploaded reference image. */
+  referenceImageName: string;
+  /** MIME type of the uploaded reference image. */
+  referenceImageType: string;
 };
 
 const EMPTY_ITEM: ItemRow = {
@@ -70,6 +80,11 @@ const EMPTY_ITEM: ItemRow = {
   woocommerceProductId: "",
   woocommerceVariationId: "",
   variationName: "",
+  productImage: "",
+  customSize: "",
+  referenceImageUrl: "",
+  referenceImageName: "",
+  referenceImageType: "",
 };
 
 type FormState = {
@@ -127,7 +142,7 @@ function deriveCakeFlavor(items: { itemName: string }[]): CakeFlavor {
 }
 
 function deriveCakeSize(
-  items: { sizeLabel?: string | null }[],
+  items: { sizeLabel?: string | null; customSize?: string | null }[],
 ): { size: CakeSize; customLabel?: string } {
   const first = items[0];
   const raw = first?.sizeLabel ?? "";
@@ -135,7 +150,11 @@ function deriveCakeSize(
   if (!label) return { size: "SIZE_1_2KG" };
   if (/750\s*g/.test(label)) return { size: "SIZE_750G" };
   if (/1[.,]?2\s*kg/.test(label)) return { size: "SIZE_1_2KG" };
-  return { size: "CUSTOM", customLabel: raw };
+  // Custom — prefer the dedicated customSize text, fall back to the label.
+  return {
+    size: "CUSTOM",
+    customLabel: first?.customSize?.trim() || raw,
+  };
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>> & {
@@ -285,6 +304,9 @@ export default function NewOrderPage() {
       if (row.unitPrice === "" || Number.isNaN(price) || price < 0) {
         rowErrors.unitPrice = "Required";
       }
+      if (row.sizeLabel === "Custom" && !row.customSize.trim()) {
+        rowErrors.customSize = "Describe the custom size or weight";
+      }
       if (Object.keys(rowErrors).length > 0) itemRows[idx] = rowErrors;
     });
     if (validRowCount === 0) e.items = "Add at least one item";
@@ -340,6 +362,7 @@ export default function NewOrderPage() {
         .map((r) => {
           const quantity = Math.max(1, parseInt(r.quantity, 10) || 1);
           const unitPrice = Number(r.unitPrice) || 0;
+          const isCustom = !r.woocommerceProductId;
           return {
             itemName: r.itemName.trim(),
             quantity,
@@ -350,6 +373,14 @@ export default function NewOrderPage() {
             woocommerceProductId: r.woocommerceProductId || undefined,
             woocommerceVariationId: r.woocommerceVariationId || undefined,
             variationName: r.variationName || undefined,
+            isCustom,
+            customSize:
+              r.sizeLabel === "Custom"
+                ? r.customSize.trim() || undefined
+                : undefined,
+            referenceImageUrl: r.referenceImageUrl || undefined,
+            referenceImageName: r.referenceImageName || undefined,
+            referenceImageType: r.referenceImageType || undefined,
           };
         });
 
@@ -946,6 +977,210 @@ function PlusIcon({ className = "" }: { className?: string }) {
 }
 
 // =====================================================
+// Image preview lightbox
+// =====================================================
+
+function ImagePreviewModal({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  // Close on Esc + lock body scroll while open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Product preview"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-md sm:max-w-lg"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-[80vh] w-full rounded-xl bg-surface object-contain shadow-2xl"
+        />
+        {alt && (
+          <p className="mt-3 text-center text-sm font-medium text-white drop-shadow">
+            {alt}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface/95 text-ink shadow-lg transition hover:bg-surface focus:outline-none focus:ring-2 focus:ring-focus/40"
+          aria-label="Close preview"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// Reference image upload (custom items only)
+// =====================================================
+
+function ReferenceImageUpload({
+  row,
+  idx,
+  onUpdate,
+  onPreview,
+}: {
+  row: ItemRow;
+  idx: number;
+  onUpdate: RowUpdate;
+  onPreview: (src: string, label: string) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads/order-item-reference", {
+        method: "POST",
+        body: fd,
+      });
+      const json = (await res.json().catch(() => null)) as
+        | {
+            ok: true;
+            data: {
+              referenceImageUrl: string;
+              referenceImageName: string;
+              referenceImageType: string;
+            };
+          }
+        | { ok: false; error: string }
+        | null;
+      if (!res.ok || !json || !json.ok) {
+        setError(
+          (json && !json.ok && json.error) ||
+            `Upload failed (HTTP ${res.status})`,
+        );
+        return;
+      }
+      onUpdate(idx, "referenceImageUrl", json.data.referenceImageUrl);
+      onUpdate(idx, "referenceImageName", json.data.referenceImageName);
+      onUpdate(idx, "referenceImageType", json.data.referenceImageType);
+    } catch {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function clear() {
+    onUpdate(idx, "referenceImageUrl", "");
+    onUpdate(idx, "referenceImageName", "");
+    onUpdate(idx, "referenceImageType", "");
+    setError(null);
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-dashed border-rule bg-canvas/60 p-2.5">
+      {row.referenceImageUrl ? (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              onPreview(
+                row.referenceImageUrl,
+                row.referenceImageName || "Reference image",
+              )
+            }
+            className="block h-12 w-12 shrink-0 overflow-hidden rounded-md transition focus:outline-none focus:ring-2 focus:ring-focus/40 sm:h-14 sm:w-14"
+            aria-label="Preview reference image"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={row.referenceImageUrl}
+              alt=""
+              className="h-full w-full bg-canvas object-cover transition hover:opacity-90"
+            />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-ink">
+              {row.referenceImageName || "Reference image"}
+            </p>
+            <p className="text-xs text-ink-muted">Reference attached</p>
+          </div>
+          <button
+            type="button"
+            onClick={clear}
+            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-ink-muted transition hover:bg-cream/80 hover:text-danger"
+          >
+            Remove
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+          className="flex w-full items-center justify-center gap-2 rounded-md py-2 text-xs font-medium text-ink-muted transition hover:text-ink disabled:opacity-60"
+        >
+          {uploading ? (
+            <>
+              <Spinner className="h-4 w-4 text-brand" />
+              Uploading…
+            </>
+          ) : (
+            <>
+              <PlusIcon className="h-4 w-4" />
+              Add reference image
+              <span className="text-ink-muted/80">
+                · jpg, png, webp · max 5 MB
+              </span>
+            </>
+          )}
+        </button>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
+      {error && (
+        <p className="mt-1.5 text-xs font-medium text-danger">{error}</p>
+      )}
+    </div>
+  );
+}
+
+// =====================================================
 // Per-item row
 // =====================================================
 
@@ -980,6 +1215,10 @@ function ItemRowFields({
 
   // ----- Notes are collapsed by default — fewer fields on screen -----
   const [notesOpen, setNotesOpen] = useState(!!row.notes);
+
+  // ----- Image preview lightbox (product image OR reference image) -----
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewLabel, setPreviewLabel] = useState<string>("");
 
   // Close search dropdown on outside click.
   useEffect(() => {
@@ -1073,6 +1312,7 @@ function ItemRowFields({
     onUpdate(idx, "woocommerceProductId", String(p.id));
     onUpdate(idx, "woocommerceVariationId", "");
     onUpdate(idx, "variationName", "");
+    onUpdate(idx, "productImage", p.images[0]?.src ?? "");
     if (p.price) onUpdate(idx, "unitPrice", p.price);
     setSearchOpen(false);
   }
@@ -1081,6 +1321,7 @@ function ItemRowFields({
     onUpdate(idx, "woocommerceProductId", "");
     onUpdate(idx, "woocommerceVariationId", "");
     onUpdate(idx, "variationName", "");
+    onUpdate(idx, "productImage", "");
   }
 
   function selectVariation(varId: string) {
@@ -1162,22 +1403,43 @@ function ItemRowFields({
                     No matches — keep typing for a custom item.
                   </div>
                 )}
-                {searchResults.map((p) => (
-                  <button
-                    type="button"
-                    key={p.id}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectProduct(p)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-cream/60"
-                  >
-                    <span className="truncate text-ink">{p.name}</span>
-                    {p.price && (
-                      <span className="shrink-0 text-xs text-ink-muted">
-                        AED {p.price}
+                {searchResults.map((p) => {
+                  const thumb = p.images[0]?.src;
+                  return (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectProduct(p)}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-cream/60"
+                    >
+                      {thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={thumb}
+                          alt=""
+                          loading="lazy"
+                          className="h-9 w-9 shrink-0 rounded-md bg-canvas object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-cream text-ink-muted"
+                          aria-hidden="true"
+                        >
+                          <SearchIcon className="h-4 w-4" />
+                        </div>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-ink">
+                        {p.name}
                       </span>
-                    )}
-                  </button>
-                ))}
+                      {p.price && (
+                        <span className="shrink-0 text-xs text-ink-muted">
+                          AED {p.price}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1187,19 +1449,89 @@ function ItemRowFields({
             </p>
           )}
           {row.woocommerceProductId && (
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs text-ink">
-              <CheckIcon className="h-3.5 w-3.5 text-success" />
-              <span className="font-medium">Linked to</span>
-              <span className="text-ink-muted">{linkedLabel}</span>
+            <div className="mt-2 flex items-center gap-3 rounded-lg border border-rule bg-surface p-2 sm:p-2.5">
+              <div className="relative shrink-0">
+                {row.productImage ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewSrc(row.productImage);
+                      setPreviewLabel(linkedLabel);
+                    }}
+                    className="block h-12 w-12 overflow-hidden rounded-md transition focus:outline-none focus:ring-2 focus:ring-focus/40 sm:h-14 sm:w-14"
+                    aria-label={`Preview ${linkedLabel}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={row.productImage}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full bg-canvas object-cover transition hover:opacity-90"
+                    />
+                  </button>
+                ) : (
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-md bg-cream text-ink-muted sm:h-14 sm:w-14"
+                    aria-hidden="true"
+                  >
+                    <SearchIcon className="h-5 w-5" />
+                  </div>
+                )}
+                <span
+                  className="pointer-events-none absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-success text-white shadow-sm ring-2 ring-surface"
+                  aria-label="Linked"
+                >
+                  <CheckIcon className="h-2.5 w-2.5" />
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-ink">
+                  {linkedLabel}
+                </div>
+                <div className="truncate text-xs text-ink-muted">
+                  {row.variationName
+                    ? `Variation · ${row.variationName}`
+                    : "Linked to website product"}
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={clearLinkedProduct}
-                className="ml-1 leading-none text-ink-muted hover:text-danger"
+                className="shrink-0 rounded-md p-1.5 text-base leading-none text-ink-muted transition hover:bg-cream/80 hover:text-danger"
                 aria-label="Unlink WooCommerce product"
               >
                 ×
               </button>
+            </div>
+          )}
+          {previewSrc && (
+            <ImagePreviewModal
+              src={previewSrc}
+              alt={previewLabel}
+              onClose={() => setPreviewSrc(null)}
+            />
+          )}
+
+          {/* Custom-item path — badge + reference image upload (no Woo link) */}
+          {!row.woocommerceProductId && row.itemName.trim() && (
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-cream/80 px-2.5 py-1 text-xs font-medium text-ink">
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-caramel"
+                aria-hidden="true"
+              />
+              Custom item
             </span>
+          )}
+          {!row.woocommerceProductId && (
+            <ReferenceImageUpload
+              row={row}
+              idx={idx}
+              onUpdate={onUpdate}
+              onPreview={(src, label) => {
+                setPreviewSrc(src);
+                setPreviewLabel(label);
+              }}
+            />
           )}
         </div>
 
@@ -1291,6 +1623,28 @@ function ItemRowFields({
             </span>
           </div>
         </div>
+
+        {/* Custom size — required when sizeLabel is Custom */}
+        {row.sizeLabel === "Custom" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">
+              Custom size / weight
+              <span className="ml-0.5 text-brand">*</span>
+            </label>
+            <input
+              type="text"
+              className={inputCls(rowErrors.customSize)}
+              value={row.customSize}
+              onChange={(e) => onUpdate(idx, "customSize", e.target.value)}
+              placeholder="2 kg, 3 tier, 8 inch, 20 cupcakes"
+            />
+            {rowErrors.customSize && (
+              <p className="mt-1.5 text-xs font-medium text-danger">
+                {rowErrors.customSize}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Notes — collapsed by default */}
         {notesOpen ? (

@@ -39,6 +39,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# dev-only image uploads (TODO: production storage will move to GCS)
+/public/uploads/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

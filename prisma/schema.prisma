@@ -121,6 +121,14 @@ model OrderItem {
   variationName          String?
   sizeLabel              String?
   notes                  String?
+  /// True when the row is a custom (non-WooCommerce) cake/item.
+  isCustom               Boolean  @default(false)
+  /// Free-text size description used when sizeLabel is "Custom" (e.g. "2 kg, 3-tier").
+  customSize             String?
+  /// Persistent reference image URL — file lives in object storage (or /public in dev).
+  referenceImageUrl      String?
+  referenceImageName     String?
+  referenceImageType     String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
