@@ -71,6 +71,10 @@ model Order {
   orderStatus     OrderStatus          @default(RECEIVED)
   source          OrderSource
   notes           String?
+  /// Optional link to the operating branch the order is assigned to.
+  branchId        String?
+  /// Snapshot of the resolved branch label (e.g. "Dubai - Al Qouz") at order time.
+  branchName      String?
   createdById     String?
   assignedChefId  String?
   createdAt       DateTime             @default(now())
@@ -78,6 +82,7 @@ model Order {
   assignedChef    User?                @relation("OrderAssignedChef", fields: [assignedChefId], references: [id])
   createdBy       User?                @relation("OrderCreatedBy", fields: [createdById], references: [id])
   customer        Customer?            @relation(fields: [customerId], references: [id])
+  branch          Branch?              @relation(fields: [branchId], references: [id])
   statusHistory   OrderStatusHistory[]
   items           OrderItem[]
 
@@ -87,6 +92,7 @@ model Order {
   @@index([createdById])
   @@index([assignedChefId])
   @@index([customerId])
+  @@index([branchId])
 }
 
 /// Append-only audit trail for order status transitions.
@@ -135,6 +141,26 @@ model OrderItem {
   @@index([orderId])
   @@index([woocommerceProductId])
   @@index([woocommerceVariationId])
+}
+
+/// Operating branch hierarchy — parent (city) and its child (sub-location)
+/// branches. An Order is assigned to a child branch in normal use; the
+/// resolved label "Parent - Child" is also snapshotted on the Order row.
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  parentId  String?
+  parent    Branch?  @relation("BranchChildren", fields: [parentId], references: [id])
+  children  Branch[] @relation("BranchChildren")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+
+  @@index([parentId])
+  @@index([isActive])
 }
 
 enum UserRole {

@@ -94,6 +94,7 @@ type FormState = {
   customerPhone: string;
   whatsappNumber: string;
   customerEmail: string;
+  branchId: string;
   deliveryDate: string;
   deliveryTime: string;
   deliveryAddress: string;
@@ -113,6 +114,7 @@ const INITIAL_FORM: FormState = {
   customerPhone: "",
   whatsappNumber: "",
   customerEmail: "",
+  branchId: "",
   deliveryDate: "",
   deliveryTime: "",
   deliveryAddress: "",
@@ -124,6 +126,12 @@ const INITIAL_FORM: FormState = {
   advanceAmount: "",
   notes: "",
   items: [{ ...EMPTY_ITEM }],
+};
+
+type BranchGroup = {
+  id: string;
+  name: string;
+  children: { id: string; name: string }[];
 };
 
 // =====================================================
@@ -190,6 +198,30 @@ export default function NewOrderPage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const onItemUploadingChange = useCallback((busy: boolean) => {
     setUploadingCount((c) => (busy ? c + 1 : Math.max(0, c - 1)));
+  }, []);
+
+  /** Branches loaded once on mount. */
+  const [branches, setBranches] = useState<BranchGroup[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setBranchesLoading(true);
+    fetch("/api/branches")
+      .then(async (r) => {
+        const json = (await r.json().catch(() => null)) as
+          | { ok: true; data: BranchGroup[] }
+          | { ok: false; error: string }
+          | null;
+        if (cancelled) return;
+        if (json && json.ok) setBranches(json.data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setBranchesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Auto-fill payment Total from items when at least one item is linked to
@@ -287,6 +319,7 @@ export default function NewOrderPage() {
       if (!wa.ok) e.whatsappNumber = wa.reason;
     }
 
+    if (!form.branchId) e.branchId = "Pick a branch";
     if (!form.deliveryDate) e.deliveryDate = "Required";
     if (!form.deliveryTime) e.deliveryTime = "Required";
     if (!form.deliveryAddress.trim()) e.deliveryAddress = "Required";
@@ -409,6 +442,8 @@ export default function NewOrderPage() {
         customerPhone: phoneE164,
         whatsappNumber: waE164,
         customerEmail: form.customerEmail.trim() || undefined,
+
+        branchId: form.branchId,
 
         deliveryDate: form.deliveryDate,
         deliveryTime: form.deliveryTime,
@@ -572,6 +607,36 @@ export default function NewOrderPage() {
 
             <Section title="Delivery Details">
               <Grid>
+                <Field
+                  name="branchId"
+                  label="Branch"
+                  required
+                  full
+                  error={errors.branchId}
+                >
+                  <select
+                    className={inputCls(errors.branchId)}
+                    value={form.branchId}
+                    onChange={(e) => update("branchId", e.target.value)}
+                    disabled={branchesLoading}
+                  >
+                    <option value="">
+                      {branchesLoading
+                        ? "Loading branches…"
+                        : "Select branch"}
+                    </option>
+                    {branches.map((parent) => (
+                      <optgroup key={parent.id} label={parent.name}>
+                        {parent.children.map((child) => (
+                          <option key={child.id} value={child.id}>
+                            {child.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </Field>
+
                 <Field
                   name="deliveryDate"
                   label="Date"

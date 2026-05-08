@@ -174,6 +174,10 @@ export const createOrderSchema = z
     createdById: z.string().cuid().nullish().transform((v) => v ?? null),
     assignedChefId: z.string().cuid().nullish().transform((v) => v ?? null),
 
+    // Branch — required at the application layer, validated against the DB
+    // in the service layer.
+    branchId: z.string().min(1, "Branch is required").max(100),
+
     // Structured line items — optional for backward compatibility
     items: z.array(orderItemSchema).optional().default([]),
   })

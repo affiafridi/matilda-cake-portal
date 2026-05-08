@@ -6,6 +6,17 @@ import type { CreateOrderInput, ListOrdersQuery } from "./schema";
 const MAX_CODE_RETRIES = 5;
 
 /**
+ * Thrown when business rules reject an otherwise well-formed request.
+ * The HTTP layer maps this to a 400 response.
+ */
+export class OrderValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderValidationError";
+  }
+}
+
+/**
  * Persist a new order. `orderNumber` and `trackingCode` are generated
  * server-side; on the rare chance of a unique-constraint collision we
  * retry up to MAX_CODE_RETRIES times with fresh codes.
@@ -14,6 +25,24 @@ const MAX_CODE_RETRIES = 5;
  * (RECEIVED / UNPAID) unless explicitly provided.
  */
 export async function createOrder(input: CreateOrderInput) {
+  // Resolve and validate the branch. Compose the snapshot label
+  // server-side so the client can't supply a fake "Parent - Child" string.
+  const branch = await prisma.branch.findUnique({
+    where: { id: input.branchId },
+    select: {
+      id: true,
+      name: true,
+      isActive: true,
+      parent: { select: { name: true } },
+    },
+  });
+  if (!branch || !branch.isActive) {
+    throw new OrderValidationError("Selected branch is not available.");
+  }
+  const branchName = branch.parent
+    ? `${branch.parent.name} - ${branch.name}`
+    : branch.name;
+
   for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
     const orderNumber = buildOrderNumber();
     const trackingCode = buildTrackingCode();
@@ -23,6 +52,9 @@ export async function createOrder(input: CreateOrderInput) {
         data: {
           orderNumber,
           trackingCode,
+
+          branchId: branch.id,
+          branchName,
 
           customerId: input.customerId,
           customerName: input.customerName,

@@ -27,6 +27,12 @@ export function handleApiError(error: unknown) {
     return jsonError("Invalid request", 400, error.flatten());
   }
 
+  // Domain-level validation thrown from service layers — match by name to
+  // avoid pulling in service modules from this shared util.
+  if (error instanceof Error && error.name === "OrderValidationError") {
+    return jsonError(error.message, 400);
+  }
+
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     switch (error.code) {
       case "P2002":
