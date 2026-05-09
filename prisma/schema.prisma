@@ -22,9 +22,28 @@ model User {
   ordersAssigned Order[]              @relation("OrderAssignedChef")
   ordersCreated  Order[]              @relation("OrderCreatedBy")
   statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
+  sessions       Session[]
 
   @@index([role])
   @@index([isActive])
+}
+
+/// Server-side session tokens. The cookie holds the plaintext token; the
+/// DB stores only its sha256 hash — so a leaked DB row can't impersonate.
+/// Cascade-deletes when the User is removed.
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 /// Persistent customer profile. An Order may reference one, but the Order

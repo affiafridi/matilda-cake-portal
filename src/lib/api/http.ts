@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
+import { AuthError } from "@/lib/auth/errors";
 
 /** Successful response envelope. */
 export function jsonOk<T>(data: T, status = 200) {
@@ -31,6 +32,11 @@ export function handleApiError(error: unknown) {
   // avoid pulling in service modules from this shared util.
   if (error instanceof Error && error.name === "OrderValidationError") {
     return jsonError(error.message, 400);
+  }
+
+  // Auth errors thrown from requireUser / requireRole guards.
+  if (error instanceof AuthError) {
+    return jsonError(error.message, error.status);
   }
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
