@@ -79,10 +79,13 @@ function LoginForm() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm rounded-2xl border border-rule bg-surface p-6 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-caramel">
-            Matilda Cakes
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold text-ink">Sign in</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/uploads/logo.png"
+            alt="Matilda Cakes"
+            className="mx-auto h-14 w-auto"
+          />
+          <h1 className="mt-4 text-2xl font-semibold text-ink">Sign in</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Internal portal access only.
           </p>

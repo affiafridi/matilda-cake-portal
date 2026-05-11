@@ -191,6 +191,8 @@ export default function NewOrderPage() {
   const [result, setResult] = useState<SuccessResult | null>(null);
   /** True once the coordinator types in the Total field; stops auto-sync. */
   const [totalTouched, setTotalTouched] = useState(false);
+  /** True once the coordinator manually picks a payment status chip. */
+  const [paymentStatusTouched, setPaymentStatusTouched] = useState(false);
   /**
    * Number of item rows currently compressing or uploading an image.
    * Submit is disabled while > 0 so the form can't fire mid-upload.
@@ -241,6 +243,25 @@ export default function NewOrderPage() {
       f.totalAmount === formatted ? f : { ...f, totalAmount: formatted },
     );
   }, [form.items, totalTouched]);
+
+  // Auto-derive paymentStatus from total + advance, until the coordinator
+  // manually picks a chip. Total = 0 / empty leaves status alone so a
+  // brand-new form keeps its UNPAID default.
+  useEffect(() => {
+    if (paymentStatusTouched) return;
+    const totalNum = Number(form.totalAmount);
+    if (!Number.isFinite(totalNum) || totalNum <= 0) return;
+    const advanceNum = Number(form.advanceAmount) || 0;
+    const next =
+      advanceNum >= totalNum
+        ? "PAID"
+        : advanceNum > 0
+          ? "PARTIAL"
+          : "UNPAID";
+    setForm((f) =>
+      f.paymentStatus === next ? f : { ...f, paymentStatus: next },
+    );
+  }, [form.totalAmount, form.advanceAmount, paymentStatusTouched]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -465,6 +486,20 @@ export default function NewOrderPage() {
         advanceAmount: form.advanceAmount
           ? Number(form.advanceAmount)
           : undefined,
+        // Send a client-computed balance for clarity; the server re-derives
+        // the canonical value before persisting.
+        balanceAmount:
+          form.totalAmount
+            ? Math.max(
+                0,
+                Number(
+                  (
+                    (Number(form.totalAmount) || 0) -
+                    (Number(form.advanceAmount) || 0)
+                  ).toFixed(2),
+                ),
+              )
+            : undefined,
 
         notes: form.notes.trim() || undefined,
         source: "WHATSAPP" as const,
@@ -505,6 +540,7 @@ export default function NewOrderPage() {
     setServerError(null);
     setResult(null);
     setTotalTouched(false);
+    setPaymentStatusTouched(false);
   }
 
   /** On blur, auto-format a valid UAE number to its display form. */
@@ -728,11 +764,22 @@ export default function NewOrderPage() {
                   />
                 </Field>
 
-                <Field name="paymentStatus" label="Status">
+                <Field
+                  name="paymentStatus"
+                  label="Status"
+                  hint={
+                    !paymentStatusTouched && Number(form.totalAmount) > 0
+                      ? "Auto-derived from total & advance"
+                      : undefined
+                  }
+                >
                   <ChipGroup
                     options={PAYMENT_STATUSES}
                     value={form.paymentStatus}
-                    onChange={(v) => update("paymentStatus", v)}
+                    onChange={(v) => {
+                      setPaymentStatusTouched(true);
+                      update("paymentStatus", v);
+                    }}
                   />
                 </Field>
 
@@ -778,6 +825,27 @@ export default function NewOrderPage() {
                     />
                   </Field>
                 </Grid>
+
+                {/* Auto-calculated remaining balance */}
+                <div className="flex items-center justify-between rounded-lg bg-cream/50 px-4 py-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                      Remaining balance
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-ink-muted">
+                      Auto-calculated from total − advance.
+                    </p>
+                  </div>
+                  <p className="text-lg font-semibold text-ink">
+                    {AED.format(
+                      Math.max(
+                        0,
+                        (Number(form.totalAmount) || 0) -
+                          (Number(form.advanceAmount) || 0),
+                      ),
+                    )}
+                  </p>
+                </div>
               </div>
             </Section>
 

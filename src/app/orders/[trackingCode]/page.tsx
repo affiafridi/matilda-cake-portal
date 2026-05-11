@@ -65,7 +65,7 @@ export default async function OrderDetailPage({
   );
 
   return (
-    <div className="mx-auto max-w-[1400px] px-3 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
       <div className="mb-4 flex items-center gap-2 text-sm">
         <Link
           href="/orders"

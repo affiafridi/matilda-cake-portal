@@ -2,8 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WhatsApp Order Tracking",
-  description: "Track WhatsApp orders end-to-end.",
+  title: "Matilda Cakes — Order Portal",
+  description: "Internal order operations portal for Matilda Cakes.",
+  icons: {
+    icon: [{ url: "/uploads/favicon.webp", type: "image/webp" }],
+    shortcut: ["/uploads/favicon.webp"],
+    apple: ["/uploads/favicon.webp"],
+  },
 };
 
 export default function RootLayout({

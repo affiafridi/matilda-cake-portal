@@ -11,7 +11,7 @@ export default async function UsersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-[1400px] px-3 py-8 sm:px-6 sm:py-12 lg:px-8">
+    <main className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-10">
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-caramel">

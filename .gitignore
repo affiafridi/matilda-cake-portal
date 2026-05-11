@@ -40,7 +40,9 @@ yarn-error.log*
 .vercel
 
 # dev-only image uploads (TODO: production storage will move to GCS)
-/public/uploads/
+# Brand assets that live alongside (logo.png, favicon.webp, etc.) are kept;
+# only the order-items subfolder is ignored.
+/public/uploads/order-items/
 
 # typescript
 *.tsbuildinfo

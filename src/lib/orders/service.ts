@@ -43,6 +43,28 @@ export async function createOrder(input: CreateOrderInput) {
     ? `${branch.parent.name} - ${branch.name}`
     : branch.name;
 
+  // Server-side derivation of balance + payment status from total/advance.
+  // Never trust the client for derived money values.
+  const totalNum =
+    input.totalAmount !== null && input.totalAmount !== undefined
+      ? Number(input.totalAmount)
+      : null;
+  const advanceNum =
+    input.advanceAmount !== null && input.advanceAmount !== undefined
+      ? Number(input.advanceAmount)
+      : 0;
+  let derivedBalance = input.balanceAmount;
+  let derivedPaymentStatus = input.paymentStatus;
+  if (totalNum !== null) {
+    derivedBalance = Math.max(0, Number((totalNum - advanceNum).toFixed(2)));
+    derivedPaymentStatus =
+      advanceNum >= totalNum
+        ? "PAID"
+        : advanceNum > 0
+          ? "PARTIAL"
+          : "UNPAID";
+  }
+
   for (let attempt = 0; attempt < MAX_CODE_RETRIES; attempt++) {
     const orderNumber = buildOrderNumber();
     const trackingCode = buildTrackingCode();
@@ -75,10 +97,12 @@ export async function createOrder(input: CreateOrderInput) {
           customCakeSize: input.customCakeSize,
 
           paymentMethod: input.paymentMethod,
-          ...(input.paymentStatus ? { paymentStatus: input.paymentStatus } : {}),
+          ...(derivedPaymentStatus
+            ? { paymentStatus: derivedPaymentStatus }
+            : {}),
           totalAmount: input.totalAmount,
           advanceAmount: input.advanceAmount,
-          balanceAmount: input.balanceAmount,
+          balanceAmount: derivedBalance,
 
           source: input.source,
           notes: input.notes,
