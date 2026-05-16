@@ -8,6 +8,7 @@ import {
 } from "@/components/orders/status-badges";
 import { getBucketName, getSignedReadUrl } from "@/lib/storage/gcs";
 import EditOrder from "./edit-order";
+import ImageThumb from "./image-thumb";
 
 export const dynamic = "force-dynamic";
 
@@ -207,19 +208,18 @@ export default async function OrderDetailPage({
                   className="flex flex-col gap-3 py-3 sm:flex-row sm:items-start"
                 >
                   {it.displayImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <a
-                      href={it.displayImageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-canvas"
+                    <ImageThumb
+                      src={it.displayImageUrl}
+                      alt={it.itemName}
+                      className="block h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-canvas focus:outline-none focus:ring-2 focus:ring-focus/40"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={it.displayImageUrl}
                         alt={it.itemName}
                         className="h-full w-full object-cover"
                       />
-                    </a>
+                    </ImageThumb>
                   ) : (
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-cream text-xs text-ink-muted">
                       No image
@@ -278,12 +278,11 @@ export default async function OrderDetailPage({
                 {itemsWithUrls
                   .filter((i) => i.displayImageUrl)
                   .map((i) => (
-                    <a
+                    <ImageThumb
                       key={i.id}
-                      href={i.displayImageUrl ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block overflow-hidden rounded-lg border border-rule bg-canvas"
+                      src={i.displayImageUrl ?? ""}
+                      alt={i.itemName}
+                      className="group block overflow-hidden rounded-lg border border-rule bg-canvas text-left focus:outline-none focus:ring-2 focus:ring-focus/40"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -294,7 +293,7 @@ export default async function OrderDetailPage({
                       <div className="px-2 py-1.5 text-xs text-ink-muted">
                         {i.itemName}
                       </div>
-                    </a>
+                    </ImageThumb>
                   ))}
               </div>
             </Section>

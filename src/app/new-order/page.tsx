@@ -684,6 +684,13 @@ export default function NewOrderPage() {
                     className={inputCls(errors.deliveryDate)}
                     value={form.deliveryDate}
                     onChange={(e) => update("deliveryDate", e.target.value)}
+                    min={(() => {
+                      const d = new Date();
+                      const yyyy = d.getFullYear();
+                      const mm = String(d.getMonth() + 1).padStart(2, "0");
+                      const dd = String(d.getDate()).padStart(2, "0");
+                      return `${yyyy}-${mm}-${dd}`;
+                    })()}
                   />
                 </Field>
 
@@ -698,6 +705,19 @@ export default function NewOrderPage() {
                     className={inputCls(errors.deliveryTime)}
                     value={form.deliveryTime}
                     onChange={(e) => update("deliveryTime", e.target.value)}
+                    min={(() => {
+                      // Only restrict the time when the chosen date is today;
+                      // future dates allow any time of day.
+                      const now = new Date();
+                      const yyyy = now.getFullYear();
+                      const mm = String(now.getMonth() + 1).padStart(2, "0");
+                      const dd = String(now.getDate()).padStart(2, "0");
+                      const todayIso = `${yyyy}-${mm}-${dd}`;
+                      if (form.deliveryDate !== todayIso) return undefined;
+                      const hh = String(now.getHours()).padStart(2, "0");
+                      const mi = String(now.getMinutes()).padStart(2, "0");
+                      return `${hh}:${mi}`;
+                    })()}
                   />
                 </Field>
 
