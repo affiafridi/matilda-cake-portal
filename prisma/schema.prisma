@@ -22,6 +22,7 @@ model User {
   ordersAssigned Order[]              @relation("OrderAssignedChef")
   ordersCreated  Order[]              @relation("OrderCreatedBy")
   statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
+  amountChanges  OrderAmountChange[]  @relation("OrderAmountChangedBy")
   sessions       Session[]
 
   @@index([role])
@@ -104,6 +105,7 @@ model Order {
   branch          Branch?              @relation(fields: [branchId], references: [id])
   statusHistory   OrderStatusHistory[]
   items           OrderItem[]
+  amountChanges   OrderAmountChange[]
 
   @@index([customerPhone])
   @@index([orderStatus])
@@ -160,6 +162,31 @@ model OrderItem {
   @@index([orderId])
   @@index([woocommerceProductId])
   @@index([woocommerceVariationId])
+}
+
+/// Audit row written whenever an order's money fields (total / advance /
+/// computed balance) change after creation. Together with the live order
+/// row, this gives a full history of who changed the price and why.
+model OrderAmountChange {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedById String?
+  changedBy   User?    @relation("OrderAmountChangedBy", fields: [changedById], references: [id])
+  prevTotal   Decimal? @db.Decimal(10, 2)
+  prevAdvance Decimal? @db.Decimal(10, 2)
+  prevBalance Decimal? @db.Decimal(10, 2)
+  newTotal    Decimal? @db.Decimal(10, 2)
+  newAdvance  Decimal? @db.Decimal(10, 2)
+  newBalance  Decimal? @db.Decimal(10, 2)
+  /// Signed delta on total. Positive = price went up, negative = went down.
+  delta       Decimal  @db.Decimal(10, 2)
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([changedById])
+  @@index([createdAt])
 }
 
 /// Operating branch hierarchy — parent (city) and its child (sub-location)

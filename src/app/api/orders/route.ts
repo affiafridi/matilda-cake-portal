@@ -4,14 +4,24 @@ import {
   listOrdersQuerySchema,
 } from "@/lib/orders/schema";
 import { createOrder, listOrders } from "@/lib/orders/service";
-import { handleApiError, jsonOk } from "@/lib/api/http";
+import { handleApiError, jsonError, jsonOk } from "@/lib/api/http";
+import { requireRole, requireUser } from "@/lib/auth/server";
+
+export const runtime = "nodejs";
 
 /** POST /api/orders — create a new order. */
 export async function POST(req: NextRequest) {
   try {
+    const actor = await requireRole([
+      "SUPER_ADMIN",
+      "ADMIN",
+      "COORDINATOR",
+    ]);
     const body = await req.json();
     const input = createOrderSchema.parse(body);
-    const order = await createOrder(input);
+    // Always tag the order with the authenticated user. Whatever the client
+    // sent for `createdById` is ignored — no spoofing.
+    const order = await createOrder({ ...input, createdById: actor.id });
     return jsonOk(order, 201);
   } catch (error) {
     return handleApiError(error);
@@ -21,9 +31,18 @@ export async function POST(req: NextRequest) {
 /** GET /api/orders — list orders with optional filtering. */
 export async function GET(req: NextRequest) {
   try {
+    const actor = await requireUser();
     const params = Object.fromEntries(req.nextUrl.searchParams.entries());
     const filters = listOrdersQuerySchema.parse(params);
-    const result = await listOrders(filters);
+
+    // Coordinators only see orders they personally created.
+    // Admins / super-admins / chefs see everything.
+    const scopedFilters =
+      actor.role === "COORDINATOR"
+        ? { ...filters, createdById: actor.id }
+        : filters;
+
+    const result = await listOrders(scopedFilters);
     return jsonOk(result);
   } catch (error) {
     return handleApiError(error);

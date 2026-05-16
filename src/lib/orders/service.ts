@@ -1,7 +1,12 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { AuthError } from "@/lib/auth/errors";
 import { buildOrderNumber, buildTrackingCode } from "./codes";
-import type { CreateOrderInput, ListOrdersQuery } from "./schema";
+import type {
+  CreateOrderInput,
+  ListOrdersQuery,
+  UpdateOrderInput,
+} from "./schema";
 
 const MAX_CODE_RETRIES = 5;
 
@@ -202,6 +207,10 @@ export async function listOrders(filters: ListOrdersQuery) {
     where.deliveryDate = { gte: start, lt: end };
   }
 
+  if (filters.createdById) {
+    where.createdById = filters.createdById;
+  }
+
   const [items, total] = await Promise.all([
     prisma.order.findMany({
       where,
@@ -221,4 +230,234 @@ export async function listOrders(filters: ListOrdersQuery) {
     take: filters.take,
     skip: filters.skip,
   };
+}
+
+// =====================================================
+// updateOrder
+// =====================================================
+
+/**
+ * Edit an existing order. Re-derives balance + paymentStatus from total
+ * and advance, writes an OrderAmountChange row whenever money moves, and
+ * enforces status / role locking inside a single transaction.
+ */
+export async function updateOrder(args: {
+  trackingCode: string;
+  actor: User;
+  input: UpdateOrderInput;
+}) {
+  const { trackingCode, actor, input } = args;
+
+  return await prisma.$transaction(async (tx) => {
+    const existing = await tx.order.findUnique({
+      where: { trackingCode },
+      include: { items: true },
+    });
+    if (!existing) throw new OrderValidationError("Order not found.");
+
+    // Coordinators can only edit orders they created.
+    if (
+      actor.role === "COORDINATOR" &&
+      existing.createdById !== actor.id
+    ) {
+      throw new AuthError(403, "You can only edit your own orders.");
+    }
+
+    // Status-based lock: DELIVERED / CANCELLED orders are read-only for
+    // everyone except SUPER_ADMIN.
+    if (
+      (existing.orderStatus === "DELIVERED" ||
+        existing.orderStatus === "CANCELLED") &&
+      actor.role !== "SUPER_ADMIN"
+    ) {
+      throw new OrderValidationError(
+        "This order is locked. A Super Admin must edit it.",
+      );
+    }
+
+    // orderStatus is admin-only.
+    if (
+      input.orderStatus &&
+      actor.role !== "SUPER_ADMIN" &&
+      actor.role !== "ADMIN"
+    ) {
+      throw new AuthError(403, "Only admins can change order status.");
+    }
+
+    // Resolve branch + branchName snapshot if branch is changing.
+    let branchUpdate:
+      | { branchId: string; branchName: string }
+      | undefined;
+    if (input.branchId && input.branchId !== existing.branchId) {
+      const branch = await tx.branch.findUnique({
+        where: { id: input.branchId },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          parent: { select: { name: true } },
+        },
+      });
+      if (!branch || !branch.isActive) {
+        throw new OrderValidationError("Selected branch is not available.");
+      }
+      branchUpdate = {
+        branchId: branch.id,
+        branchName: branch.parent
+          ? `${branch.parent.name} - ${branch.name}`
+          : branch.name,
+      };
+    }
+
+    // ----- Money: re-derive balance + status from total + advance -----
+    const prevTotal = Number(existing.totalAmount ?? 0);
+    const prevAdvance = Number(existing.advanceAmount ?? 0);
+    const prevBalance = Number(existing.balanceAmount ?? 0);
+
+    const newTotalRaw =
+      input.totalAmount !== undefined
+        ? input.totalAmount
+        : existing.totalAmount === null
+          ? null
+          : Number(existing.totalAmount);
+    const newAdvanceRaw =
+      input.advanceAmount !== undefined
+        ? input.advanceAmount
+        : existing.advanceAmount === null
+          ? null
+          : Number(existing.advanceAmount);
+
+    const newTotal = newTotalRaw === null ? null : Number(newTotalRaw);
+    const newAdvance = newAdvanceRaw === null ? 0 : Number(newAdvanceRaw);
+
+    let derivedBalance: number | null =
+      existing.balanceAmount === null
+        ? null
+        : Number(existing.balanceAmount);
+    let derivedPaymentStatus = existing.paymentStatus;
+    if (newTotal !== null) {
+      derivedBalance = Math.max(
+        0,
+        Number((newTotal - newAdvance).toFixed(2)),
+      );
+      derivedPaymentStatus =
+        newAdvance >= newTotal
+          ? "PAID"
+          : newAdvance > 0
+            ? "PARTIAL"
+            : "UNPAID";
+    }
+
+    const moneyChanged =
+      (newTotal ?? prevTotal) !== prevTotal ||
+      (newAdvance ?? 0) !== prevAdvance;
+
+    // ----- Update the Order row -----
+    await tx.order.update({
+      where: { id: existing.id },
+      data: {
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        whatsappNumber: input.whatsappNumber,
+        customerEmail: input.customerEmail,
+
+        ...(branchUpdate ?? {}),
+
+        deliveryDate: input.deliveryDate,
+        deliveryTime: input.deliveryTime,
+        deliveryAddress: input.deliveryAddress,
+        deliveryMapLink: input.deliveryMapLink,
+
+        cakeMessage: input.cakeMessage,
+        notes: input.notes,
+
+        paymentMethod: input.paymentMethod,
+        ...(input.totalAmount !== undefined
+          ? { totalAmount: input.totalAmount }
+          : {}),
+        ...(input.advanceAmount !== undefined
+          ? { advanceAmount: input.advanceAmount }
+          : {}),
+        balanceAmount: derivedBalance,
+        paymentStatus: derivedPaymentStatus,
+
+        ...(input.orderStatus ? { orderStatus: input.orderStatus } : {}),
+      },
+    });
+
+    // ----- Items: replace wholesale when supplied -----
+    if (input.items !== undefined) {
+      await tx.orderItem.deleteMany({ where: { orderId: existing.id } });
+      if (input.items.length > 0) {
+        await tx.orderItem.createMany({
+          data: input.items.map((it) => {
+            const totalPrice = Number(
+              (it.quantity * it.unitPrice).toFixed(2),
+            );
+            return {
+              orderId: existing.id,
+              itemName: it.itemName,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice,
+              totalPrice,
+              sizeLabel: it.sizeLabel,
+              customSize: it.customSize,
+              notes: it.notes,
+              isCustom: true,
+            };
+          }),
+        });
+      }
+    }
+
+    // ----- Audit log row when money changed -----
+    if (moneyChanged) {
+      await tx.orderAmountChange.create({
+        data: {
+          orderId: existing.id,
+          changedById: actor.id,
+          prevTotal,
+          prevAdvance,
+          prevBalance,
+          newTotal,
+          newAdvance,
+          newBalance: derivedBalance,
+          delta: Number(((newTotal ?? 0) - prevTotal).toFixed(2)),
+          reason: input.reason ?? null,
+        },
+      });
+    }
+
+    // ----- Status history row when status changed -----
+    if (input.orderStatus && input.orderStatus !== existing.orderStatus) {
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: existing.id,
+          oldStatus: existing.orderStatus,
+          newStatus: input.orderStatus,
+          changedById: actor.id,
+          note: input.reason ?? null,
+        },
+      });
+    }
+
+    return tx.order.findUnique({
+      where: { id: existing.id },
+      include: {
+        customer: true,
+        branch: { include: { parent: true } },
+        createdBy: { select: { id: true, name: true, role: true } },
+        assignedChef: { select: { id: true, name: true, role: true } },
+        items: { orderBy: { createdAt: "asc" } },
+        statusHistory: {
+          orderBy: { createdAt: "desc" },
+          include: { changedBy: { select: { name: true } } },
+        },
+        amountChanges: {
+          orderBy: { createdAt: "desc" },
+          include: { changedBy: { select: { name: true } } },
+        },
+      },
+    });
+  });
 }

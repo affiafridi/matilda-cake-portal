@@ -26,7 +26,7 @@ export default async function BranchesPage() {
   });
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <header className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">
           Operations

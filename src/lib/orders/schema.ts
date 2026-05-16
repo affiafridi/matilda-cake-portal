@@ -30,83 +30,7 @@ export const orderSourceSchema = z.enum([
 ]);
 
 // =====================================================
-// Order item (structured line item)
-// =====================================================
-
-/**
- * Schema for a single OrderItem on POST /api/orders.
- * Optional in `createOrderSchema` for backward compatibility — older callers
- * that don't yet pass `items` are accepted unchanged.
- */
-export const orderItemSchema = z
-  .object({
-    itemName: z.string().trim().min(1, "Item name is required").max(200),
-    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
-    unitPrice: z.coerce.number().nonnegative(),
-    totalPrice: z.coerce.number().nonnegative(),
-    sizeLabel: z
-      .string()
-      .trim()
-      .max(50)
-      .nullish()
-      .transform((v) => (v && v.length > 0 ? v : null)),
-    notes: z
-      .string()
-      .trim()
-      .max(500)
-      .nullish()
-      .transform((v) => (v && v.length > 0 ? v : null)),
-    woocommerceProductId: z
-      .string()
-      .nullish()
-      .transform((v) => v ?? null),
-    woocommerceVariationId: z
-      .string()
-      .nullish()
-      .transform((v) => v ?? null),
-    variationName: z
-      .string()
-      .nullish()
-      .transform((v) => v ?? null),
-    // Custom-item additions — all optional; the form derives `isCustom`
-    // from the absence of `woocommerceProductId`.
-    isCustom: z.boolean().optional().default(false),
-    customSize: z
-      .string()
-      .trim()
-      .max(200)
-      .nullish()
-      .transform((v) => (v && v.length > 0 ? v : null)),
-    referenceImageUrl: z
-      .string()
-      .max(2000)
-      .nullish()
-      .transform((v) => v ?? null),
-    referenceImageName: z
-      .string()
-      .max(255)
-      .nullish()
-      .transform((v) => v ?? null),
-    referenceImageType: z
-      .string()
-      .max(100)
-      .nullish()
-      .transform((v) => v ?? null),
-  })
-  .refine(
-    (item) =>
-      item.sizeLabel !== "Custom" ||
-      (typeof item.customSize === "string" && item.customSize.length > 0),
-    {
-      message: "customSize is required when sizeLabel is Custom",
-      path: ["customSize"],
-    },
-  );
-
-export type OrderItemInput = z.infer<typeof orderItemSchema>;
-
-// =====================================================
-// POST /api/orders body
+// Helpers
 // =====================================================
 
 const optionalString = z
@@ -136,24 +60,112 @@ const optionalDecimal = z.coerce
   .nullish()
   .transform((v) => (v === undefined ? null : v));
 
+const optionalTrimmedNull = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullish()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .optional();
+
+// =====================================================
+// Order item
+// =====================================================
+
+export const orderItemSchema = z
+  .object({
+    itemName: z.string().trim().min(1, "Item name is required").max(200),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1"),
+    unitPrice: z.coerce.number().nonnegative(),
+    totalPrice: z.coerce.number().nonnegative(),
+
+    sizeLabel: z
+      .string()
+      .trim()
+      .max(50)
+      .nullish()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+
+    notes: z
+      .string()
+      .trim()
+      .max(500)
+      .nullish()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+
+    woocommerceProductId: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? null),
+
+    woocommerceVariationId: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? null),
+
+    variationName: z
+      .string()
+      .nullish()
+      .transform((v) => v ?? null),
+
+    isCustom: z.boolean().optional().default(false),
+
+    customSize: z
+      .string()
+      .trim()
+      .max(200)
+      .nullish()
+      .transform((v) => (v && v.length > 0 ? v : null)),
+
+    referenceImageUrl: z
+      .string()
+      .max(2000)
+      .nullish()
+      .transform((v) => v ?? null),
+
+    referenceImageName: z
+      .string()
+      .max(255)
+      .nullish()
+      .transform((v) => v ?? null),
+
+    referenceImageType: z
+      .string()
+      .max(100)
+      .nullish()
+      .transform((v) => v ?? null),
+  })
+  .refine(
+    (item) =>
+      item.sizeLabel !== "Custom" ||
+      (typeof item.customSize === "string" && item.customSize.length > 0),
+    {
+      message: "customSize is required when sizeLabel is Custom",
+      path: ["customSize"],
+    },
+  );
+
+export type OrderItemInput = z.infer<typeof orderItemSchema>;
+
+// =====================================================
+// POST /api/orders body
+// =====================================================
+
 export const createOrderSchema = z
   .object({
-    // Optional Customer linkage
     customerId: z.string().cuid().nullish().transform((v) => v ?? null),
 
-    // Snapshot fields (always required, even when customerId is present)
     customerName: z.string().trim().min(1).max(200),
     customerPhone: z.string().trim().min(3).max(50),
     whatsappNumber: optionalString,
     customerEmail: optionalEmail,
 
-    // Delivery
     deliveryDate: z.coerce.date(),
     deliveryTime: z.string().trim().min(1),
     deliveryAddress: z.string().trim().min(1),
     deliveryMapLink: optionalUrl,
 
-    // Items & cake spec
     orderItems: z.string().trim().min(1),
     cakeFlavor: cakeFlavorSchema,
     cakeMessage: optionalString,
@@ -161,24 +173,19 @@ export const createOrderSchema = z
     cakeSize: cakeSizeSchema,
     customCakeSize: optionalString,
 
-    // Payment
     paymentMethod: paymentMethodSchema,
-    paymentStatus: paymentStatusSchema.optional(), // Prisma default: UNPAID
+    paymentStatus: paymentStatusSchema.optional(),
     totalAmount: optionalDecimal,
     advanceAmount: optionalDecimal,
     balanceAmount: optionalDecimal,
 
-    // Workflow
     source: orderSourceSchema,
     notes: optionalString,
     createdById: z.string().cuid().nullish().transform((v) => v ?? null),
     assignedChefId: z.string().cuid().nullish().transform((v) => v ?? null),
 
-    // Branch — required at the application layer, validated against the DB
-    // in the service layer.
     branchId: z.string().min(1, "Branch is required").max(100),
 
-    // Structured line items — optional for backward compatibility
     items: z.array(orderItemSchema).optional().default([]),
   })
   .refine(
@@ -200,8 +207,57 @@ export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export const listOrdersQuerySchema = z.object({
   orderStatus: orderStatusSchema.optional(),
   deliveryDate: z.coerce.date().optional(),
+  createdById: z.string().cuid().optional(),
   take: z.coerce.number().int().min(1).max(100).default(50),
   skip: z.coerce.number().int().min(0).default(0),
 });
 
 export type ListOrdersQuery = z.infer<typeof listOrdersQuerySchema>;
+
+// =====================================================
+// PATCH /api/orders/[trackingCode] body
+// =====================================================
+
+export const updateOrderSchema = z.object({
+  customerName: z.string().trim().min(1).max(200).optional(),
+  customerPhone: z.string().trim().min(3).max(50).optional(),
+  whatsappNumber: optionalTrimmedNull(50),
+
+  customerEmail: z
+    .string()
+    .trim()
+    .email()
+    .max(200)
+    .nullish()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .optional(),
+
+  branchId: z.string().min(1).max(100).optional(),
+
+  deliveryDate: z.coerce.date().optional(),
+  deliveryTime: z.string().trim().min(1).optional(),
+  deliveryAddress: z.string().trim().min(1).optional(),
+
+  deliveryMapLink: z
+    .string()
+    .trim()
+    .url()
+    .nullish()
+    .transform((v) => (v && v.length > 0 ? v : null))
+    .optional(),
+
+  cakeMessage: optionalTrimmedNull(200),
+  notes: optionalTrimmedNull(2000),
+
+  paymentMethod: paymentMethodSchema.optional(),
+  totalAmount: z.coerce.number().nonnegative().nullish().optional(),
+  advanceAmount: z.coerce.number().nonnegative().nullish().optional(),
+
+  orderStatus: orderStatusSchema.optional(),
+
+  items: z.array(orderItemSchema).optional(),
+
+  reason: z.string().trim().max(500).optional(),
+});
+
+export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;

@@ -7,6 +7,9 @@ import {
   PaymentStatusBadge,
 } from "@/components/orders/status-badges";
 
+// Per-request rendering so the coordinator/admin scope filter always runs.
+export const dynamic = "force-dynamic";
+
 const AED = new Intl.NumberFormat("en-AE", {
   style: "currency",
   currency: "AED",
@@ -24,6 +27,9 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  // Coordinators only see their own orders. Admins / chefs see everything.
+  const scopeFilter =
+    user.role === "COORDINATOR" ? { createdById: user.id } : {};
 
   const today = startOfDayUTC();
   const tomorrow = new Date(today);
@@ -39,10 +45,11 @@ export default async function DashboardPage() {
     recent,
   ] = await Promise.all([
     prisma.order.count({
-      where: { createdAt: { gte: today, lt: tomorrow } },
+      where: { ...scopeFilter, createdAt: { gte: today, lt: tomorrow } },
     }),
     prisma.order.count({
       where: {
+        ...scopeFilter,
         orderStatus: {
           in: ["RECEIVED", "CONFIRMED", "PREPARING"],
         },
@@ -50,12 +57,13 @@ export default async function DashboardPage() {
     }),
     prisma.order.count({
       where: {
+        ...scopeFilter,
         deliveryDate: { gte: today },
         orderStatus: { notIn: ["DELIVERED", "CANCELLED"] },
       },
     }),
     prisma.order.count({
-      where: { paymentStatus: { in: ["UNPAID", "PARTIAL"] } },
+      where: { ...scopeFilter, paymentStatus: { in: ["UNPAID", "PARTIAL"] } },
     }),
     isAdmin
       ? prisma.order.aggregate({
@@ -84,6 +92,7 @@ export default async function DashboardPage() {
         })
       : Promise.resolve(null),
     prisma.order.findMany({
+      where: scopeFilter,
       orderBy: { createdAt: "desc" },
       take: 8,
       select: {
@@ -103,7 +112,7 @@ export default async function DashboardPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <header className="mb-6">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">
           {isAdmin ? "Operations overview" : "Welcome back"}

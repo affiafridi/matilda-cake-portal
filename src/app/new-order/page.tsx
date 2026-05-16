@@ -555,7 +555,7 @@ export default function NewOrderPage() {
 
   return (
     <div className="min-h-screen pb-24 sm:pb-12">
-      <div className="mx-auto max-w-[1400px] px-3 py-7 sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+      <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
         <header className="mb-8 sm:mb-10">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-caramel">
             Matilda Cakes · Coordinator
@@ -1995,7 +1995,7 @@ function ActionBar({
         "sm:static sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-0",
       ].join(" ")}
     >
-      <div className="mx-auto flex max-w-[1400px] flex-col-reverse gap-2 px-3 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-8">
+      <div className="flex flex-col-reverse gap-2 px-4 sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={onReset}

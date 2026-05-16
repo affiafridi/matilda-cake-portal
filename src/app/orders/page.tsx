@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { Prisma, type OrderStatus, type PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/server";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from "@/components/orders/status-badges";
 import OrdersFilters from "./orders-filters";
+
+// Ensure the page renders per-request so the coordinator scoping
+// (where.createdById = actor.id) is applied every time, never from cache.
+export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 25;
 
@@ -60,7 +65,13 @@ export default async function OrdersPage({
     Number.parseInt(typeof sp.page === "string" ? sp.page : "1", 10) || 1,
   );
 
+  // Coordinators only see orders they created. Admins / chefs see everything.
+  // (Layout already guarantees the user is logged in.)
+  const actor = await getCurrentUser();
   const where: Prisma.OrderWhereInput = {};
+  if (actor && actor.role === "COORDINATOR") {
+    where.createdById = actor.id;
+  }
   if (
     statusParam &&
     (ORDER_STATUS_VALUES as string[]).includes(statusParam)
@@ -127,7 +138,7 @@ export default async function OrdersPage({
   };
 
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <header className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">

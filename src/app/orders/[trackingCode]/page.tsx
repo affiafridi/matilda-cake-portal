@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth/server";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from "@/components/orders/status-badges";
 import { getBucketName, getSignedReadUrl } from "@/lib/storage/gcs";
+import EditOrder from "./edit-order";
+
+export const dynamic = "force-dynamic";
 
 const AED = new Intl.NumberFormat("en-AE", {
   style: "currency",
@@ -33,6 +37,7 @@ export default async function OrderDetailPage({
   params: Promise<{ trackingCode: string }>;
 }) {
   const { trackingCode } = await params;
+  const actor = await getCurrentUser();
 
   const order = await prisma.order.findUnique({
     where: { trackingCode },
@@ -46,10 +51,23 @@ export default async function OrderDetailPage({
         orderBy: { createdAt: "desc" },
         include: { changedBy: { select: { name: true } } },
       },
+      amountChanges: {
+        orderBy: { createdAt: "desc" },
+        include: { changedBy: { select: { name: true } } },
+      },
     },
   });
 
   if (!order) notFound();
+
+  // Coordinators can only open their own orders.
+  if (
+    actor &&
+    actor.role === "COORDINATOR" &&
+    order.createdById !== actor.id
+  ) {
+    notFound();
+  }
 
   // Pre-sign reference images on the server so the client can <img src> directly.
   const itemsWithUrls = await Promise.all(
@@ -64,8 +82,86 @@ export default async function OrderDetailPage({
     0,
   );
 
+  // ----- Edit permissions -----
+  const isAdmin =
+    actor?.role === "SUPER_ADMIN" || actor?.role === "ADMIN";
+  const isOwner = actor?.id === order.createdById;
+  const isLocked =
+    order.orderStatus === "DELIVERED" || order.orderStatus === "CANCELLED";
+  const canEdit =
+    !!actor &&
+    (isAdmin || (isOwner && !isLocked)) &&
+    (!isLocked || actor.role === "SUPER_ADMIN");
+  const canChangeStatus = isAdmin;
+
+  const editableOrder = {
+    trackingCode: order.trackingCode,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    whatsappNumber: order.whatsappNumber,
+    customerEmail: order.customerEmail,
+    deliveryDate: order.deliveryDate.toISOString().slice(0, 10),
+    deliveryTime: order.deliveryTime,
+    deliveryAddress: order.deliveryAddress,
+    orderStatus: order.orderStatus,
+    totalAmount:
+      order.totalAmount !== null ? String(Number(order.totalAmount)) : "",
+    advanceAmount:
+      order.advanceAmount !== null ? String(Number(order.advanceAmount)) : "",
+    notes: order.notes,
+    cakeMessage: order.cakeMessage,
+  };
+
+  // ----- Merged activity timeline (status + amount changes, newest first) -----
+  type ActivityItem =
+    | {
+        kind: "status";
+        id: string;
+        createdAt: Date;
+        actorName: string | null;
+        oldStatus: string | null;
+        newStatus: string;
+        note: string | null;
+      }
+    | {
+        kind: "amount";
+        id: string;
+        createdAt: Date;
+        actorName: string | null;
+        prevTotal: number | null;
+        newTotal: number | null;
+        prevAdvance: number | null;
+        newAdvance: number | null;
+        delta: number;
+        reason: string | null;
+      };
+
+  const activity: ActivityItem[] = [
+    ...order.statusHistory.map((h) => ({
+      kind: "status" as const,
+      id: h.id,
+      createdAt: h.createdAt,
+      actorName: h.changedBy?.name ?? null,
+      oldStatus: h.oldStatus ?? null,
+      newStatus: h.newStatus,
+      note: h.note,
+    })),
+    ...order.amountChanges.map((c) => ({
+      kind: "amount" as const,
+      id: c.id,
+      createdAt: c.createdAt,
+      actorName: c.changedBy?.name ?? null,
+      prevTotal: c.prevTotal !== null ? Number(c.prevTotal) : null,
+      newTotal: c.newTotal !== null ? Number(c.newTotal) : null,
+      prevAdvance: c.prevAdvance !== null ? Number(c.prevAdvance) : null,
+      newAdvance: c.newAdvance !== null ? Number(c.newAdvance) : null,
+      delta: c.delta !== null ? Number(c.delta) : 0,
+      reason: c.reason,
+    })),
+  ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
   return (
-    <div className="mx-auto max-w-screen-2xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10">
+    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
       <div className="mb-4 flex items-center gap-2 text-sm">
         <Link
           href="/orders"
@@ -91,6 +187,11 @@ export default async function OrderDetailPage({
         <div className="flex flex-wrap items-center gap-2">
           <OrderStatusBadge status={order.orderStatus} />
           <PaymentStatusBadge status={order.paymentStatus} />
+          <EditOrder
+            canEdit={canEdit}
+            canChangeStatus={canChangeStatus}
+            order={editableOrder}
+          />
         </div>
       </header>
 
@@ -223,32 +324,57 @@ export default async function OrderDetailPage({
             </Section>
           )}
 
-          {/* Status history placeholder */}
+          {/* Activity — status changes + amount changes, newest first */}
           <Section title="Activity">
-            {order.statusHistory.length === 0 ? (
+            {activity.length === 0 ? (
               <p className="text-sm text-ink-muted">
-                No status changes recorded yet.
+                No edits yet. Status and price changes will show up here.
               </p>
             ) : (
               <ul className="space-y-3">
-                {order.statusHistory.map((h) => (
+                {activity.map((a) => (
                   <li
-                    key={h.id}
+                    key={`${a.kind}-${a.id}`}
                     className="flex items-start gap-3 text-sm"
                   >
-                    <span className="mt-1 h-2 w-2 rounded-full bg-brand" />
-                    <div>
-                      <p className="font-medium text-ink">
-                        {h.oldStatus
-                          ? `${h.oldStatus} → ${h.newStatus}`
-                          : h.newStatus}
-                      </p>
+                    <span
+                      className={[
+                        "mt-1 h-2 w-2 shrink-0 rounded-full",
+                        a.kind === "amount" ? "bg-caramel" : "bg-brand",
+                      ].join(" ")}
+                    />
+                    <div className="min-w-0 flex-1">
+                      {a.kind === "status" ? (
+                        <p className="font-medium text-ink">
+                          {a.oldStatus
+                            ? `Status: ${a.oldStatus} → ${a.newStatus}`
+                            : `Status: ${a.newStatus}`}
+                        </p>
+                      ) : (
+                        <p className="font-medium text-ink">
+                          {a.prevTotal !== a.newTotal && a.newTotal !== null
+                            ? `Total: ${AED.format(a.prevTotal ?? 0)} → ${AED.format(
+                                a.newTotal,
+                              )} (${a.delta >= 0 ? "+" : ""}${a.delta.toFixed(2)})`
+                            : a.prevAdvance !== a.newAdvance &&
+                                a.newAdvance !== null
+                              ? `Advance: ${AED.format(a.prevAdvance ?? 0)} → ${AED.format(
+                                  a.newAdvance,
+                                )}`
+                              : "Payment updated"}
+                        </p>
+                      )}
                       <p className="text-xs text-ink-muted">
-                        {h.createdAt.toISOString().slice(0, 16).replace("T", " ")}
-                        {h.changedBy ? ` · by ${h.changedBy.name}` : ""}
+                        {a.createdAt
+                          .toISOString()
+                          .slice(0, 16)
+                          .replace("T", " ")}
+                        {a.actorName ? ` · by ${a.actorName}` : ""}
                       </p>
-                      {h.note && (
-                        <p className="mt-0.5 text-xs text-ink-muted">{h.note}</p>
+                      {(a.kind === "status" ? a.note : a.reason) && (
+                        <p className="mt-0.5 text-xs text-ink-muted">
+                          {a.kind === "status" ? a.note : a.reason}
+                        </p>
                       )}
                     </div>
                   </li>
