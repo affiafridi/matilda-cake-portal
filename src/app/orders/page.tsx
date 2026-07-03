@@ -138,17 +138,15 @@ export default async function OrdersPage({
   };
 
   return (
-    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-      <header className="mb-5 flex items-end justify-between gap-4">
+    <div className="min-h-screen bg-canvas px-6 py-5 lg:px-8">
+      <header className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">
-            Operations
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-ink">Orders</h1>
+          <h1 className="text-xl font-bold text-ink">Orders</h1>
+          <p className="mt-0.5 text-sm text-ink-muted">Manage and track all customer orders.</p>
         </div>
         <Link
           href="/new-order"
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark"
+          className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition"
         >
           + New order
         </Link>
@@ -156,9 +154,9 @@ export default async function OrdersPage({
 
       <OrdersFilters />
 
-      <div className="mt-5 rounded-2xl border border-rule bg-surface shadow-sm">
-        <div className="flex items-center justify-between border-b border-rule px-4 py-3 sm:px-5">
-          <p className="text-sm text-ink-muted">
+      <div className="mt-4 rounded-2xl border border-rule bg-white overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-rule bg-canvas">
+          <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
             {total} {total === 1 ? "result" : "results"}
             {page > 1 ? ` · page ${page} of ${totalPages}` : ""}
           </p>
@@ -172,22 +170,22 @@ export default async function OrdersPage({
           <>
             {/* Desktop table */}
             <table className="hidden w-full text-sm sm:table">
-              <thead className="bg-cream/40 text-left text-[11px] uppercase tracking-wider text-ink-muted">
+              <thead className="bg-canvas text-left text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
                 <tr>
-                  <th className="px-4 py-2.5">Order</th>
-                  <th className="px-4 py-2.5">Customer</th>
-                  <th className="px-4 py-2.5">Branch</th>
-                  <th className="px-4 py-2.5">Delivery</th>
-                  <th className="px-4 py-2.5 text-right">Total</th>
-                  <th className="px-4 py-2.5">Payment</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5">Created by</th>
+                  <th className="px-5 py-3">Order</th>
+                  <th className="px-5 py-3">Customer</th>
+                  <th className="px-5 py-3">Branch</th>
+                  <th className="px-5 py-3">Delivery</th>
+                  <th className="px-5 py-3 text-right">Total</th>
+                  <th className="px-5 py-3">Payment</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Created by</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-rule">
                 {orders.map((o) => (
-                  <tr key={o.id} className="hover:bg-cream/20">
-                    <td className="px-4 py-3">
+                  <tr key={o.id} className="hover:bg-cream/30 transition-colors">
+                    <td className="px-5 py-3">
                       <Link
                         href={`/orders/${o.trackingCode}`}
                         className="font-mono text-xs font-semibold text-brand hover:underline"
@@ -211,10 +209,10 @@ export default async function OrdersPage({
                     <td className="px-4 py-3 text-right font-medium text-ink">
                       {AED.format(Number(o.totalAmount ?? 0))}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3">
                       <PaymentStatusBadge status={o.paymentStatus} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3">
                       <OrderStatusBadge status={o.orderStatus} />
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-muted">

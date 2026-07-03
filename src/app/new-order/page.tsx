@@ -554,25 +554,18 @@ export default function NewOrderPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24 sm:pb-12">
-      <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-        <header className="mb-8 sm:mb-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-caramel">
-            Matilda Cakes · Coordinator
-          </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            New order
-          </h1>
-          <p className="mt-1.5 text-sm text-ink-muted">
-            Capture a customer order from WhatsApp, phone, or walk-in.
-          </p>
+    <div className="min-h-screen bg-canvas pb-24 sm:pb-12">
+      <div className="px-6 py-5 lg:px-8">
+        <header className="mb-6">
+          <h1 className="text-xl font-bold text-ink">New Order</h1>
+          <p className="mt-0.5 text-sm text-ink-muted">Capture a customer order from WhatsApp, phone, or walk-in.</p>
         </header>
 
         {result ? (
           <SuccessCard result={result} onReset={reset} />
         ) : (
-          <form onSubmit={onSubmit} noValidate className="space-y-3 sm:space-y-5">
-            <div className="grid gap-3 sm:gap-5 lg:grid-cols-2">
+          <form onSubmit={onSubmit} noValidate className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-2">
               <Section title="Customer Details">
               <Grid>
                 <Field
@@ -925,8 +918,8 @@ export default function NewOrderPage() {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-rule bg-surface p-5 shadow-sm sm:p-6">
-      <h2 className="mb-4 text-base font-semibold text-ink">{title}</h2>
+    <section className="rounded-2xl border border-rule bg-white p-5">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-muted">{title}</h2>
       {children}
     </section>
   );
@@ -973,7 +966,7 @@ function Field({
 function inputCls(error?: string) {
   return [
     // text-base on mobile (≥16px) prevents iOS Safari from auto-zooming on focus.
-    "block w-full rounded-lg border bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink shadow-sm",
+    "block w-full rounded-xl border bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink",
     "placeholder:text-ink-muted/70",
     "transition focus:outline-none focus:ring-2",
     error
@@ -1007,13 +1000,13 @@ function ChipGroup({
             aria-checked={selected}
             onClick={() => onChange(o.value)}
             className={[
-              "rounded-lg border px-3.5 py-2 text-sm font-medium transition",
+              "rounded-xl border px-3.5 py-2 text-sm font-medium transition",
               "focus:outline-none focus:ring-2 focus:ring-focus/30",
               selected
-                ? "border-brand bg-brand text-white shadow-sm"
+                ? "border-brand bg-brand text-white"
                 : error
-                  ? "border-danger/40 bg-surface text-ink hover:border-brand/40 hover:bg-cream/60"
-                  : "border-rule bg-surface text-ink hover:border-brand/40 hover:bg-cream/60",
+                  ? "border-danger/40 bg-white text-ink hover:border-brand/40 hover:bg-cream/60"
+                  : "border-rule bg-white text-ink hover:border-brand/40 hover:bg-cream/60",
             ].join(" ")}
           >
             {o.label}
@@ -1926,16 +1919,16 @@ function ItemsSection({
   return (
     <section
       data-field="items"
-      className="rounded-2xl border border-rule bg-surface p-5 shadow-sm sm:p-6"
+      className="rounded-2xl border border-rule bg-white overflow-hidden"
     >
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-base font-semibold text-ink">Order Items</h2>
+      <div className="flex items-baseline justify-between gap-3 border-b border-rule bg-canvas px-5 py-3 sm:px-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Order Items</h2>
         <span className="text-xs font-medium text-ink-muted">
           {items.length} {items.length === 1 ? "item" : "items"}
         </span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 p-5 sm:p-6">
         {items.map((row, idx) => (
           <ItemRowFields
             key={idx}
@@ -1947,34 +1940,34 @@ function ItemsSection({
             onUploadingChange={onUploadingChange}
           />
         ))}
+
+        {listError && (
+          <p className="text-xs font-medium text-danger">{listError}</p>
+        )}
+
+        {/* Add another item — full-width dashed CTA */}
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-rule bg-transparent py-3.5 text-sm font-medium text-ink-muted transition hover:border-brand/40 hover:bg-cream/40 hover:text-ink"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Add another item
+        </button>
       </div>
 
-      {listError && (
-        <p className="mt-3 text-xs font-medium text-danger">{listError}</p>
-      )}
-
-      {/* Add another item — full-width dashed CTA */}
-      <button
-        type="button"
-        onClick={onAdd}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-rule bg-transparent py-3.5 text-sm font-medium text-ink-muted transition hover:border-brand/40 hover:bg-cream/40 hover:text-ink"
-      >
-        <PlusIcon className="h-4 w-4" />
-        Add another item
-      </button>
-
       {/* Items total */}
-      <div className="mt-5 flex items-center justify-between rounded-xl bg-cream/50 px-4 py-3">
+      <div className="flex items-center justify-between border-t border-rule bg-canvas px-5 py-3 sm:px-6">
         <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
           Items total
         </span>
-        <span className="text-lg font-semibold text-ink">
+        <span className="text-base font-semibold text-ink">
           {AED.format(subtotal)}
         </span>
       </div>
 
-      {/* Cake message — moved here from the old Cake Details section */}
-      <div className="mt-6 border-t border-rule pt-5">
+      {/* Cake message */}
+      <div className="border-t border-rule px-5 py-4 sm:px-6">
         <label className="mb-1.5 flex items-baseline gap-2 text-sm font-medium text-ink">
           <span>Cake message</span>
           <span className="text-xs font-normal text-ink-muted">

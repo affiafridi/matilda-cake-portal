@@ -26,25 +26,20 @@ export default async function BranchesPage() {
   });
 
   return (
-    <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+    <div className="min-h-screen bg-canvas px-6 py-5 lg:px-8">
       <header className="mb-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">
-          Operations
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-ink">Branches</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Read-only for now. Editing branches comes in a follow-up.
-        </p>
+        <h1 className="text-xl font-bold text-ink">Branches</h1>
+        <p className="mt-0.5 text-sm text-ink-muted">View all Matilda Cakes branch locations.</p>
       </header>
 
       <div className="space-y-4">
         {parents.map((p) => (
           <section
             key={p.id}
-            className="rounded-2xl border border-rule bg-surface p-5 shadow-sm"
+            className="rounded-2xl border border-rule bg-white overflow-hidden"
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-ink">{p.name}</h2>
+            <div className="flex items-center justify-between px-5 py-3 bg-canvas border-b border-rule">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{p.name}</h2>
               {!p.isActive && (
                 <span className="rounded-full bg-ink-muted/15 px-2 py-0.5 text-[11px] font-medium text-ink-muted">
                   Inactive
@@ -53,22 +48,16 @@ export default async function BranchesPage() {
             </div>
             <ul className="divide-y divide-rule">
               {p.children.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-center justify-between py-2 text-sm"
-                >
-                  <span className="text-ink">{c.name}</span>
+                <li key={c.id} className="flex items-center justify-between px-5 py-3 text-sm">
+                  <span className="font-medium text-ink">{c.name}</span>
                   <span className="text-xs text-ink-muted">
-                    {c._count.orders}{" "}
-                    {c._count.orders === 1 ? "order" : "orders"}
+                    {c._count.orders} {c._count.orders === 1 ? "order" : "orders"}
                     {!c.isActive && " · inactive"}
                   </span>
                 </li>
               ))}
               {p.children.length === 0 && (
-                <li className="py-3 text-xs text-ink-muted">
-                  No sub-branches.
-                </li>
+                <li className="px-5 py-3 text-xs text-ink-muted">No sub-branches.</li>
               )}
             </ul>
           </section>

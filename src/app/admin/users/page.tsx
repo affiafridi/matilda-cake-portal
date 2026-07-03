@@ -11,14 +11,10 @@ export default async function UsersPage() {
   }
 
   return (
-    <main className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-      <header className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-caramel">
-            Matilda Cakes · Admin
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-ink">Users</h1>
-        </div>
+    <main className="min-h-screen bg-canvas px-6 py-5 lg:px-8">
+      <header className="mb-6">
+        <h1 className="text-xl font-bold text-ink">Users</h1>
+        <p className="mt-0.5 text-sm text-ink-muted">Manage portal access and roles.</p>
       </header>
       <UsersClient
         actor={{ id: actor.id, role: actor.role }}

@@ -25,7 +25,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
 };
 
 const inputCls =
-  "block w-full rounded-lg border border-rule bg-canvas px-3 py-2 text-base sm:text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30";
+  "block w-full rounded-xl border border-rule bg-canvas px-3 py-2 text-base sm:text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30";
 
 export default function UsersClient({
   actor,
@@ -81,16 +81,16 @@ export default function UsersClient({
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-rule bg-surface shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-rule bg-white">
         {/* Table view ≥ sm */}
         <table className="hidden w-full text-sm sm:table">
-          <thead className="bg-cream/40 text-left text-xs uppercase tracking-wider text-ink-muted">
+          <thead className="bg-canvas text-left text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
             <tr>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-5 py-3">Name</th>
+              <th className="px-5 py-3">Email</th>
+              <th className="px-5 py-3">Role</th>
+              <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
@@ -171,7 +171,7 @@ function UserRow({
       </td>
       <td className="px-4 py-3 text-ink-muted">{user.email}</td>
       <td className="px-4 py-3 text-ink">{ROLE_LABEL[user.role]}</td>
-      <td className="px-4 py-3">
+      <td className="px-5 py-3">
         <span
           className={
             user.isActive
@@ -301,14 +301,14 @@ function RowActions({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="rounded-md border border-rule px-2.5 py-1 font-medium text-ink hover:bg-cream/60"
+          className="rounded-xl border border-rule px-2.5 py-1 font-medium text-ink hover:bg-cream/60"
         >
           Edit
         </button>
         <button
           type="button"
           onClick={() => setResetting(true)}
-          className="rounded-md border border-rule px-2.5 py-1 font-medium text-ink hover:bg-cream/60"
+          className="rounded-xl border border-rule px-2.5 py-1 font-medium text-ink hover:bg-cream/60"
         >
           Reset password
         </button>
@@ -319,8 +319,8 @@ function RowActions({
             disabled={busy}
             className={
               user.isActive
-                ? "rounded-md border border-danger/30 px-2.5 py-1 font-medium text-danger hover:bg-danger/5 disabled:opacity-60"
-                : "rounded-md border border-success/30 px-2.5 py-1 font-medium text-success hover:bg-success/5 disabled:opacity-60"
+                ? "rounded-xl border border-danger/30 px-2.5 py-1 font-medium text-danger hover:bg-danger/5 disabled:opacity-60"
+                : "rounded-xl border border-success/30 px-2.5 py-1 font-medium text-success hover:bg-success/5 disabled:opacity-60"
             }
           >
             {user.isActive ? "Deactivate" : "Activate"}
@@ -330,7 +330,7 @@ function RowActions({
           <button
             type="button"
             onClick={() => setDeleting(true)}
-            className="rounded-md border border-danger/40 bg-danger/5 px-2.5 py-1 font-medium text-danger hover:bg-danger/10"
+            className="rounded-xl border border-danger/40 bg-danger/5 px-2.5 py-1 font-medium text-danger hover:bg-danger/10"
           >
             Delete
           </button>
@@ -438,7 +438,7 @@ function DeleteUserDialog({
             type="button"
             onClick={handleDelete}
             disabled={!canSubmit || submitting}
-            className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-xl bg-danger px-4 py-2 text-sm font-semibold text-white hover:bg-danger/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Deleting…" : "Delete user"}
           </button>
@@ -468,7 +468,7 @@ function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl border border-rule bg-surface p-5 shadow-xl sm:p-6"
+        className="w-full max-w-md rounded-2xl border border-rule bg-white p-5 shadow-xl sm:p-6"
       >
         <div className="mb-4 flex items-start justify-between">
           <h3 className="text-base font-semibold text-ink">{title}</h3>

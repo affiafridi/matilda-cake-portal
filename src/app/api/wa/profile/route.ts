@@ -1,0 +1,35 @@
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+
+  if (!phoneNumberId || !token) {
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+
+  try {
+    // Fetch verified name from phone number endpoint
+    const phoneRes = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}?fields=verified_name&access_token=${token}`,
+      { next: { revalidate: 3600 } }
+    );
+    const phoneData = await phoneRes.json();
+
+    // Fetch profile picture from whatsapp_business_profile
+    const profileRes = await fetch(
+      `https://graph.facebook.com/v20.0/${phoneNumberId}/whatsapp_business_profile?fields=profile_picture_url&access_token=${token}`,
+      { next: { revalidate: 3600 } }
+    );
+    const profileData = await profileRes.json();
+    const picture = profileData?.data?.[0]?.profile_picture_url ?? null;
+
+    return NextResponse.json({
+      ok: true,
+      name: phoneData.verified_name ?? "Matilda Cakes",
+      picture,
+    });
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}

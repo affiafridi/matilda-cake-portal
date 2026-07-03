@@ -9,20 +9,40 @@
   --color-brand-dark: #4a1f12;  /* hover / pressed */
   --color-caramel: #c08a5b;     /* secondary accent */
   --color-cream: #f5e6d3;       /* soft cream tint */
-  --color-canvas: #faf7f2;      /* page + input background */
+  --color-canvas: #f4f5f7;      /* page + input background */
   --color-surface: #ffffff;     /* card background */
   --color-ink: #2b1a12;         /* primary text */
   --color-ink-muted: #7a5c4d;   /* secondary text */
   --color-rule: #e8ddd4;        /* borders */
+  --color-gold: #c9a535;         /* rich gold for premium accents */
   --color-success: #2e7d32;
   --color-danger: #c62828;
   --color-focus: #c08a5b;       /* matches caramel */
 }
 
+/* Minimal scrollbar — sidebar and any overflow containers */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #e0d4c8 transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d4c4b8;
+  border-radius: 99px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #b8a090;
+}
+
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
