@@ -43,20 +43,20 @@ function WeekChart({ bars }: { bars: DayBar[] }) {
         return (
           <g key={b.label}>
             {/* background track */}
-            <rect x={x} y={0} width={BAR_W} height={H} rx={8} fill="#f5e6d3" />
+            <rect x={x} y={0} width={BAR_W} height={H} rx={8} fill="var(--color-cream)" />
             {/* filled bar */}
             <rect x={x} y={y} width={BAR_W} height={barH} rx={8}
-              fill={isMax ? "#6b2e1a" : "#c08a5b"} opacity={isMax ? 1 : 0.75} />
+              fill={isMax ? "var(--color-brand)" : "var(--color-caramel)"} opacity={isMax ? 1 : 0.75} />
             {/* count label */}
             {b.count > 0 && (
               <text x={x + BAR_W / 2} y={y - 5} textAnchor="middle" fontSize={10}
-                fontWeight={700} fill={isMax ? "#6b2e1a" : "#7a5c4d"}>
+                fontWeight={700} fill={isMax ? "var(--color-brand)" : "var(--color-ink-muted)"}>
                 {b.count}
               </text>
             )}
             {/* day label */}
             <text x={x + BAR_W / 2} y={H + 18} textAnchor="middle" fontSize={11}
-              fontWeight={600} fill="#7a5c4d">
+              fontWeight={600} fill="var(--color-ink-muted)">
               {b.label}
             </text>
           </g>
@@ -293,21 +293,21 @@ export default async function DashboardPage({
       <div className="px-6 pt-6 pb-2 lg:px-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#c08a5b]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">
               {isAdmin ? "Operations overview" : "Welcome back"}
             </p>
-            <h1 className="mt-1 text-2xl font-bold text-[#2b1a12]">
+            <h1 className="mt-1 text-2xl font-bold text-ink">
               Hello, {firstName}
             </h1>
-            <p className="mt-0.5 text-sm text-[#7a5c4d]">
+            <p className="mt-0.5 text-sm text-ink-muted">
               {isAdmin ? "Here's your full business snapshot for today." : "Here's what's happening today."}
             </p>
           </div>
           <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-            <p className="text-sm font-semibold text-[#2b1a12]">{nowLabel}</p>
+            <p className="text-sm font-semibold text-ink">{nowLabel}</p>
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 animate-pulse rounded-full bg-[#25D366]" />
-              <p className="text-xs text-[#7a5c4d]">Live data</p>
+              <p className="text-xs text-ink-muted">Live data</p>
             </div>
           </div>
         </div>
@@ -364,7 +364,7 @@ export default async function DashboardPage({
         {isAdmin && (
           <div className="grid gap-4 lg:grid-cols-3">
             {/* Featured revenue card */}
-            <div className="relative overflow-hidden rounded-2xl bg-[#6b2e1a] p-5 lg:col-span-1">
+            <div className="relative overflow-hidden rounded-2xl bg-brand p-5 lg:col-span-1">
               <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
               <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
               <div className="relative">
@@ -638,26 +638,26 @@ function StatCard({ label, value, icon, sub, color, href }: {
   sub: string; color: "brand" | "gold" | "neutral" | "danger"; href: string;
 }) {
   const colors = {
-    brand:   { bg: "bg-[#6b2e1a]/10", iconColor: "text-[#6b2e1a]", num: "text-[#2b1a12]",  dot: "bg-[#6b2e1a]" },
+    brand:   { bg: "bg-brand/10", iconColor: "text-brand", num: "text-ink",  dot: "bg-brand" },
     gold:    { bg: "bg-[#c9a535]/12", iconColor: "text-[#b8821a]",  num: "text-[#b8821a]",  dot: "bg-[#c9a535]" },
-    neutral: { bg: "bg-[#f5e6d3]",    iconColor: "text-[#6b2e1a]",  num: "text-[#2b1a12]",  dot: "bg-[#c08a5b]" },
+    neutral: { bg: "bg-cream",    iconColor: "text-brand",  num: "text-ink",  dot: "bg-caramel" },
     danger:  { bg: "bg-[#c62828]/10", iconColor: "text-[#c62828]",  num: "text-[#c62828]",  dot: "bg-[#c62828]" },
   }[color];
 
   return (
-    <Link href={href} className="group block rounded-2xl border border-[#e8ddd4] bg-white p-5 transition-all hover:bg-[#faf7f2] hover:border-[#c08a5b]/50">
+    <Link href={href} className="group block rounded-2xl border border-rule bg-white p-5 transition-all hover:bg-cream/20 hover:border-caramel/50">
       <div className="flex items-center justify-between gap-2 mb-4">
         <div className={["flex h-10 w-10 items-center justify-center rounded-xl", colors.bg].join(" ")}>
           <span className={colors.iconColor}>{icon}</span>
         </div>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-          className="h-4 w-4 text-[#e8ddd4] transition group-hover:text-[#c08a5b]">
+          className="h-4 w-4 text-rule transition group-hover:text-caramel">
           <path d="M5 12h14M12 5l7 7-7 7"/>
         </svg>
       </div>
       <p className={["text-3xl font-bold tracking-tight", colors.num].join(" ")}>{value}</p>
-      <p className="mt-1 text-sm font-semibold text-[#2b1a12]">{label}</p>
-      <p className="mt-0.5 text-xs text-[#7a5c4d]">{sub}</p>
+      <p className="mt-1 text-sm font-semibold text-ink">{label}</p>
+      <p className="mt-0.5 text-xs text-ink-muted">{sub}</p>
     </Link>
   );
 }

@@ -29,8 +29,10 @@ export default function KeywordsPage() {
         ]);
         if (!catRes.ok || !kwRes.ok) throw new Error("Failed to load data");
 
-        const { categories: catData } = await catRes.json() as { categories: { wc_id: number; name: string }[] };
-        const kwData = await kwRes.json() as { id: number; wc_id: number; word: string; lang: string }[];
+        const catJson = await catRes.json() as { ok: boolean; data: { categories: { wc_id: number; name: string }[] } };
+        const kwJson  = await kwRes.json()  as { ok: boolean; data: { id: number; wc_id: number; word: string; lang: string }[] };
+        const catData = catJson.data.categories;
+        const kwData  = kwJson.data;
 
         const grouped: Category[] = catData.map((c) => ({
           wc_id:    c.wc_id,
@@ -63,7 +65,7 @@ export default function KeywordsPage() {
     });
     if (!res.ok) return;
 
-    const kw = await res.json() as { id: number; wc_id: number; word: string; lang: string };
+    const { data: kw } = await res.json() as { data: { id: number; wc_id: number; word: string; lang: string } };
     setCategories((prev) => prev.map((c) =>
       c.wc_id === wc_id
         ? { ...c, keywords: [...c.keywords, { id: kw.id, word: kw.word, lang: kw.lang as "en" | "ar" }] }
@@ -174,6 +176,7 @@ export default function KeywordsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search categories or keywords…"
+          suppressHydrationWarning
           className="w-full rounded-xl border border-rule bg-white py-2.5 pl-9 pr-4 text-sm text-ink placeholder:text-ink-muted focus:border-[#10a37f]/40 focus:outline-none focus:ring-2 focus:ring-[#10a37f]/10"
         />
       </div>

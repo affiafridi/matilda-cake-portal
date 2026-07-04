@@ -29,10 +29,10 @@ const PAYMENT_STATUSES = [
 ];
 
 const inputCls =
-  "w-full rounded-xl border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-[#c08a5b] focus:outline-none focus:ring-2 focus:ring-[#c08a5b]/20";
+  "w-full rounded-xl border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20";
 
 const selectCls =
-  "w-full appearance-none rounded-xl border border-rule bg-surface px-3 py-2 pr-8 text-sm text-ink focus:border-[#c08a5b] focus:outline-none focus:ring-2 focus:ring-[#c08a5b]/20 cursor-pointer";
+  "w-full appearance-none rounded-xl border border-rule bg-surface px-3 py-2 pr-8 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20 cursor-pointer";
 
 function SelectArrow() {
   return (

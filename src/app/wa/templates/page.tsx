@@ -69,7 +69,7 @@ const inputCls = "w-full rounded-lg border border-rule bg-white px-3 py-2 text-s
 // ── WhatsApp preview ───────────────────────────────────────────────────────
 
 function useWaProfile() {
-  const [profile, setProfile] = useState<{ name: string; picture: string | null }>({ name: "Matilda Cakes", picture: null });
+  const [profile, setProfile] = useState<{ name: string; picture: string | null }>({ name: "", picture: null });
   useEffect(() => {
     fetch("/api/wa/profile").then(r => r.json()).then(j => {
       if (j.ok) setProfile({ name: j.name, picture: j.picture });
@@ -480,7 +480,7 @@ function TemplatesContent() {
                     {hasImageHeader(selected) && (
                       <div>
                         <label className="mb-1 block text-xs font-medium text-ink">Header Image URL <span className="text-danger">*</span></label>
-                        <input type="url" value={imageUrl} placeholder="https://matildacake.com/images/offer.jpg"
+                        <input type="url" value={imageUrl} placeholder="https://example.com/images/offer.jpg"
                           onChange={(e) => setImageUrl(e.target.value)} className={inputCls} />
                         <p className="mt-1 text-[11px] text-ink-muted">Direct JPG/PNG link from your website.</p>
                       </div>

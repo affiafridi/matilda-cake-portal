@@ -26,7 +26,7 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      name: phoneData.verified_name ?? "Matilda Cakes",
+      name: phoneData.verified_name ?? "",
       picture,
     });
   } catch {

@@ -29,7 +29,7 @@ export default async function BranchesPage() {
     <div className="min-h-screen bg-canvas px-6 py-5 lg:px-8">
       <header className="mb-6">
         <h1 className="text-xl font-bold text-ink">Branches</h1>
-        <p className="mt-0.5 text-sm text-ink-muted">View all Matilda Cakes branch locations.</p>
+        <p className="mt-0.5 text-sm text-ink-muted">View all branch locations.</p>
       </header>
 
       <div className="space-y-4">

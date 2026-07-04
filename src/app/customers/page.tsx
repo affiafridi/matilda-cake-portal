@@ -225,7 +225,7 @@ export default function CustomersPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-ink">Customers</h1>
-            <p className="mt-0.5 text-sm text-ink-muted">WhatsApp contacts from Matilda Bot</p>
+            <p className="mt-0.5 text-sm text-ink-muted">WhatsApp contacts from Bot</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">

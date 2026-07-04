@@ -1,9 +1,6 @@
 @import "tailwindcss";
 
-/**
- * Matilda Cakes — warm bakery design tokens.
- * Adjust hex values here and the entire UI rethemes.
- */
+/* Design tokens — default warm theme. Override via portal_settings brand color. */
 @theme {
   --color-brand: #6b2e1a;       /* primary brown */
   --color-brand-dark: #4a1f12;  /* hover / pressed */

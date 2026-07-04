@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/orders":           { title: "Orders" },
   "/admin/branches":   { title: "Branches",          parent: "Admin" },
   "/admin/users":      { title: "Users",             parent: "Admin" },
+  "/admin/settings":   { title: "Portal Settings",   parent: "Admin" },
   "/customers":        { title: "Customers",         parent: "WhatsApp" },
   "/wa/templates":     { title: "Send Campaign",     parent: "WhatsApp" },
   "/wa/campaigns":     { title: "Campaign History",  parent: "WhatsApp" },
@@ -43,8 +44,9 @@ const MAIN_NAV: NavItem[] = [
   { href: "/dashboard",      label: "Dashboard",  roles: ["SUPER_ADMIN","ADMIN","COORDINATOR","CHEF"], icon: IcDashboard },
   { href: "/new-order",      label: "New Order",  roles: ["SUPER_ADMIN","ADMIN","COORDINATOR"],        icon: IcPlus },
   { href: "/orders",         label: "Orders",     roles: ["SUPER_ADMIN","ADMIN","COORDINATOR","CHEF"], icon: IcOrders },
-  { href: "/admin/branches", label: "Branches",   roles: ["SUPER_ADMIN","ADMIN"],                     icon: IcBranch },
-  { href: "/admin/users",    label: "Users",      roles: ["SUPER_ADMIN","ADMIN"],                     icon: IcUsers },
+  { href: "/admin/branches", label: "Branches",        roles: ["SUPER_ADMIN","ADMIN"],  icon: IcBranch },
+  { href: "/admin/users",    label: "Users",          roles: ["SUPER_ADMIN","ADMIN"],  icon: IcUsers },
+  { href: "/admin/settings", label: "Portal Settings", roles: ["SUPER_ADMIN"],          icon: IcPortalSettings },
 ];
 
 const WA_NAV = [
@@ -73,11 +75,19 @@ const ROLE_LABEL: Record<Role, string> = {
 
 // ── AppShell ───────────────────────────────────────────────────────────────
 
+type Settings = {
+  woo_visible_to_admin: boolean;
+  ai_visible_to_admin:  boolean;
+  app_name?:     string;
+  logo_url?:     string;
+};
+
 export default function AppShell({
-  user, children,
+  user, children, settings,
 }: {
   user: { id: string; name: string; role: Role };
   children: React.ReactNode;
+  settings?: Settings;
 }) {
   const pathname  = usePathname();
   const router    = useRouter();
@@ -86,7 +96,13 @@ export default function AppShell({
 
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  const isWaUser = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const appName = settings?.app_name ?? "Order Portal";
+  const logoUrl = settings?.logo_url ?? "/uploads/logo.png";
+
+  const isWaUser     = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const showWoo      = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin ?? false));
+  const showAI       = isSuperAdmin || (user.role === "ADMIN" && (settings?.ai_visible_to_admin  ?? false));
   const items    = MAIN_NAV.filter((i) => i.roles.includes(user.role));
   const meta     = getPageMeta(pathname);
 
@@ -126,7 +142,7 @@ export default function AppShell({
         {/* Logo area */}
         <div className="flex h-[64px] shrink-0 items-center justify-center border-b border-[#f0ebe4] px-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/uploads/logo.png" alt="Matilda Cakes" className="h-9 w-auto" />
+          <img src={logoUrl} alt={appName} className="h-9 w-auto" />
         </div>
 
         {/* Nav scroll area */}
@@ -199,8 +215,8 @@ export default function AppShell({
             </div>
           )}
 
-          {/* WOOCOMMERCE section — admin only */}
-          {isWaUser && (
+          {/* WOOCOMMERCE section */}
+          {showWoo && (
             <div>
               <div className="mb-1 flex items-center gap-2 px-3">
                 <div className="h-px flex-1 bg-rule" />
@@ -235,8 +251,8 @@ export default function AppShell({
             </div>
           )}
 
-          {/* AI BOT section — admin only */}
-          {isWaUser && (
+          {/* AI BOT section */}
+          {showAI && (
             <div>
               <div className="mb-1 flex items-center gap-2 px-3">
                 <div className="h-px flex-1 bg-rule" />
@@ -337,7 +353,7 @@ export default function AppShell({
             {/* Mobile: just logo */}
             <div className="sm:hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/uploads/logo.png" alt="Matilda Cakes" className="h-7 w-auto" />
+              <img src={logoUrl} alt={appName} className="h-7 w-auto" />
             </div>
           </div>
 
@@ -415,6 +431,9 @@ function IcWoo(p: SVGProps<SVGSVGElement>) {
 }
 function IcSettings(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
+}
+function IcPortalSettings(p: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 8v4M12 16h.01"/></svg>;
 }
 function IcLogout(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;

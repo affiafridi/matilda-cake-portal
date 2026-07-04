@@ -11,7 +11,7 @@ export type { WooProductSummary, WooVariation, WooVariationAttribute };
  * Server-only WooCommerce REST client.
  *
  * Required env vars (configure outside source control):
- *   WOOCOMMERCE_URL              e.g. https://shop.matildacakes.com
+ *   WOOCOMMERCE_URL              e.g. https://shop.example.com
  *   WOOCOMMERCE_CONSUMER_KEY     ck_...
  *   WOOCOMMERCE_CONSUMER_SECRET  cs_...
  *
