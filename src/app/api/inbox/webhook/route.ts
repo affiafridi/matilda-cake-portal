@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { jsonOk, jsonError } from "@/lib/api/http";
 import { getIntegrations } from "@/lib/integrations";
+import { appendCustomerRow, isSheetsConfigured } from "@/lib/googlesheets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +92,11 @@ export async function POST(req: NextRequest) {
         status:          "OPEN",
       },
     });
+
+    // Auto-sync new contacts to Google Sheets (fire-and-forget, never blocks the webhook)
+    if (isSheetsConfigured() && conversation.unreadCount === 1) {
+      appendCustomerRow({ phone: waId, name: name || waId, firstSeen: msgTime }).catch(() => {});
+    }
 
     const existing = await prisma.message.findUnique({
       where:  { waMessageId: messageId },

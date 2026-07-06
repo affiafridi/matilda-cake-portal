@@ -413,6 +413,76 @@ export default function BotConfigSettingsPage() {
         })}
       </div>
 
+      {/* Google Sheets Export */}
+      <GoogleSheetsSection />
+
+    </div>
+  );
+}
+
+function GoogleSheetsSection() {
+  const [exporting, setExporting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string; url?: string } | null>(null);
+
+  async function handleExport() {
+    setExporting(true);
+    setResult(null);
+    try {
+      const r = await fetch("/api/admin/customers/export-sheets", { method: "POST" }).then((r) => r.json());
+      if (r.ok) {
+        setResult({ ok: true, text: `${r.data.count} contacts exported`, url: r.data.sheetUrl });
+      } else {
+        setResult({ ok: false, text: r.error ?? "Export failed" });
+      }
+    } catch {
+      setResult({ ok: false, text: "Could not reach server" });
+    }
+    setExporting(false);
+  }
+
+  return (
+    <div className="rounded-2xl border border-rule bg-surface p-5 space-y-4">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 text-green-600" fill="currentColor">
+              <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+            Google Sheets
+          </h2>
+          <p className="text-[11px] text-ink-muted mt-0.5">
+            Export all WhatsApp contacts to your Google Sheet. New contacts are also added automatically.
+          </p>
+        </div>
+        <button type="button" onClick={handleExport} disabled={exporting}
+          className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 transition disabled:opacity-40 shrink-0">
+          {exporting ? (
+            <><svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg> Exporting…</>
+          ) : "Export to Sheet"}
+        </button>
+      </div>
+
+      {result && (
+        <div className={`rounded-xl px-4 py-2.5 text-sm flex items-center justify-between gap-3 ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+          <span>{result.text}</span>
+          {result.url && (
+            <a href={result.url} target="_blank" rel="noopener noreferrer"
+              className="text-xs font-semibold underline underline-offset-2 shrink-0">
+              Open Sheet →
+            </a>
+          )}
+        </div>
+      )}
+
+      <div className="rounded-xl bg-canvas border border-rule p-3 space-y-1">
+        <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Setup required</p>
+        <p className="text-xs text-ink-muted">Add these to your environment variables:</p>
+        <div className="font-mono text-[11px] text-ink space-y-0.5 mt-1">
+          <p>GOOGLE_SHEETS_SPREADSHEET_ID=<span className="text-ink-muted">your-sheet-id</span></p>
+          <p>GOOGLE_SHEETS_CLIENT_EMAIL=<span className="text-ink-muted">service-account@project.iam.gserviceaccount.com</span></p>
+          <p>GOOGLE_SHEETS_PRIVATE_KEY=<span className="text-ink-muted">-----BEGIN RSA PRIVATE KEY-----...</span></p>
+        </div>
+      </div>
     </div>
   );
 }
