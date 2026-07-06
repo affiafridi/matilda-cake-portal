@@ -1,10 +1,16 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { getPortalSettings } from "@/lib/portalSettings";
 import { LoginContent } from "./LoginContent";
 
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
+  // First-run guard: no users → send to setup wizard
+  const userCount = await prisma.user.count().catch(() => 0);
+  if (userCount === 0) redirect("/setup");
+
   const { app_name, logo_url } = await getPortalSettings();
   return (
     <Suspense fallback={

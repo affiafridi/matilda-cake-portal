@@ -1,5 +1,6 @@
 import "server-only";
 import { botQuery } from "@/lib/botdb";
+import { getIntegrations } from "@/lib/integrations";
 
 type SendPayload = {
   customers: string[];
@@ -81,8 +82,7 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
     urlSuffix, urlButtonIndex, couponCode, couponButtonIndex,
   } = payload;
 
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const token         = process.env.WHATSAPP_ACCESS_TOKEN;
+  const { wa_phone_number_id: phoneNumberId, wa_access_token: token } = await getIntegrations();
   if (!phoneNumberId || !token) return { error: "WhatsApp not configured" };
 
   // Upload image once

@@ -19,11 +19,14 @@ model User {
   isActive       Boolean              @default(true)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
-  ordersAssigned Order[]              @relation("OrderAssignedChef")
-  ordersCreated  Order[]              @relation("OrderCreatedBy")
-  statusChanges  OrderStatusHistory[] @relation("StatusChangedBy")
-  amountChanges  OrderAmountChange[]  @relation("OrderAmountChangedBy")
-  sessions       Session[]
+  ordersAssigned        Order[]              @relation("OrderAssignedOperator")
+  ordersCreated         Order[]              @relation("OrderCreatedBy")
+  statusChanges         OrderStatusHistory[] @relation("StatusChangedBy")
+  amountChanges         OrderAmountChange[]  @relation("OrderAmountChangedBy")
+  sessions              Session[]
+  assignedConversations Conversation[]       @relation("InboxAssignedTo")
+  sentMessages          Message[]            @relation("MessageSentBy")
+  internalNotes         InternalNote[]       @relation("NoteAuthor")
 
   @@index([role])
   @@index([isActive])
@@ -59,6 +62,7 @@ model Customer {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   orders         Order[]
+  conversations  Conversation[]
 }
 
 /// A single cake order. Snapshots customer/contact details at creation time
@@ -96,10 +100,10 @@ model Order {
   /// Snapshot of the resolved branch label (e.g. "Dubai - Al Qouz") at order time.
   branchName      String?
   createdById     String?
-  assignedChefId  String?
+  assignedOperatorId String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
-  assignedChef    User?                @relation("OrderAssignedChef", fields: [assignedChefId], references: [id])
+  assignedOperator User?               @relation("OrderAssignedOperator", fields: [assignedOperatorId], references: [id])
   createdBy       User?                @relation("OrderCreatedBy", fields: [createdById], references: [id])
   customer        Customer?            @relation(fields: [customerId], references: [id])
   branch          Branch?              @relation(fields: [branchId], references: [id])
@@ -111,7 +115,7 @@ model Order {
   @@index([orderStatus])
   @@index([deliveryDate])
   @@index([createdById])
-  @@index([assignedChefId])
+  @@index([assignedOperatorId])
   @@index([customerId])
   @@index([branchId])
 }
@@ -212,8 +216,8 @@ model Branch {
 enum UserRole {
   SUPER_ADMIN
   ADMIN
-  CHEF
-  COORDINATOR
+  AGENT
+  OPERATOR
 }
 
 enum CakeFlavor {
@@ -256,3 +260,140 @@ enum OrderSource {
   WALK_IN
   PHONE
 }
+
+/// One conversation per WhatsApp contact (keyed by wa_id phone number).
+/// Upserted whenever an inbound message arrives.
+model Conversation {
+  id              String             @id @default(cuid())
+  waId            String             @unique
+  customerName    String
+  customerId      String?
+  customer        Customer?          @relation(fields: [customerId], references: [id])
+  assignedToId    String?
+  assignedTo      User?              @relation("InboxAssignedTo", fields: [assignedToId], references: [id])
+  status          ConversationStatus @default(OPEN)
+  botPaused       Boolean            @default(false)
+  lastHumanReplyAt DateTime?
+  lastInboundAt   DateTime?
+  tags            String[]           @default([])
+  unreadCount     Int                @default(0)
+  lastMessageAt   DateTime           @default(now())
+  lastMessageBody String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  messages        Message[]
+  notes           InternalNote[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([lastMessageAt])
+  @@index([customerId])
+}
+
+/// Every inbound and outbound WhatsApp message in a conversation.
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  waMessageId    String?          @unique
+  direction      MessageDirection
+  messageStatus  String?
+  body           String?
+  mediaUrl       String?
+  mediaType      String?
+  sentById       String?
+  sentBy         User?            @relation("MessageSentBy", fields: [sentById], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+/// Agent-only notes attached to a conversation — never sent to the customer.
+model InternalNote {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  authorId       String?
+  author         User?        @relation("NoteAuthor", fields: [authorId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+}
+
+/// Saved canned responses. Agents type "/" to search and insert.
+model QuickReply {
+  id        String   @id @default(cuid())
+  shortcut  String   @unique
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+/// A named conversation flow triggered by keywords.
+model BotFlow {
+  id              Int           @id @default(autoincrement())
+  name            String
+  description     String?
+  triggerKeywords String        @default("") @map("trigger_keywords")
+  isActive        Boolean       @default(true) @map("is_active")
+  isFallback      Boolean       @default(false) @map("is_fallback")
+  sortOrder       Int           @default(0) @map("sort_order")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  steps           BotFlowStep[]
+
+  @@map("bot_flows")
+}
+
+/// One step in a flow — sends a message with interactive options.
+model BotFlowStep {
+  id        Int             @id @default(autoincrement())
+  flowId    Int             @map("flow_id")
+  flow      BotFlow         @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  stepKey   String          @map("step_key")
+  message   String
+  inputType String          @default("button") @map("input_type")
+  isEntry         Boolean         @default(false) @map("is_entry")
+  isFallback      Boolean         @default(false) @map("is_fallback")
+  showProductCard Boolean         @default(false) @map("show_product_card")
+  imageUrl        String?         @map("image_url")
+  sortOrder       Int             @default(0) @map("sort_order")
+  createdAt DateTime        @default(now()) @map("created_at")
+  options   BotFlowOption[]
+
+  @@unique([flowId, stepKey])
+  @@map("bot_flow_steps")
+}
+
+/// A button or list item within a flow step.
+model BotFlowOption {
+  id          Int         @id @default(autoincrement())
+  stepId      Int         @map("step_id")
+  step        BotFlowStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  label       String
+  value       String
+  description String?
+  nextStepKey String?     @map("next_step_key")
+  dataSource     String  @default("static") @map("data_source")
+  customApiUrl   String? @map("custom_api_url")
+  customApiPath  String? @map("custom_api_path")
+  customApiLabel String? @map("custom_api_label")
+  customApiValue String? @map("custom_api_value")
+  sortOrder      Int     @default(0) @map("sort_order")
+
+  @@map("bot_flow_options")
+}
+

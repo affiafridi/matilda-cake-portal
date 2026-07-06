@@ -65,7 +65,7 @@ type ItemRow = {
   productImage: string;
   /** Free-text size description shown when sizeLabel === "Custom". */
   customSize: string;
-  /** Coordinator-uploaded reference image URL (custom items). */
+  /** Agent-uploaded reference image URL (custom items). */
   referenceImageUrl: string;
   /** Original filename of the uploaded reference image. */
   referenceImageName: string;
@@ -189,9 +189,9 @@ export default function NewOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<SuccessResult | null>(null);
-  /** True once the coordinator types in the Total field; stops auto-sync. */
+  /** True once the agent types in the Total field; stops auto-sync. */
   const [totalTouched, setTotalTouched] = useState(false);
-  /** True once the coordinator manually picks a payment status chip. */
+  /** True once the agent manually picks a payment status chip. */
   const [paymentStatusTouched, setPaymentStatusTouched] = useState(false);
   /**
    * Number of item rows currently compressing or uploading an image.
@@ -227,7 +227,7 @@ export default function NewOrderPage() {
   }, []);
 
   // Auto-fill payment Total from items when at least one item is linked to
-  // a WooCommerce product, until the coordinator manually edits the field.
+  // a WooCommerce product, until the agent manually edits the field.
   useEffect(() => {
     if (totalTouched) return;
     const hasWooItem = form.items.some((r) => r.woocommerceProductId);
@@ -244,7 +244,7 @@ export default function NewOrderPage() {
     );
   }, [form.items, totalTouched]);
 
-  // Auto-derive paymentStatus from total + advance, until the coordinator
+  // Auto-derive paymentStatus from total + advance, until the agent
   // manually picks a chip. Total = 0 / empty leaves status alone so a
   // brand-new form keeps its UNPAID default.
   useEffect(() => {

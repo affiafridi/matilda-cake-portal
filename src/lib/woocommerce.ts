@@ -4,25 +4,9 @@ import type {
   WooVariation,
   WooVariationAttribute,
 } from "./woocommerce-types";
+import { getIntegrations } from "@/lib/integrations";
 
 export type { WooProductSummary, WooVariation, WooVariationAttribute };
-
-/**
- * Server-only WooCommerce REST client.
- *
- * Required env vars (configure outside source control):
- *   WOOCOMMERCE_URL              e.g. https://shop.example.com
- *   WOOCOMMERCE_CONSUMER_KEY     ck_...
- *   WOOCOMMERCE_CONSUMER_SECRET  cs_...
- *
- * Authentication uses HTTP Basic over HTTPS, which is the recommended
- * approach for the WooCommerce REST API. If the host strips the
- * Authorization header (some Apache configs), fall back to query auth.
- */
-
-const WOO_URL = process.env.WOOCOMMERCE_URL;
-const WOO_KEY = process.env.WOOCOMMERCE_CONSUMER_KEY;
-const WOO_SECRET = process.env.WOOCOMMERCE_CONSUMER_SECRET;
 
 class WooConfigError extends Error {
   constructor() {
@@ -40,17 +24,6 @@ class WooApiError extends Error {
   }
 }
 
-function assertConfigured() {
-  if (!WOO_URL || !WOO_KEY || !WOO_SECRET) {
-    throw new WooConfigError();
-  }
-}
-
-function authHeader(): string {
-  const token = Buffer.from(`${WOO_KEY}:${WOO_SECRET}`).toString("base64");
-  return `Basic ${token}`;
-}
-
 function decodeEntities(s: string): string {
   return s
     .replace(/&amp;/g, "&")
@@ -62,26 +35,15 @@ function decodeEntities(s: string): string {
 }
 
 async function wooFetch<T>(path: string): Promise<T> {
-  assertConfigured();
+  const { wc_url, wc_consumer_key, wc_consumer_secret } = await getIntegrations();
+  if (!wc_url || !wc_consumer_key || !wc_consumer_secret) throw new WooConfigError();
 
-  const wooUrl = WOO_URL;
-  const wooKey = WOO_KEY;
-  const wooSecret = WOO_SECRET;
-
-  if (!wooUrl || !wooKey || !wooSecret) {
-    throw new WooConfigError();
-  }
-
-  const base = wooUrl.replace(/\/$/, "");
-  const url = `${base}${path.startsWith("/") ? path : "/" + path}`;
-
-  const token = Buffer.from(`${wooKey}:${wooSecret}`).toString("base64");
+  const base  = wc_url.replace(/\/$/, "");
+  const url   = `${base}${path.startsWith("/") ? path : "/" + path}`;
+  const token = Buffer.from(`${wc_consumer_key}:${wc_consumer_secret}`).toString("base64");
 
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Basic ${token}`,
-      Accept: "application/json",
-    },
+    headers: { Authorization: `Basic ${token}`, Accept: "application/json" },
     cache: "no-store",
   });
 

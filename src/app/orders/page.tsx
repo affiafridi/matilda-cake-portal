@@ -8,7 +8,7 @@ import {
 } from "@/components/orders/status-badges";
 import OrdersFilters from "./orders-filters";
 
-// Ensure the page renders per-request so the coordinator scoping
+// Ensure the page renders per-request so the agent scoping
 // (where.createdById = actor.id) is applied every time, never from cache.
 export const dynamic = "force-dynamic";
 
@@ -65,11 +65,9 @@ export default async function OrdersPage({
     Number.parseInt(typeof sp.page === "string" ? sp.page : "1", 10) || 1,
   );
 
-  // Coordinators only see orders they created. Admins / chefs see everything.
-  // (Layout already guarantees the user is logged in.)
   const actor = await getCurrentUser();
   const where: Prisma.OrderWhereInput = {};
-  if (actor && actor.role === "COORDINATOR") {
+  if (actor && actor.role === "AGENT") {
     where.createdById = actor.id;
   }
   if (

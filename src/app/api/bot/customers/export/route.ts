@@ -53,7 +53,7 @@ export async function GET(_req: NextRequest) {
     return new Response(lines.join("\n"), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="matilda-customers-${new Date().toISOString().slice(0, 10)}.csv"`,
+        "Content-Disposition": `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     });
   } catch (err) {

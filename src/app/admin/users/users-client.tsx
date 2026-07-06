@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
-type UserRole = "SUPER_ADMIN" | "ADMIN" | "CHEF" | "COORDINATOR";
+type UserRole = "SUPER_ADMIN" | "ADMIN" | "AGENT" | "OPERATOR";
 
 type User = {
   id: string;
@@ -20,8 +20,8 @@ type Actor = { id: string; role: UserRole };
 const ROLE_LABEL: Record<UserRole, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
-  CHEF: "Chef",
-  COORDINATOR: "Coordinator",
+  AGENT: "Agent",
+  OPERATOR: "Operator",
 };
 
 const inputCls =
@@ -411,7 +411,7 @@ function DeleteUserDialog({
           This permanently removes <strong>{user.name}</strong>{" "}
           ({user.email}) from the system. Their sessions are revoked. Any
           past orders or status updates they touched are kept, but no
-          longer show their name as the creator / chef.
+          longer show their name as the creator / operator.
         </p>
         <p className="text-sm font-medium text-danger">
           This cannot be undone.
@@ -500,8 +500,8 @@ function CreateUserDialog({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<UserRole>(
-    assignableRoles.includes("COORDINATOR")
-      ? "COORDINATOR"
+    assignableRoles.includes("AGENT")
+      ? "AGENT"
       : assignableRoles[0],
   );
   const [password, setPassword] = useState("");

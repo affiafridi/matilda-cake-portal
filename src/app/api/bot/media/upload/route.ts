@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,9 +11,8 @@ const ALLOWED_MIME: Record<string, string> = {
 };
 const MAX_MB = 100;
 
-function creds() {
-  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const token   = process.env.WHATSAPP_ACCESS_TOKEN;
+async function creds() {
+  const { wa_phone_number_id: phoneId, wa_access_token: token } = await getIntegrations();
   if (!phoneId || !token) throw new Error("WhatsApp not configured");
   return { phoneId, token };
 }
@@ -80,7 +80,7 @@ async function getPreviewUrl(handle: string, token: string): Promise<string | nu
 
 export async function POST(req: NextRequest) {
   try {
-    const { token } = creds();
+    const { token } = await creds();
 
     const formData = await req.formData();
     const file = formData.get("file");

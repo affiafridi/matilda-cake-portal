@@ -5,7 +5,7 @@ import { getPortalSettings } from "@/lib/portalSettings";
 
 export default async function WaLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login?next=/wa/templates");
+  if (!user) redirect("/login");
 
   const settings = await getPortalSettings();
 

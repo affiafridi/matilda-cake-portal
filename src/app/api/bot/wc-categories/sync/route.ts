@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getCurrentUser } from "@/lib/auth/server";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,9 +12,7 @@ export async function POST(_req: NextRequest) {
     const user = await getCurrentUser();
     if (!user) return jsonError("Unauthorized", 401);
 
-    const botUrl = process.env.BOT_URL;
-    const secret = process.env.SYNC_SECRET;
-
+    const { bot_url: botUrl, sync_secret: secret } = await getIntegrations();
     if (!botUrl) return jsonError("BOT_URL not configured", 500);
     if (!secret) return jsonError("SYNC_SECRET not configured", 500);
 

@@ -1,13 +1,13 @@
 import type { NextRequest } from "next/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const businessId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
-    const token = process.env.WHATSAPP_ACCESS_TOKEN;
+    const { wa_business_account_id: businessId, wa_access_token: token } = await getIntegrations();
     if (!businessId || !token) return jsonError("WhatsApp not configured", 500);
 
     const all = req.nextUrl.searchParams.get("all") === "1";

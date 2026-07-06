@@ -4,16 +4,20 @@ import { prisma } from "@/lib/prisma";
 export type PortalSettings = {
   woo_visible_to_admin: boolean;
   ai_visible_to_admin:  boolean;
-  app_name:     string;
+  app_name:      string;
   primary_color: string;
+  accent_color:  string;
+  sidebar_color: string;
   logo_url:      string;
 };
 
 const DEFAULTS: PortalSettings = {
   woo_visible_to_admin: false,
   ai_visible_to_admin:  false,
-  app_name:     "Order Portal",
+  app_name:      "Order Portal",
   primary_color: "#6b2e1a",
+  accent_color:  "#c9a535",
+  sidebar_color: "#ffffff",
   logo_url:      "/uploads/logo.png",
 };
 
@@ -23,15 +27,17 @@ export async function getPortalSettings(): Promise<PortalSettings> {
       SELECT key, value FROM portal_settings
       WHERE key IN (
         'woo_visible_to_admin', 'ai_visible_to_admin',
-        'app_name', 'primary_color', 'logo_url'
+        'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url'
       )
     `;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return {
       woo_visible_to_admin: (map["woo_visible_to_admin"] ?? "false") === "true",
       ai_visible_to_admin:  (map["ai_visible_to_admin"]  ?? "false") === "true",
-      app_name:     map["app_name"]     ?? DEFAULTS.app_name,
+      app_name:      map["app_name"]      ?? DEFAULTS.app_name,
       primary_color: map["primary_color"] ?? DEFAULTS.primary_color,
+      accent_color:  map["accent_color"]  ?? DEFAULTS.accent_color,
+      sidebar_color: map["sidebar_color"] ?? DEFAULTS.sidebar_color,
       logo_url:      map["logo_url"]      ?? DEFAULTS.logo_url,
     };
   } catch {
@@ -59,25 +65,51 @@ export function hexToHslParts(hex: string): [number, number, number] | null {
   return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
 }
 
-/** Build a <style> block that overrides the brand CSS variables */
-export function buildBrandCss(hex: string): string {
-  const hsl = hexToHslParts(hex);
-  if (!hsl) return "";
+/** Returns brand CSS variables as a style object for the <html> element.
+ *  Inline styles on <html> have the highest specificity — always override @theme. */
+export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accentHex = "#c9a535"): Record<string, string> {
+  const hsl = hexToHslParts(primaryHex);
+  if (!hsl) return {};
   const [h, s, l] = hsl;
   const dk  = Math.max(0, l - 12);
   const ink = Math.max(0, l - 22);
   const mut = Math.min(90, l + 20);
   const crm = Math.min(97, l + 43);
   const car = Math.min(90, l + 16);
-  return [
-    `:root{`,
-    `--color-brand:${hex};`,
-    `--color-brand-dark:hsl(${h} ${s}% ${dk}%);`,
-    `--color-ink:hsl(${h} ${s}% ${ink}%);`,
-    `--color-ink-muted:hsl(${h} ${Math.max(0, s - 12)}% ${mut}%);`,
-    `--color-cream:hsl(${h} ${Math.max(0, s - 18)}% ${crm}%);`,
-    `--color-caramel:hsl(${h} ${Math.max(0, s - 8)}% ${car}%);`,
-    `--color-focus:hsl(${h} ${Math.max(0, s - 8)}% ${car}%);`,
-    `}`,
-  ].join("");
+
+  // Sidebar: auto-detect dark vs light to flip foreground colors
+  const sidebarHsl = hexToHslParts(sidebarHex);
+  const sidebarL   = sidebarHsl ? sidebarHsl[2] : 100;
+  const isDark     = sidebarL < 45;
+
+  const sidebarFg      = isDark ? "rgba(255,255,255,0.88)" : `hsl(${h} ${s}% ${ink}%)`;
+  const sidebarMuted   = isDark ? "rgba(255,255,255,0.45)" : `hsl(${h} ${Math.max(0, s - 12)}% ${mut}%)`;
+  // Use var(--color-brand) so sidebar active color auto-follows primary color live changes
+  const sidebarActiveBg  = isDark ? "rgba(255,255,255,0.13)" : "var(--color-brand)";
+  const sidebarActiveFg  = "#ffffff";
+  const sidebarHoverBg   = isDark ? "rgba(255,255,255,0.07)" : `hsl(${h} ${Math.max(0, s - 18)}% ${crm}%)`;
+  const sidebarBorder    = isDark ? "rgba(255,255,255,0.08)" : "#f0ebe4";
+  const sidebarIconBg    = isDark ? "rgba(255,255,255,0.10)" : `hsl(${h} ${Math.max(0, s - 18)}% ${crm}%)`;
+  const sidebarIconColor = isDark ? "rgba(255,255,255,0.75)" : "var(--color-brand)";
+
+  return {
+    "--color-brand":      primaryHex,
+    "--color-gold":       accentHex ?? "#c9a535",
+    "--color-brand-dark": `hsl(${h} ${s}% ${dk}%)`,
+    "--color-ink":        `hsl(${h} ${s}% ${ink}%)`,
+    "--color-ink-muted":  `hsl(${h} ${Math.max(0, s - 12)}% ${mut}%)`,
+    "--color-cream":      `hsl(${h} ${Math.max(0, s - 18)}% ${crm}%)`,
+    "--color-caramel":    `hsl(${h} ${Math.max(0, s - 8)}% ${car}%)`,
+    "--color-focus":      `hsl(${h} ${Math.max(0, s - 8)}% ${car}%)`,
+    // Sidebar tokens
+    "--sb-bg":         sidebarHex,
+    "--sb-fg":         sidebarFg,
+    "--sb-muted":      sidebarMuted,
+    "--sb-active-bg":  sidebarActiveBg,
+    "--sb-active-fg":  sidebarActiveFg,
+    "--sb-hover-bg":   sidebarHoverBg,
+    "--sb-border":     sidebarBorder,
+    "--sb-icon-bg":    sidebarIconBg,
+    "--sb-icon-color": sidebarIconColor,
+  };
 }

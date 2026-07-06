@@ -46,7 +46,7 @@ export default async function OrderDetailPage({
       branch: { include: { parent: true } },
       customer: true,
       createdBy: { select: { id: true, name: true, role: true } },
-      assignedChef: { select: { id: true, name: true, role: true } },
+      assignedOperator: { select: { id: true, name: true, role: true } },
       items: { orderBy: { createdAt: "asc" } },
       statusHistory: {
         orderBy: { createdAt: "desc" },
@@ -61,10 +61,9 @@ export default async function OrderDetailPage({
 
   if (!order) notFound();
 
-  // Coordinators can only open their own orders.
   if (
     actor &&
-    actor.role === "COORDINATOR" &&
+    actor.role === "AGENT" &&
     order.createdById !== actor.id
   ) {
     notFound();
@@ -476,8 +475,8 @@ export default async function OrderDetailPage({
                 value={order.createdBy?.name ?? "—"}
               />
               <Field
-                label="Assigned chef"
-                value={order.assignedChef?.name ?? "—"}
+                label="Assigned operator"
+                value={order.assignedOperator?.name ?? "—"}
               />
               <Field
                 label="Source"

@@ -128,7 +128,7 @@ export default async function DashboardPage({
   const branchParam = (typeof sp.branch === "string" ? sp.branch : "all");
 
   const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
-  const scopeFilter = user.role === "COORDINATOR" ? { createdById: user.id } : {};
+  const scopeFilter = user.role === "AGENT" ? { createdById: user.id } : {};
 
   const { start: rangeStart, end: rangeEnd, label: rangeLabel, chartDays } = getDateRange(rangeParam);
 
@@ -377,10 +377,10 @@ export default async function DashboardPage({
                     <p className="mt-1 text-xs text-white/50">Non-cancelled orders</p>
                   </div>
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                    <IcRevenue className="h-5 w-5 text-[#c9a535]" />
+                    <IcRevenue className="h-5 w-5 text-gold" />
                   </div>
                 </div>
-                <Link href="/orders" className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#c9a535] hover:text-white transition">
+                <Link href="/orders" className="mt-4 flex items-center gap-1 text-xs font-semibold text-gold hover:text-white transition">
                   View all orders
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </Link>
@@ -639,7 +639,7 @@ function StatCard({ label, value, icon, sub, color, href }: {
 }) {
   const colors = {
     brand:   { bg: "bg-brand/10", iconColor: "text-brand", num: "text-ink",  dot: "bg-brand" },
-    gold:    { bg: "bg-[#c9a535]/12", iconColor: "text-[#b8821a]",  num: "text-[#b8821a]",  dot: "bg-[#c9a535]" },
+    gold:    { bg: "bg-gold/10",       iconColor: "text-gold",        num: "text-gold",        dot: "bg-gold" },
     neutral: { bg: "bg-cream",    iconColor: "text-brand",  num: "text-ink",  dot: "bg-caramel" },
     danger:  { bg: "bg-[#c62828]/10", iconColor: "text-[#c62828]",  num: "text-[#c62828]",  dot: "bg-[#c62828]" },
   }[color];
@@ -670,7 +670,7 @@ function QuickLink({ href, icon, label, desc, accent }: {
   return (
     <Link href={href}
       className={["group flex items-center gap-3 rounded-xl border px-3.5 py-2.5 transition", accent ? "border-brand/30 bg-brand text-white hover:bg-brand-dark" : "border-rule bg-canvas text-ink hover:border-brand/30 hover:bg-cream/50"].join(" ")}>
-      <span className={["shrink-0", accent ? "text-[#c9a535]" : "text-caramel"].join(" ")}>{icon}</span>
+      <span className={["shrink-0", accent ? "text-gold" : "text-caramel"].join(" ")}>{icon}</span>
       <div className="min-w-0 flex-1">
         <p className={["text-xs font-semibold leading-none", accent ? "text-white" : "text-ink"].join(" ")}>{label}</p>
         <p className={["mt-0.5 truncate text-[10px] leading-none", accent ? "text-white/70" : "text-ink-muted"].join(" ")}>{desc}</p>

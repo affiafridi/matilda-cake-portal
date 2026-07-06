@@ -16,25 +16,16 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 // ---------- Branches ----------
+// Edit this list to match the client's locations.
+// Branches are upserted on slug — safe to re-run without duplicates.
 
-const branches = [
+type BranchDef = { name: string; slug: string; children: { name: string; slug: string }[] };
+
+const branches: BranchDef[] = [
   {
-    name: "Abu Dhabi",
-    slug: "abu-dhabi",
-    children: [{ name: "Khalifa City", slug: "khalifa-city" }],
-  },
-  {
-    name: "Sharjah",
-    slug: "sharjah",
-    children: [{ name: "Mohilla", slug: "mohilla" }],
-  },
-  {
-    name: "Dubai",
-    slug: "dubai",
-    children: [
-      { name: "Al Qouz", slug: "al-qouz" },
-      { name: "International City", slug: "international-city" },
-    ],
+    name: "Main Branch",
+    slug: "main",
+    children: [],
   },
 ];
 

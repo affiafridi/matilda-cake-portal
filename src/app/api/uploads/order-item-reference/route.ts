@@ -29,7 +29,7 @@ import { handleApiError, jsonError, jsonOk } from "@/lib/api/http";
  *   is read-only.
  *
  * TODO(refresh): v4 signed URLs cap at 7 days. For long-term reference
- * (e.g. an order opened by a chef weeks later), add a proxy route that
+ * (e.g. an order opened by an operator weeks later), add a proxy route that
  * re-signs on demand using the stored object path. Out of scope here.
  */
 

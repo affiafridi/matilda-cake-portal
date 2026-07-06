@@ -1,12 +1,90 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+/** Computes HSL parts from a hex color. Returns null for invalid input. */
+function hexToHslParts(hex: string): [number, number, number] | null {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return null;
+  const r = parseInt(m[1].slice(0, 2), 16) / 255;
+  const g = parseInt(m[1].slice(2, 4), 16) / 255;
+  const b = parseInt(m[1].slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r)      h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else                h = ((r - g) / d + 4) / 6;
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+/** Applies sidebar CSS vars to the document root immediately. */
+function applySidebarVarsLive(sidebarHex: string, primaryHex: string) {
+  const sidebarHsl = hexToHslParts(sidebarHex);
+  const sidebarL   = sidebarHsl ? sidebarHsl[2] : 100;
+  const isDark     = sidebarL < 45;
+  const root = document.documentElement;
+  root.style.setProperty("--sb-bg",         sidebarHex);
+  root.style.setProperty("--sb-fg",         isDark ? "rgba(255,255,255,0.88)" : "var(--color-ink)");
+  root.style.setProperty("--sb-muted",      isDark ? "rgba(255,255,255,0.45)" : "var(--color-ink-muted)");
+  root.style.setProperty("--sb-active-bg",  isDark ? "rgba(255,255,255,0.13)" : "var(--color-brand)");
+  root.style.setProperty("--sb-active-fg",  "#ffffff");
+  root.style.setProperty("--sb-hover-bg",   isDark ? "rgba(255,255,255,0.07)" : "var(--color-cream)");
+  root.style.setProperty("--sb-border",     isDark ? "rgba(255,255,255,0.08)" : "#f0ebe4");
+  root.style.setProperty("--sb-icon-bg",    isDark ? "rgba(255,255,255,0.10)" : "var(--color-cream)");
+  root.style.setProperty("--sb-icon-color", isDark ? "rgba(255,255,255,0.75)" : "var(--color-brand)");
+}
+
+/** Applies accent color immediately. */
+function applyAccentVarLive(hex: string) {
+  if (/^#[0-9a-f]{6}$/i.test(hex))
+    document.documentElement.style.setProperty("--color-gold", hex);
+}
+
+/** Applies brand CSS vars to the document root immediately — no page reload needed. */
+function applyBrandVarsLive(hex: string) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return;
+  const r = parseInt(m[1].slice(0, 2), 16) / 255;
+  const g = parseInt(m[1].slice(2, 4), 16) / 255;
+  const b = parseInt(m[1].slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r)      h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else                h = ((r - g) / d + 4) / 6;
+  }
+  const H = Math.round(h * 360), S = Math.round(s * 100), L = Math.round(l * 100);
+  const dk  = Math.max(0,  L - 12);
+  const ink = Math.max(0,  L - 22);
+  const mut = Math.min(90, L + 20);
+  const crm = Math.min(97, L + 43);
+  const car = Math.min(90, L + 16);
+  const root = document.documentElement;
+  root.style.setProperty("--color-brand",      hex);
+  root.style.setProperty("--color-brand-dark",  `hsl(${H} ${S}% ${dk}%)`);
+  root.style.setProperty("--color-ink",          `hsl(${H} ${S}% ${ink}%)`);
+  root.style.setProperty("--color-ink-muted",    `hsl(${H} ${Math.max(0, S - 12)}% ${mut}%)`);
+  root.style.setProperty("--color-cream",        `hsl(${H} ${Math.max(0, S - 18)}% ${crm}%)`);
+  root.style.setProperty("--color-caramel",      `hsl(${H} ${Math.max(0, S - 8)}% ${car}%)`);
+  root.style.setProperty("--color-focus",        `hsl(${H} ${Math.max(0, S - 8)}% ${car}%)`);
+}
 
 type Settings = {
   woo_visible_to_admin: boolean;
   ai_visible_to_admin:  boolean;
   app_name:      string;
   primary_color: string;
+  accent_color:  string;
+  sidebar_color: string;
   logo_url:      string;
 };
 
@@ -46,17 +124,28 @@ function Spinner() {
 }
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    woo_visible_to_admin: false,
-    ai_visible_to_admin:  false,
-    app_name:      "Order Portal",
-    primary_color: "#6b2e1a",
-    logo_url:      "/uploads/logo.png",
+  const [settings, setSettings] = useState<Settings>(() => {
+    // Seed from CSS vars already set by SSR on <html> — avoids color flash
+    const v = typeof document !== "undefined"
+      ? getComputedStyle(document.documentElement)
+      : null;
+    const get = (name: string, fallback: string) =>
+      v?.getPropertyValue(name).trim() || fallback;
+    return {
+      woo_visible_to_admin: false,
+      ai_visible_to_admin:  false,
+      app_name:      "Order Portal",
+      primary_color: get("--color-brand",   "#6b2e1a"),
+      accent_color:  get("--color-gold",    "#c9a535"),
+      sidebar_color: get("--sb-bg",         "#ffffff"),
+      logo_url:      "/uploads/logo.png",
+    };
   });
   const [loading,       setLoading]       = useState(true);
   const [saving,        setSaving]        = useState<string | null>(null);
   const [saved,         setSaved]         = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoRemoving,  setLogoRemoving]  = useState(false);
   const [logoError,     setLogoError]     = useState<string | null>(null);
   const [logoDragging,  setLogoDragging]  = useState(false);
 
@@ -70,7 +159,7 @@ export default function AdminSettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function save(key: string, value: boolean | string) {
+  const save = useCallback(async (key: string, value: boolean | string) => {
     setSaving(key);
     setSaved(null);
     try {
@@ -79,12 +168,22 @@ export default function AdminSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ key, value }),
       });
+      if (key === "primary_color" && typeof value === "string") {
+        applyBrandVarsLive(value);
+        applySidebarVarsLive(settings.sidebar_color, value);
+      }
+      if (key === "accent_color" && typeof value === "string") {
+        applyAccentVarLive(value);
+      }
+      if (key === "sidebar_color" && typeof value === "string") {
+        applySidebarVarsLive(value, settings.primary_color);
+      }
       setSaved(key);
       setTimeout(() => setSaved(null), 2000);
     } finally {
       setSaving(null);
     }
-  }
+  }, []);
 
   async function uploadLogo(file: File) {
     setLogoError(null);
@@ -105,6 +204,21 @@ export default function AdminSettingsPage() {
       setLogoError("Network error — try again.");
     } finally {
       setLogoUploading(false);
+    }
+  }
+
+  async function removeLogo() {
+    setLogoError(null);
+    setLogoRemoving(true);
+    try {
+      const res  = await fetch("/api/admin/logo", { method: "DELETE" });
+      const json = await res.json() as { ok: boolean; message?: string };
+      if (!res.ok || !json.ok) { setLogoError(json.message ?? "Remove failed"); return; }
+      setSettings((p) => ({ ...p, logo_url: "" }));
+    } catch {
+      setLogoError("Network error — try again.");
+    } finally {
+      setLogoRemoving(false);
     }
   }
 
@@ -178,14 +292,20 @@ export default function AdminSettingsPage() {
               <input
                 type="color"
                 value={settings.primary_color}
-                onChange={(e) => setSettings((p) => ({ ...p, primary_color: e.target.value }))}
+                onChange={(e) => {
+                  setSettings((p) => ({ ...p, primary_color: e.target.value }));
+                  applyBrandVarsLive(e.target.value);
+                }}
                 onBlur={(e) => save("primary_color", e.target.value)}
                 className="h-10 w-14 cursor-pointer rounded-lg border border-rule bg-canvas p-0.5"
               />
               <input
                 type="text"
                 value={settings.primary_color}
-                onChange={(e) => setSettings((p) => ({ ...p, primary_color: e.target.value }))}
+                onChange={(e) => {
+                  setSettings((p) => ({ ...p, primary_color: e.target.value }));
+                  if (/^#[0-9a-f]{6}$/i.test(e.target.value)) applyBrandVarsLive(e.target.value);
+                }}
                 onBlur={(e) => {
                   if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("primary_color", e.target.value);
                 }}
@@ -197,10 +317,111 @@ export default function AdminSettingsPage() {
             </div>
           </div>
 
+          {/* Accent color */}
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold text-ink">Accent Color</p>
+                <p className="text-xs text-ink-muted mt-0.5">Secondary highlights — stat cards, icons, links</p>
+              </div>
+              {saving === "accent_color" && <Spinner />}
+              {saved  === "accent_color" && <Tick />}
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={settings.accent_color}
+                onChange={(e) => {
+                  setSettings((p) => ({ ...p, accent_color: e.target.value }));
+                  applyAccentVarLive(e.target.value);
+                }}
+                onBlur={(e) => save("accent_color", e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded-lg border border-rule bg-canvas p-0.5"
+              />
+              <input
+                type="text"
+                value={settings.accent_color}
+                onChange={(e) => {
+                  setSettings((p) => ({ ...p, accent_color: e.target.value }));
+                  if (/^#[0-9a-f]{6}$/i.test(e.target.value)) applyAccentVarLive(e.target.value);
+                }}
+                onBlur={(e) => {
+                  if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("accent_color", e.target.value);
+                }}
+                suppressHydrationWarning
+                className="w-32 rounded-xl border border-rule bg-canvas px-3.5 py-2.5 font-mono text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
+                placeholder="#c9a535"
+              />
+              <div className="h-10 w-10 rounded-xl border border-rule" style={{ background: settings.accent_color }} />
+            </div>
+          </div>
+
+          {/* Sidebar color */}
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold text-ink">Sidebar Color</p>
+                <p className="text-xs text-ink-muted mt-0.5">White for classic look, dark for bold branding</p>
+              </div>
+              {saving === "sidebar_color" && <Spinner />}
+              {saved  === "sidebar_color" && <Tick />}
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={settings.sidebar_color}
+                onChange={(e) => {
+                  setSettings((p) => ({ ...p, sidebar_color: e.target.value }));
+                  applySidebarVarsLive(e.target.value, settings.primary_color);
+                }}
+                onBlur={(e) => save("sidebar_color", e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded-lg border border-rule bg-canvas p-0.5"
+              />
+              <input
+                type="text"
+                value={settings.sidebar_color}
+                onChange={(e) => {
+                  setSettings((p) => ({ ...p, sidebar_color: e.target.value }));
+                  if (/^#[0-9a-f]{6}$/i.test(e.target.value)) applySidebarVarsLive(e.target.value, settings.primary_color);
+                }}
+                onBlur={(e) => {
+                  if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("sidebar_color", e.target.value);
+                }}
+                suppressHydrationWarning
+                className="w-32 rounded-xl border border-rule bg-canvas px-3.5 py-2.5 font-mono text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
+                placeholder="#ffffff"
+              />
+              <div className="h-10 w-10 rounded-xl border border-rule" style={{ background: settings.sidebar_color }} />
+            </div>
+            {/* Quick presets */}
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs text-ink-muted">Presets:</span>
+              {[
+                { label: "White",    hex: "#ffffff" },
+                { label: "Charcoal", hex: "#1e1e2e" },
+                { label: "Navy",     hex: "#0f172a" },
+                { label: "Brand",    hex: settings.primary_color },
+              ].map((p) => (
+                <button
+                  key={p.hex}
+                  type="button"
+                  title={p.label}
+                  onClick={() => {
+                    setSettings((s) => ({ ...s, sidebar_color: p.hex }));
+                    applySidebarVarsLive(p.hex, settings.primary_color);
+                    save("sidebar_color", p.hex);
+                  }}
+                  className="h-6 w-6 rounded-lg border-2 border-rule transition hover:scale-110"
+                  style={{ background: p.hex }}
+                />
+              ))}
+            </div>
+          </div>
+
           {/* Logo upload */}
           <div className="px-5 py-4">
             <p className="text-sm font-semibold text-ink mb-0.5">Logo</p>
-            <p className="text-xs text-ink-muted mb-3">JPG, PNG, WebP or SVG — max 2 MB</p>
+            <p className="text-xs text-ink-muted mb-3">JPG, PNG, WebP or SVG — max 2 MB &middot; Recommended: 310 &times; 70 px</p>
 
             <div className="flex items-center gap-4">
               {/* Drop zone */}
@@ -234,14 +455,31 @@ export default function AdminSettingsPage() {
               </label>
 
               {/* Current logo preview */}
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-rule bg-white p-2">
-                {settings.logo_url ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={settings.logo_url}
-                    alt="Current logo"
-                    className="h-full w-full object-contain"
-                  />
+              <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-rule bg-white p-2">
+                {logoRemoving ? (
+                  <svg className="h-6 w-6 animate-spin text-ink-muted" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                ) : settings.logo_url ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={settings.logo_url}
+                      alt="Current logo"
+                      className="h-full w-full object-contain"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeLogo}
+                      title="Remove logo"
+                      className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow-sm hover:bg-red-700 transition-colors"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </>
                 ) : (
                   <span className="text-xs text-ink-muted text-center">No logo</span>
                 )}

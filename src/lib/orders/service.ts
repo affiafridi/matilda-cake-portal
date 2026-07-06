@@ -112,7 +112,7 @@ export async function createOrder(input: CreateOrderInput) {
           source: input.source,
           notes: input.notes,
           createdById: input.createdById,
-          assignedChefId: input.assignedChefId,
+          assignedOperatorId: input.assignedOperatorId,
           // orderStatus omitted → Prisma default RECEIVED
 
           // Structured line items — created atomically via nested write.
@@ -174,7 +174,7 @@ export function getOrderByTrackingCode(trackingCode: string) {
       createdBy: {
         select: { id: true, name: true, email: true, role: true },
       },
-      assignedChef: {
+      assignedOperator: {
         select: { id: true, name: true, email: true, role: true },
       },
       items: { orderBy: { createdAt: "asc" } },
@@ -255,9 +255,9 @@ export async function updateOrder(args: {
     });
     if (!existing) throw new OrderValidationError("Order not found.");
 
-    // Coordinators can only edit orders they created.
+    // Agents can only edit orders they created.
     if (
-      actor.role === "COORDINATOR" &&
+      actor.role === "AGENT" &&
       existing.createdById !== actor.id
     ) {
       throw new AuthError(403, "You can only edit your own orders.");
@@ -447,7 +447,7 @@ export async function updateOrder(args: {
         customer: true,
         branch: { include: { parent: true } },
         createdBy: { select: { id: true, name: true, role: true } },
-        assignedChef: { select: { id: true, name: true, role: true } },
+        assignedOperator: { select: { id: true, name: true, role: true } },
         items: { orderBy: { createdAt: "asc" } },
         statusHistory: {
           orderBy: { createdAt: "desc" },

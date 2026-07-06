@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { jsonError, handleApiError } from "@/lib/api/http";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
-    const token = process.env.WHATSAPP_ACCESS_TOKEN;
+    const { wa_access_token: token } = await getIntegrations();
     if (!token) return jsonError("WhatsApp not configured", 500);
 
     const handle = req.nextUrl.searchParams.get("handle");

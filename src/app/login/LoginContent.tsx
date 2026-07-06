@@ -6,8 +6,8 @@ import { useState, type FormEvent } from "react";
 const ROLE_HOME: Record<string, string> = {
   SUPER_ADMIN: "/admin",
   ADMIN:       "/admin",
-  COORDINATOR: "/new-order",
-  CHEF:        "/chef",
+  AGENT:    "/new-order",
+  OPERATOR: "/operator",
 };
 
 export function LoginContent({ appName, logoUrl }: { appName: string; logoUrl: string }) {

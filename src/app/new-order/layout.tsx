@@ -3,7 +3,7 @@ import AppShell from "@/components/app-shell/AppShell";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getPortalSettings } from "@/lib/portalSettings";
 
-const ALLOWED = new Set(["SUPER_ADMIN", "ADMIN", "COORDINATOR"]);
+const ALLOWED = new Set(["SUPER_ADMIN", "ADMIN", "AGENT"]);
 
 export default async function NewOrderLayout({
   children,

@@ -37,6 +37,6 @@ export async function requireRole(
 /** Convenience aliases. */
 export const ROLE_GROUPS = {
   ADMINS: ["SUPER_ADMIN", "ADMIN"] as const,
-  ADMINS_AND_COORDINATORS: ["SUPER_ADMIN", "ADMIN", "COORDINATOR"] as const,
-  ADMINS_AND_CHEFS: ["SUPER_ADMIN", "ADMIN", "CHEF"] as const,
+  ADMINS_AND_AGENTS:   ["SUPER_ADMIN", "ADMIN", "AGENT"]    as const,
+  ADMINS_AND_OPERATORS: ["SUPER_ADMIN", "ADMIN", "OPERATOR"] as const,
 };

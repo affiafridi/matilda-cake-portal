@@ -10,11 +10,11 @@ import type { User, UserRole } from "@prisma/client";
 /** Roles an actor is allowed to assign / promote a user to. */
 export function assignableRoles(actor: User): UserRole[] {
   if (actor.role === "SUPER_ADMIN") {
-    return ["SUPER_ADMIN", "ADMIN", "CHEF", "COORDINATOR"];
+    return ["SUPER_ADMIN", "ADMIN", "AGENT", "OPERATOR"];
   }
   if (actor.role === "ADMIN") {
     // ADMIN must NOT be able to promote anyone to SUPER_ADMIN.
-    return ["ADMIN", "CHEF", "COORDINATOR"];
+    return ["ADMIN", "AGENT", "OPERATOR"];
   }
   return [];
 }
@@ -51,6 +51,6 @@ export function canToggleActive(actor: User, target: User): boolean {
 /** Visibility filter that the user list API applies to its query. */
 export function listFilterRoles(actor: User): UserRole[] | null {
   if (actor.role === "SUPER_ADMIN") return null; // no filter — see all
-  if (actor.role === "ADMIN") return ["ADMIN", "CHEF", "COORDINATOR"];
+  if (actor.role === "ADMIN") return ["ADMIN", "AGENT", "OPERATOR"];
   return [];
 }

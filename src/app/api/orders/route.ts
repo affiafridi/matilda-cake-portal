@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const actor = await requireRole([
       "SUPER_ADMIN",
       "ADMIN",
-      "COORDINATOR",
+      "AGENT",
     ]);
     const body = await req.json();
     const input = createOrderSchema.parse(body);
@@ -35,10 +35,9 @@ export async function GET(req: NextRequest) {
     const params = Object.fromEntries(req.nextUrl.searchParams.entries());
     const filters = listOrdersQuerySchema.parse(params);
 
-    // Coordinators only see orders they personally created.
-    // Admins / super-admins / chefs see everything.
+    // Agents only see orders they personally created.
     const scopedFilters =
-      actor.role === "COORDINATOR"
+      actor.role === "AGENT"
         ? { ...filters, createdById: actor.id }
         : filters;
 

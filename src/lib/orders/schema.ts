@@ -182,7 +182,7 @@ export const createOrderSchema = z
     source: orderSourceSchema,
     notes: optionalString,
     createdById: z.string().cuid().nullish().transform((v) => v ?? null),
-    assignedChefId: z.string().cuid().nullish().transform((v) => v ?? null),
+    assignedOperatorId: z.string().cuid().nullish().transform((v) => v ?? null),
 
     branchId: z.string().min(1, "Branch is required").max(100),
 

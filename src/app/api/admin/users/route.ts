@@ -50,7 +50,7 @@ const createUserSchema = z.object({
     .max(50)
     .optional()
     .transform((v) => (v && v.length > 0 ? v : null)),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "CHEF", "COORDINATOR"]),
+  role: z.enum(["SUPER_ADMIN", "ADMIN", "AGENT", "OPERATOR"]),
   password: z.string().min(1),
   isActive: z.boolean().optional().default(true),
 });

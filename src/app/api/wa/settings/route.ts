@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/server";
 import { jsonOk, jsonError } from "@/lib/api/http";
 import { AuthError } from "@/lib/auth/server";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +17,13 @@ export async function GET() {
     const user = await requireUser();
     const isSuperAdmin = user.role === "SUPER_ADMIN";
 
+    const integ = await getIntegrations();
     return jsonOk({
       isSuperAdmin,
       credentials: [
-        { label: "Phone Number ID",       env: "WHATSAPP_PHONE_NUMBER_ID",       value: mask(process.env.WHATSAPP_PHONE_NUMBER_ID, 6) },
-        { label: "Business Account ID",   env: "WHATSAPP_BUSINESS_ACCOUNT_ID",   value: mask(process.env.WHATSAPP_BUSINESS_ACCOUNT_ID, 6) },
-        { label: "Access Token",          env: "WHATSAPP_ACCESS_TOKEN",           value: mask(process.env.WHATSAPP_ACCESS_TOKEN, 6) },
+        { label: "Phone Number ID",     value: mask(integ.wa_phone_number_id,     6) },
+        { label: "Business Account ID", value: mask(integ.wa_business_account_id, 6) },
+        { label: "Access Token",        value: mask(integ.wa_access_token,         6) },
       ],
     });
   } catch (e) {

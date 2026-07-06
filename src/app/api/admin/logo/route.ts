@@ -77,6 +77,41 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// ── DELETE — remove the logo ──────────────────────────────────────────────
+
+export async function DELETE() {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role !== "SUPER_ADMIN") return jsonError("Forbidden", 403);
+
+    const bucketName = process.env.GCS_ORDER_IMAGES_BUCKET;
+
+    if (bucketName) {
+      for (const ext of ["png", "jpg", "webp", "svg"]) {
+        try {
+          const gcsFile = getStorage().bucket(bucketName).file(`${GCS_OBJECT}.${ext}`);
+          const [exists] = await gcsFile.exists();
+          if (exists) await gcsFile.delete();
+        } catch { continue; }
+      }
+    } else {
+      for (const ext of ["png", "jpg", "webp", "svg"]) {
+        try { await fs.unlink(`${LOCAL_FILE}.${ext}`); } catch { continue; }
+      }
+    }
+
+    // Reset logo_url to default fallback
+    await prisma.$executeRaw`
+      INSERT INTO portal_settings (key, value) VALUES ('logo_url', '/uploads/logo.png')
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    `;
+
+    return jsonOk({ logo_url: "/uploads/logo.png" });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
 // ── GET — serve the logo (stable proxy URL) ───────────────────────────────
 
 export async function GET() {

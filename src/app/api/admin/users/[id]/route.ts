@@ -32,7 +32,7 @@ const patchSchema = z
       .nullish()
       .transform((v) => (v && v.length > 0 ? v : null)),
     role: z
-      .enum(["SUPER_ADMIN", "ADMIN", "CHEF", "COORDINATOR"])
+      .enum(["SUPER_ADMIN", "ADMIN", "AGENT", "OPERATOR"])
       .optional(),
     isActive: z.boolean().optional(),
   })
@@ -153,8 +153,8 @@ export async function DELETE(
         data: { createdById: null },
       }),
       prisma.order.updateMany({
-        where: { assignedChefId: id },
-        data: { assignedChefId: null },
+        where: { assignedOperatorId: id },
+        data: { assignedOperatorId: null },
       }),
       prisma.orderStatusHistory.updateMany({
         where: { changedById: id },

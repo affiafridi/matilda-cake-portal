@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
+import { getIntegrations } from "@/lib/integrations";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const { wa_phone_number_id: phoneNumberId, wa_access_token: token } = await getIntegrations();
 
   if (!phoneNumberId || !token) {
     return NextResponse.json({ ok: false }, { status: 500 });

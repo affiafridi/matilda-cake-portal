@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { botQuery } from "@/lib/botdb";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getCurrentUser } from "@/lib/auth/server";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,10 +24,7 @@ export async function GET(req: NextRequest) {
     let newCount = 0;
 
     if (refresh) {
-      const wcUrl = process.env.WOOCOMMERCE_URL;
-      const key   = process.env.WOOCOMMERCE_CONSUMER_KEY;
-      const sec   = process.env.WOOCOMMERCE_CONSUMER_SECRET;
-
+      const { wc_url: wcUrl, wc_consumer_key: key, wc_consumer_secret: sec } = await getIntegrations();
       if (!wcUrl || !key || !sec) return jsonError("WooCommerce not configured", 500);
 
       const base     = wcUrl.replace(/\/$/, "");

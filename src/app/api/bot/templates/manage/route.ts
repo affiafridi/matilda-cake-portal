@@ -1,13 +1,13 @@
 import type { NextRequest } from "next/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { z } from "zod";
+import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function creds() {
-  const businessId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+async function creds() {
+  const { wa_business_account_id: businessId, wa_access_token: token } = await getIntegrations();
   if (!businessId || !token) throw new Error("WhatsApp not configured");
   return { businessId, token };
 }
@@ -102,7 +102,7 @@ const createSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const { businessId, token } = creds();
+    const { businessId, token } = await creds();
     const body = await req.json().catch(() => ({}));
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid request", 400);
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
 // PATCH — edit an existing template (can update components and category, NOT name/language)
 export async function PATCH(req: NextRequest) {
   try {
-    const { token } = creds();
+    const { token } = await creds();
     const body = await req.json().catch(() => ({}));
 
     const patchSchema = createSchema.extend({
@@ -282,7 +282,7 @@ export async function PATCH(req: NextRequest) {
 // DELETE — delete a template by name (Meta only supports deletion by name, not by ID)
 export async function DELETE(req: NextRequest) {
   try {
-    const { businessId, token } = creds();
+    const { businessId, token } = await creds();
     const { name } = await req.json().catch(() => ({}));
     if (!name) return jsonError("name required", 400);
 
