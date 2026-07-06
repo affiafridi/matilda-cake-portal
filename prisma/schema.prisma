@@ -373,6 +373,8 @@ model BotFlowStep {
   sortOrder       Int             @default(0) @map("sort_order")
   positionX       Int             @default(80) @map("position_x")
   positionY       Int             @default(120) @map("position_y")
+  label           String?         @map("label")
+  captureVar      String?         @map("capture_var")
   createdAt DateTime        @default(now()) @map("created_at")
   options   BotFlowOption[]
 

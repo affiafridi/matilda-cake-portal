@@ -21,6 +21,7 @@ type StepInput = {
   inputType?: string; isEntry?: boolean; isFallback?: boolean; showProductCard?: boolean;
   imageUrl?: string | null; sortOrder?: number; options?: OptionInput[];
   positionX?: number; positionY?: number;
+  label?: string | null; captureVar?: string | null;
 };
 
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -95,6 +96,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
               sortOrder:       step.sortOrder ?? si,
               positionX:       step.positionX ?? 80,
               positionY:       step.positionY ?? 120,
+              label:           step.label ?? null,
+              captureVar:      step.captureVar ?? null,
             },
           });
         } else {
@@ -111,6 +114,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
               sortOrder:       step.sortOrder ?? si,
               positionX:       step.positionX ?? 80,
               positionY:       step.positionY ?? 120,
+              label:           step.label ?? null,
+              captureVar:      step.captureVar ?? null,
             },
           });
         }

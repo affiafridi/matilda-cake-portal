@@ -63,6 +63,7 @@ function normaliseFlow(d: any): Flow {
     ...d, description: d.description ?? "", triggerKeywords: d.triggerKeywords ?? "", isFallback: d.isFallback ?? false,
     steps: (d.steps ?? []).map((s: Step, i: number) => ({
       ...s, showProductCard: s.showProductCard ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false,
+      label: s.label ?? undefined, captureVar: s.captureVar ?? undefined,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       _x: s._x ?? (s as any).positionX ?? 80 + i * 320, _y: s._y ?? (s as any).positionY ?? 120,
       options: (s.options ?? []).map((o: Option) => ({
@@ -1319,6 +1320,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
         let bestDist = 30;
         f.steps.forEach((s) => {
           if (s.stepKey === lk.fromKey) return;
+          if (s.isFallback) return; // cannot connect to fallback
           const ix = s._x ?? 0;
           const iy = (s._y ?? 0) + inputDotY(s);
           const d = Math.hypot(c.x - ix, c.y - iy);
@@ -1374,7 +1376,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: flow.name, description: flow.description,
-        triggerKeywords: flow.triggerKeywords, isActive: flow.isActive, isFallback: flow.isFallback,
+        triggerKeywords: flow.triggerKeywords, isActive: flow.isActive,
         steps: flow.steps.map((s, si) => ({
           ...s, sortOrder: si, stepKey: s.stepKey || ("step_" + (si+1)), imageUrl: s.imageUrl || null,
           positionX: s._x ?? 80, positionY: s._y ?? 120,
