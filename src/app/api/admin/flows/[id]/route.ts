@@ -20,6 +20,7 @@ type StepInput = {
   id?: number; stepKey: string; message: string;
   inputType?: string; isEntry?: boolean; isFallback?: boolean; showProductCard?: boolean;
   imageUrl?: string | null; sortOrder?: number; options?: OptionInput[];
+  positionX?: number; positionY?: number;
 };
 
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -92,6 +93,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
               showProductCard: step.showProductCard ?? false,
               imageUrl:        step.imageUrl || null,
               sortOrder:       step.sortOrder ?? si,
+              positionX:       step.positionX ?? 80,
+              positionY:       step.positionY ?? 120,
             },
           });
         } else {
@@ -106,6 +109,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
               showProductCard: step.showProductCard ?? false,
               imageUrl:        step.imageUrl || null,
               sortOrder:       step.sortOrder ?? si,
+              positionX:       step.positionX ?? 80,
+              positionY:       step.positionY ?? 120,
             },
           });
         }

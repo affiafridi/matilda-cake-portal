@@ -63,7 +63,8 @@ function normaliseFlow(d: any): Flow {
     ...d, description: d.description ?? "", triggerKeywords: d.triggerKeywords ?? "", isFallback: d.isFallback ?? false,
     steps: (d.steps ?? []).map((s: Step, i: number) => ({
       ...s, showProductCard: s.showProductCard ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false,
-      _x: s._x ?? 80 + i * 320, _y: s._y ?? 120,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      _x: s._x ?? (s as any).positionX ?? 80 + i * 320, _y: s._y ?? (s as any).positionY ?? 120,
       options: (s.options ?? []).map((o: Option) => ({
         ...o, description: o.description ?? "", nextStepKey: o.nextStepKey ?? "",
         customApiUrl: o.customApiUrl ?? "", customApiPath: o.customApiPath ?? "",
@@ -74,7 +75,7 @@ function normaliseFlow(d: any): Flow {
 }
 function newOption(n = 0): Option { return { label: "", value: "", description: "", nextStepKey: "", dataSource: "static", sortOrder: n, customApiUrl: "", customApiPath: "", customApiLabel: "", customApiValue: "" }; }
 function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y }; }
-function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu" }], _x: 420, _y: 120 }; }
+function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu", nextStepKey: "step_1" }], _x: 80, _y: 340 }; }
 
 type IP = { size?: number; className?: string };
 function Svg({ children, s = 16, cls = "" }: { children: React.ReactNode; s?: number; cls?: string }) {
@@ -147,7 +148,7 @@ function Connections({ steps, sel, linkLine, onConnContextMenu, onDisconnect }: 
       return (
         <g key={connId}
           onMouseEnter={() => setHov(connId)} onMouseLeave={() => setHov(null)}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onConnContextMenu(e.clientX, e.clientY, step.stepKey, oi); }}>
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); if (!step.isFallback) onConnContextMenu(e.clientX, e.clientY, step.stepKey, oi); }}>
           {/* Wide invisible stroke for easy hover targeting */}
           <path d={d} fill="none" stroke="transparent" strokeWidth={16} style={{ pointerEvents: "stroke", cursor: "pointer" }} />
           {/* Visible line */}
@@ -156,13 +157,13 @@ function Connections({ steps, sel, linkLine, onConnContextMenu, onDisconnect }: 
             strokeDasharray={isHov ? "none" : active ? "none" : "7 4"}
             strokeLinecap="round" opacity={isHov ? 1 : active ? 1 : 0.65}
             style={{ pointerEvents: "none" }} />
-          {/* Endpoint dot — not for entry targets */}
-          {!tgt.isEntry && (
+          {/* Endpoint dot — not for entry or fallback targets */}
+          {!tgt.isEntry && !tgt.isFallback && (
             <circle cx={x2} cy={y2} r={isHov ? 5 : 4} fill={isHov ? "#ef4444" : "white"}
               stroke={color} strokeWidth={1.5} style={{ pointerEvents: "none" }} />
           )}
-          {/* Hover: clickable ✕ button at midpoint — click instantly disconnects */}
-          {isHov && (
+          {/* Hover: clickable ✕ button at midpoint — hidden for fallback card's own connections */}
+          {isHov && !step.isFallback && (
             <g onClick={(e) => { e.stopPropagation(); onDisconnect(step.stepKey, oi); setHov(null); }}
               style={{ cursor: "pointer" }}>
               <circle cx={mx} cy={my} r={11} fill="white" stroke="#ef4444" strokeWidth={1.5} />
@@ -374,9 +375,9 @@ function ApiFields({ opt, isSearch, onChange }: { opt: Option; isSearch: boolean
   );
 }
 
-function OptEditor({ opt, index, stepKeys, onChange, onDelete, isBtn }: {
+function OptEditor({ opt, index, stepKeys, onChange, onDelete, isBtn, isFallbackStep }: {
   opt: Option; index: number; stepKeys: string[];
-  onChange: (o: Option) => void; onDelete: () => void; isBtn: boolean;
+  onChange: (o: Option) => void; onDelete: () => void; isBtn: boolean; isFallbackStep?: boolean;
 }) {
   const dyn  = opt.dataSource !== "static";
   const nurl = NEEDS_URL.includes(opt.dataSource);
@@ -388,17 +389,19 @@ function OptEditor({ opt, index, stepKeys, onChange, onDelete, isBtn }: {
           onChange={(e) => onChange({ ...opt, label: e.target.value, value: opt.value || slugify(e.target.value) })}
           placeholder={dyn ? "Fallback label..." : "Option label..."}
           className="flex-1 text-sm text-gray-800 bg-transparent focus:outline-none min-w-0 placeholder:text-gray-300" />
-        <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-400 transition"><IcX /></button>
+        {!isFallbackStep && <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-400 transition"><IcX /></button>}
       </div>
       <div className="px-3 pb-3 border-t border-gray-200 pt-2.5 space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-[10px] font-semibold text-gray-400 mb-1">Data source</label>
-            <select value={opt.dataSource} onChange={(e) => onChange({ ...opt, dataSource: e.target.value })}
-              className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:outline-none">
-              {DS.map((s) => <option key={s.v} value={s.v}>{s.l}</option>)}
-            </select>
-          </div>
+        <div className={isFallbackStep ? "w-full" : "grid grid-cols-2 gap-2"}>
+          {!isFallbackStep && (
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 mb-1">Data source</label>
+              <select value={opt.dataSource} onChange={(e) => onChange({ ...opt, dataSource: e.target.value })}
+                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:outline-none">
+                {DS.map((s) => <option key={s.v} value={s.v}>{s.l}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-[10px] font-semibold text-gray-400 mb-1">Goes to</label>
             <select value={opt.nextStepKey} onChange={(e) => onChange({ ...opt, nextStepKey: e.target.value })}
@@ -422,11 +425,79 @@ function OptEditor({ opt, index, stepKeys, onChange, onDelete, isBtn }: {
   );
 }
 
+function ImageInput({ onUploaded }: { onUploaded: (url: string) => void }) {
+  const [tab, setTab]         = useState<"url" | "upload">("upload");
+  const [urlDraft, setUrlDraft] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/admin/flows/upload", { method: "POST", body: fd }).then((r) => r.json());
+      if (!res.ok) { setError(res.error ?? "Upload failed"); return; }
+      onUploaded(res.data.url);
+    } catch {
+      setError("Upload failed");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-200 overflow-hidden">
+      {/* Tabs */}
+      <div className="flex border-b border-gray-100">
+        {(["upload", "url"] as const).map((t) => (
+          <button key={t} type="button" onClick={() => { setTab(t); setError(null); }}
+            className={`flex-1 py-1.5 text-[11px] font-semibold transition ${tab === t ? "bg-white text-blue-600 border-b-2 border-blue-500" : "text-gray-400 hover:text-gray-600 bg-gray-50"}`}>
+            {t === "upload" ? "Upload file" : "Paste URL"}
+          </button>
+        ))}
+      </div>
+      {/* Content */}
+      <div className="p-2.5">
+        {tab === "upload" ? (
+          <>
+            <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile} />
+            <button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}
+              className="flex items-center gap-2 w-full rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-xs text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition cursor-pointer disabled:opacity-50">
+              <IcImg size={13} className="shrink-0" />
+              <span>{uploading ? "Uploading..." : "Click to choose image"}</span>
+              <span className="ml-auto text-[10px] text-gray-300">JPG PNG WebP · 5 MB</span>
+            </button>
+          </>
+        ) : (
+          <div className="flex gap-2">
+            <input value={urlDraft} onChange={(e) => setUrlDraft(e.target.value)}
+              placeholder="https://example.com/image.jpg"
+              className="flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-100 min-w-0" />
+            <button type="button" onClick={() => { if (urlDraft.trim()) { onUploaded(urlDraft.trim()); setUrlDraft(""); } }}
+              disabled={!urlDraft.trim()}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition disabled:opacity-40">
+              Use
+            </button>
+          </div>
+        )}
+        {error && <p className="text-[11px] text-red-400 mt-1.5">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+
 function EditPanel({ step, allSteps, onChange, onClose }: {
   step: Step; allSteps: Step[]; onChange: (s: Step) => void; onClose: () => void;
 }) {
   const cfg      = CFG[step.inputType];
-  const stepKeys = allSteps.map((s) => s.stepKey).filter(Boolean);
+  const stepKeys = allSteps.filter((s) => !s.isFallback && s.stepKey !== step.stepKey).map((s) => s.stepKey).filter(Boolean);
   const isMsg    = step.inputType === "message";
   const isSrch   = step.inputType === "search";
   const isInter  = !isMsg && !isSrch;
@@ -493,18 +564,20 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
           </div>
         </div>
         <div>
-          <label className={LBL}>Image URL <span className="normal-case font-normal text-gray-300 ml-1">optional</span></label>
-          <div className="flex gap-2 items-center">
-            <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 focus-within:ring-2 focus-within:ring-blue-100 bg-white">
-              <IcImg size={15} className="text-gray-400 shrink-0" />
-              <input value={step.imageUrl} onChange={(e) => onChange({ ...step, imageUrl: e.target.value })}
-                placeholder="https://..." className="flex-1 text-sm bg-transparent focus:outline-none text-gray-800 min-w-0 placeholder:text-gray-300" />
-            </div>
-            {step.imageUrl && (
-              <img src={step.imageUrl} alt="" className="h-9 w-9 rounded-lg object-cover border border-gray-200 shrink-0"
+          <label className={LBL}>Image <span className="normal-case font-normal text-gray-300 ml-1">optional</span></label>
+          {step.imageUrl ? (
+            <div className="flex items-center gap-2">
+              <img src={step.imageUrl} alt="" className="h-14 w-14 rounded-xl object-cover border border-gray-200 shrink-0"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-            )}
-          </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500 truncate">{step.imageUrl.split("/").pop()?.split("?")[0] ?? "image"}</p>
+                <button type="button" onClick={() => onChange({ ...step, imageUrl: "" })}
+                  className="mt-1 text-[11px] text-red-400 hover:text-red-600 transition">Remove</button>
+              </div>
+            </div>
+          ) : (
+            <ImageInput onUploaded={(url) => onChange({ ...step, imageUrl: url })} />
+          )}
         </div>
         <div>
           <div className="flex items-end justify-between mb-1">
@@ -616,6 +689,7 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
             <div className="space-y-3">
               {step.options.map((opt, i) => (
                 <OptEditor key={i} opt={opt} index={i} stepKeys={stepKeys} isBtn={isBtn}
+                  isFallbackStep={step.isFallback}
                   onChange={(o) => updOpt(i, o)} onDelete={() => delOpt(i)} />
               ))}
               {step.options.length === 0 && (
@@ -804,36 +878,44 @@ function CtxMenu({ x, y, step, onClose, onAddConnected, onCopy, onDelete, onDupl
       <div className="fixed inset-0 z-40" onMouseDown={onClose} />
       <div className="fixed z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 min-w-[175px]"
         style={{ left: x, top: y }}>
-        {/* Add connected step */}
-        <button type="button" onClick={() => setShowAdd((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition">
-          <span className="text-gray-400"><IcPlus size={13} /></span>
-          <span className="flex-1">Add connected step</span>
-          <span className="text-gray-300 text-xs">{showAdd ? "▲" : "▼"}</span>
-        </button>
-        {showAdd && (
-          <div className="mx-2 mb-1 bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
-            {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
-              <button key={t} type="button" onClick={() => { onAddConnected(t); onClose(); }}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-white transition text-left">
-                <span style={{ color: c.color }}><c.ic size={12} /></span> {c.label}
-              </button>
-            ))}
-          </div>
+        {step.isFallback ? (
+          /* Fallback card — only label allowed */
+          <CtxMenuItem icon={<svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>}
+            label={step.label ? "Edit label" : "Add label"} onClick={() => { onLabel(); onClose(); }} />
+        ) : (
+          <>
+            {/* Add connected step */}
+            <button type="button" onClick={() => setShowAdd((v) => !v)}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition">
+              <span className="text-gray-400"><IcPlus size={13} /></span>
+              <span className="flex-1">Add connected step</span>
+              <span className="text-gray-300 text-xs">{showAdd ? "▲" : "▼"}</span>
+            </button>
+            {showAdd && (
+              <div className="mx-2 mb-1 bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
+                {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
+                  <button key={t} type="button" onClick={() => { onAddConnected(t); onClose(); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-white transition text-left">
+                    <span style={{ color: c.color }}><c.ic size={12} /></span> {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <CtxMenuDivider />
+            <CtxMenuItem icon={<IcCopy size={13} />}   label="Copy"      sub="Ctrl+C" onClick={() => { onCopy(); onClose(); }} />
+            <CtxMenuItem icon={<IcDup size={13} />}    label="Duplicate"              onClick={() => { onDuplicate(); onClose(); }} />
+            <CtxMenuItem icon={<svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>}
+              label={step.label ? "Edit label" : "Add label"} onClick={() => { onLabel(); onClose(); }} />
+            <CtxMenuDivider />
+            <CtxMenuItem icon={<IcUnlink size={13} />} label="Unlink all connections" onClick={() => { onUnlink(); onClose(); }} />
+            {step.disabled
+              ? <CtxMenuItem icon={<IcBan size={13} />} label="Enable"  onClick={() => { onEnable(); onClose(); }} />
+              : <CtxMenuItem icon={<IcBan size={13} />} label="Disable" onClick={() => { onDisable(); onClose(); }} />
+            }
+            <CtxMenuDivider />
+            <CtxMenuItem icon={<IcDel size={13} />} label="Delete" onClick={() => { onDelete(); onClose(); }} danger />
+          </>
         )}
-        <CtxMenuDivider />
-        <CtxMenuItem icon={<IcCopy size={13} />}   label="Copy"      sub="Ctrl+C" onClick={() => { onCopy(); onClose(); }} />
-        <CtxMenuItem icon={<IcDup size={13} />}    label="Duplicate"              onClick={() => { onDuplicate(); onClose(); }} />
-        <CtxMenuItem icon={<svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>}
-          label={step.label ? "Edit label" : "Add label"} onClick={() => { onLabel(); onClose(); }} />
-        <CtxMenuDivider />
-        <CtxMenuItem icon={<IcUnlink size={13} />} label="Unlink all connections"  onClick={() => { onUnlink(); onClose(); }} />
-        {step.disabled
-          ? <CtxMenuItem icon={<IcBan size={13} />} label="Enable"  onClick={() => { onEnable(); onClose(); }} />
-          : <CtxMenuItem icon={<IcBan size={13} />} label="Disable" onClick={() => { onDisable(); onClose(); }} />
-        }
-        {!step.isFallback && <CtxMenuDivider />}
-        {!step.isFallback && <CtxMenuItem icon={<IcDel size={13} />} label="Delete" onClick={() => { onDelete(); onClose(); }} danger />}
       </div>
     </>
   );
@@ -858,6 +940,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   const [loading,     setLoading]     = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(true);
+  const [justSaved,   setJustSaved]   = useState(false);
   const [selKeys,     setSelKeys]     = useState<string[]>([]);
   const [linkLine,    setLinkLine]    = useState<LinkLine | null>(null);
   const [selRectDraw, setSelRectDraw] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -877,6 +960,8 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   const draftKey = `flow_draft_${id}`;
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedRef = useRef(true);
+  const justSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveRef = useRef<() => void>(() => {});
 
   // Derived single-select key — drives the edit panel
   const selKey  = selKeys.length === 1 ? selKeys[0] : null;
@@ -967,7 +1052,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
 
   function addStep(type: ST = "button", x?: number, y?: number, fromKey?: string) {
     if (!flow) return;
-    const n = flow.steps.length;
+    const n = flow.steps.filter((s) => !s.isFallback).length;
     const s = newStep(n, x ?? (n === 0 ? 80 : 80 + Math.round(Math.random() * 220)), y ?? (n === 0 ? 120 : 100 + Math.round(Math.random() * 280)));
     s._uid = ++uidRef.current;
     s.inputType = type;
@@ -1003,7 +1088,8 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   function delStep(key: string) {
     if (!flow) return;
     if (flow.steps.find((s) => s.stepKey === key)?.isFallback) return;
-    const remaining = flow.steps.filter((s) => s.stepKey !== key);
+    const deletingEntry = flow.steps.find((s) => s.stepKey === key)?.isEntry;
+    const remaining = flow.steps.filter((s) => s.stepKey !== key && !(deletingEntry && s.isFallback));
     // Build rename map for sequential step_N keys
     const renameMap: Record<string, string> = {};
     let counter = 1;
@@ -1271,9 +1357,10 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
       if ((e.key === "y" || (e.key === "z" && e.shiftKey)) && !inInput) { e.preventDefault(); redo(); }
       if (e.key === "c" && !inInput && selKeyRef.current) { e.preventDefault(); copyStep(selKeyRef.current); }
       if (e.key === "v" && !inInput) { e.preventDefault(); pasteStep(); }
+      if (e.key === "s") { e.preventDefault(); saveRef.current(); }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1290,6 +1377,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
         triggerKeywords: flow.triggerKeywords, isActive: flow.isActive, isFallback: flow.isFallback,
         steps: flow.steps.map((s, si) => ({
           ...s, sortOrder: si, stepKey: s.stepKey || ("step_" + (si+1)), imageUrl: s.imageUrl || null,
+          positionX: s._x ?? 80, positionY: s._y ?? 120,
           options: s.options.map((o, oi) => ({
             ...o, sortOrder: oi, value: o.value || slugify(o.label) || ("opt_" + (oi+1)),
             customApiUrl: o.customApiUrl || null, customApiPath: o.customApiPath || null,
@@ -1298,9 +1386,32 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
         })),
       }),
     }).then((r) => r.json());
-    if (res.ok) { setFlow(normaliseFlow(res.data)); setSaved(true); setAutoSavedAt(null); try { localStorage.removeItem(draftKey); } catch { /**/ } }
+    if (res.ok) {
+      // Merge server-assigned IDs back into current flow — preserve canvas positions
+      setFlow((cur) => {
+        if (!cur) return normaliseFlow(res.data);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const byKey: Record<string, any> = {};
+        for (const ss of (res.data.steps ?? [])) byKey[ss.stepKey] = ss;
+        return {
+          ...cur,
+          steps: cur.steps.map((s) => {
+            const ss = byKey[s.stepKey];
+            if (!ss) return s;
+            return { ...s, id: ss.id, options: s.options.map((o, oi) => ({ ...o, id: ss.options?.[oi]?.id ?? o.id })) };
+          }),
+        };
+      });
+      setSaved(true);
+      if (justSavedTimer.current) clearTimeout(justSavedTimer.current);
+      setJustSaved(true);
+      justSavedTimer.current = setTimeout(() => setJustSaved(false), 2000);
+      setAutoSavedAt(null);
+      try { localStorage.removeItem(draftKey); } catch { /**/ }
+    }
     setSaving(false);
   }
+  saveRef.current = save;
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-full gap-3">
@@ -1384,9 +1495,9 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
           <div className="w-px h-5 bg-gray-200 mx-0.5" />
           <button type="button" onClick={save} disabled={saving}
             title={autoSavedAt && !saved ? `Draft auto-saved at ${autoSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : undefined}
-            className={`relative flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm font-semibold text-white transition disabled:opacity-60 ${saved ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}`}>
-            {!saved && !saving && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white animate-pulse" />}
-            <IcSave size={15} /> {saving ? "Saving..." : saved ? "Saved ✓" : "Save"}
+            className={`relative flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm font-semibold text-white transition disabled:opacity-60 ${justSaved ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"}`}>
+            {!saved && !saving && !justSaved && flow.steps.length > 0 && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white animate-pulse" />}
+            <IcSave size={15} /> {saving ? "Saving..." : justSaved ? "Saved ✓" : "Save"}
           </button>
         </div>
       </div>
@@ -1450,16 +1561,6 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                     {flow.isFallback && <span className="text-xs text-gray-400 italic self-center">Not needed — this is the fallback flow</span>}
                   </div>
                 </div>
-                {/* Fallback info */}
-                {flow.steps.some((s) => s.isFallback) && (
-                  <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
-                    <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth={2} strokeLinecap="round" className="mt-0.5 shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    <div>
-                      <p className="text-sm font-semibold text-amber-700">Fallback card is set</p>
-                      <p className="text-[12px] text-amber-600 mt-0.5">The card marked <strong>Fallback</strong> will show when no keyword matches. Right-click any card to change it.</p>
-                    </div>
-                  </div>
-                )}
               </div>
               {/* Footer */}
               <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
@@ -1489,13 +1590,13 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
           </div>
 
           {flow.steps.length === 0 && (
-            <div data-nd="1" className="absolute inset-0 flex items-center justify-center">
+            <div data-nd="1" className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 20 }}>
               <div className="bg-white rounded-2xl shadow border border-gray-200 p-8 text-center max-w-xs">
                 <IcMsg size={36} className="mx-auto text-gray-300 mb-3" />
                 <p className="font-bold text-gray-700 mb-1">No steps yet</p>
                 <p className="text-sm text-gray-400 mb-4">Add your first step to start building the flow</p>
                 <button type="button" onClick={() => addStep()}
-                  className="flex items-center gap-2 mx-auto rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
+                  className="flex items-center gap-2 mx-auto rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition cursor-pointer">
                   <IcPlus size={15} /> Add first step
                 </button>
               </div>

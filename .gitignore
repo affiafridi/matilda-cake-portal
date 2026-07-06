@@ -43,6 +43,12 @@ yarn-error.log*
 # Brand assets that live alongside (logo.png, favicon.webp, etc.) are kept;
 # only the order-items subfolder is ignored.
 /public/uploads/order-items/
+/public/uploads/flow-images/
+/public/uploads/media/
+
+# Local dev tools
+cloud-sql-proxy.exe
+commands.txt
 
 # typescript
 *.tsbuildinfo

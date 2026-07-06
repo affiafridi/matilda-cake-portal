@@ -65,11 +65,29 @@ export default function FlowsPage() {
 
   async function toggleActive(flow: Flow, e: React.MouseEvent) {
     e.stopPropagation();
+    const newActive = !flow.isActive;
+
+    // Only one flow can be active at a time — deactivate all others when enabling
+    if (newActive) {
+      const othersToDeactivate = flows.filter((f) => f.id !== flow.id && f.isActive);
+      await Promise.all(othersToDeactivate.map((f) =>
+        fetch(`/api/admin/flows/${f.id}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: false }),
+        })
+      ));
+    }
+
     await fetch(`/api/admin/flows/${flow.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !flow.isActive }),
+      body: JSON.stringify({ isActive: newActive }),
     });
-    setFlows((p) => p.map((f) => f.id === flow.id ? { ...f, isActive: !f.isActive } : f));
+
+    setFlows((p) => p.map((f) => {
+      if (f.id === flow.id) return { ...f, isActive: newActive };
+      if (newActive) return { ...f, isActive: false }; // deactivate all others
+      return f;
+    }));
   }
 
   async function deleteFlow(id: number, e: React.MouseEvent) {
@@ -93,7 +111,7 @@ export default function FlowsPage() {
   const inactiveFlows = flows.filter((f) => !f.isActive);
 
   return (
-    <div className="px-6 py-6 lg:px-8 max-w-5xl">
+    <div className="px-6 py-6 lg:px-8 w-full">
 
       {/* Header */}
       <div className="flex items-start justify-between mb-8">
@@ -148,7 +166,13 @@ export default function FlowsPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-ink-muted text-sm">Loading flows…</div>
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <svg className="animate-spin text-brand" width={28} height={28} viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+          </svg>
+          <p className="text-xs text-ink-muted">Loading flows…</p>
+        </div>
       ) : flows.length === 0 ? (
         /* Empty state */
         <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -173,7 +197,7 @@ export default function FlowsPage() {
               <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-widest mb-3">
                 Active — {activeFlows.length} flow{activeFlows.length !== 1 ? "s" : ""}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {activeFlows.map((flow) => (
                   <FlowCard key={flow.id} flow={flow}
                     onToggle={(e) => toggleActive(flow, e)}
@@ -191,7 +215,7 @@ export default function FlowsPage() {
               <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-widest mb-3">
                 Inactive — {inactiveFlows.length} flow{inactiveFlows.length !== 1 ? "s" : ""}
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {inactiveFlows.map((flow) => (
                   <FlowCard key={flow.id} flow={flow}
                     onToggle={(e) => toggleActive(flow, e)}

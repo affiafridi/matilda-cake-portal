@@ -371,6 +371,8 @@ model BotFlowStep {
   showProductCard Boolean         @default(false) @map("show_product_card")
   imageUrl        String?         @map("image_url")
   sortOrder       Int             @default(0) @map("sort_order")
+  positionX       Int             @default(80) @map("position_x")
+  positionY       Int             @default(120) @map("position_y")
   createdAt DateTime        @default(now()) @map("created_at")
   options   BotFlowOption[]
 
