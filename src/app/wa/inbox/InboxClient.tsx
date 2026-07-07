@@ -12,6 +12,7 @@ type ConvSummary = {
   customerName:    string;
   status:          ConvStatus;
   botPaused:       boolean;
+  agentRequested:  boolean;
   tags:            string[];
   lastInboundAt:   string | null;
   unreadCount:     number;
@@ -221,6 +222,7 @@ export default function InboxClient({
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
   const [statusFilter,  setStatusFilter]  = useState<"ALL" | "OPEN" | "PENDING" | "RESOLVED" | "PAUSED">("OPEN");
   const [assignFilter,  setAssignFilter]  = useState<"all" | "me" | "unassigned">("all");
+  const [showBotChats,  setShowBotChats]  = useState(false);
   const [search,        setSearch]        = useState("");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
   const [messages,      setMessages]      = useState<Message[]>([]);
@@ -278,6 +280,7 @@ export default function InboxClient({
       try {
         const qs = new URLSearchParams({ status: "ALL" });
         if (assignFilter !== "all") qs.set("assignedTo", assignFilter);
+        if (showBotChats) qs.set("botPaused", "all");
         const res  = await fetch(`/api/inbox/conversations?${qs}`);
         const json = await res.json().catch(() => null) as { ok: boolean; data: ConvSummary[] } | null;
         if (!json?.ok) return;
@@ -301,7 +304,7 @@ export default function InboxClient({
     const t = setInterval(fetchConvs, 4000);
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignFilter]);
+  }, [assignFilter, showBotChats]);
 
   // ── Load messages + notes ─────────────────────────────────────────────────
   useEffect(() => {
@@ -463,7 +466,7 @@ export default function InboxClient({
     } finally { setSavingNote(false); }
   }
 
-  async function patchConv(patch: { status?: ConvStatus; assignedToId?: string | null; botPaused?: boolean; tags?: string[] }) {
+  async function patchConv(patch: { status?: ConvStatus; assignedToId?: string | null; botPaused?: boolean; agentRequested?: boolean; tags?: string[] }) {
     if (!selectedId) return;
     await fetch(`/api/inbox/conversations/${selectedId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -566,6 +569,19 @@ export default function InboxClient({
           </div>
         </div>
 
+        {/* Bot chats toggle */}
+        <div className="flex items-center justify-between px-4 pb-2">
+          <span className="text-xs text-gray-400">Show bot-only chats</span>
+          <button type="button" onClick={() => setShowBotChats((p) => !p)}
+            className={["relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
+              showBotChats ? "bg-[#25D366]" : "bg-gray-200",
+            ].join(" ")}>
+            <span className={["inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200",
+              showBotChats ? "translate-x-4" : "translate-x-0",
+            ].join(" ")} />
+          </button>
+        </div>
+
         {/* Assign filter */}
         <div className="flex gap-1 px-4 pb-3">
           {([["all","All"],["me","Mine"],["unassigned","Unassigned"]] as const).map(([v, l]) => (
@@ -641,13 +657,19 @@ export default function InboxClient({
                   <p className={["mt-0.5 truncate text-xs", c.unreadCount > 0 ? "text-gray-600" : "text-gray-400"].join(" ")}>
                     {c.lastMessageBody ?? "Attachment"}
                   </p>
-                  {(c.tags.length > 0 || c.botPaused) && (
+                  {(c.tags.length > 0 || c.botPaused || c.agentRequested) && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       {c.tags.slice(0, 2).map((tag) => (
                         <span key={tag} className="rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500">
                           {tag}
                         </span>
                       ))}
+                      {c.agentRequested && !c.botPaused && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                          Wants Agent
+                        </span>
+                      )}
                       {c.botPaused && (
                         <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
@@ -687,6 +709,12 @@ export default function InboxClient({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="truncate font-semibold text-gray-900">{selected?.customerName ?? "—"}</p>
+                      {selected?.agentRequested && !selected?.botPaused && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                          Wants Agent
+                        </span>
+                      )}
                       {selected?.botPaused && (
                         <span className="flex shrink-0 items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
@@ -728,7 +756,7 @@ export default function InboxClient({
                   </div>
 
                   {/* Bot toggle */}
-                  <button onClick={() => patchConv({ botPaused: !selected?.botPaused })}
+                  <button onClick={() => patchConv({ botPaused: !selected?.botPaused, ...(!selected?.botPaused ? { agentRequested: false } : {}) })}
                     className={["flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition",
                       selected?.botPaused
                         ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"

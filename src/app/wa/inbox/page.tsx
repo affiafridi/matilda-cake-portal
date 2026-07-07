@@ -10,12 +10,12 @@ export default async function InboxPage() {
 
   const [conversations, agents, templateRow] = await Promise.all([
     prisma.conversation.findMany({
-      where:   { status: "OPEN" },
+      where:   { status: "OPEN", OR: [{ botPaused: true }, { agentRequested: true }] },
       orderBy: { lastMessageAt: "desc" },
       take: 100,
       select: {
         id: true, waId: true, customerName: true, status: true,
-        botPaused: true, tags: true, lastInboundAt: true,
+        botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
         unreadCount: true, lastMessageAt: true, lastMessageBody: true,
         assignedTo: { select: { id: true, name: true } },
       },

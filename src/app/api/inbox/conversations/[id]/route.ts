@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         where: { id },
         select: {
           id: true, waId: true, customerName: true, status: true,
-          botPaused: true, tags: true, lastInboundAt: true,
+          botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
           unreadCount: true, lastMessageAt: true,
           assignedTo: { select: { id: true, name: true } },
           customer:   { select: { id: true, name: true, phone: true, email: true } },
@@ -65,13 +65,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (!VALID_STATUSES.has(body.status)) return jsonError("Invalid status", 400);
       data.status = body.status;
       // Resolving a conversation resumes the bot for next contact
-      if (body.status === "RESOLVED") data.botPaused = false;
+      if (body.status === "RESOLVED") { data.botPaused = false; data.agentRequested = false; }
     }
     if ("assignedToId" in body) {
       data.assignedToId = body.assignedToId ?? null;
     }
     if (typeof body.botPaused === "boolean") {
       data.botPaused = body.botPaused;
+    }
+    if (typeof body.agentRequested === "boolean") {
+      data.agentRequested = body.agentRequested;
     }
     if (Array.isArray(body.tags)) {
       data.tags = body.tags.filter((t: unknown) => typeof t === "string");

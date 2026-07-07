@@ -79,13 +79,20 @@ function applyBrandVarsLive(hex: string) {
 }
 
 type Settings = {
-  woo_visible_to_admin: boolean;
-  ai_visible_to_admin:  boolean;
+  woo_visible_to_admin:    boolean;
+  ai_visible_to_admin:     boolean;
+  wa_visible_to_admin:     boolean;
+  portal_visible_to_admin: boolean;
   app_name:      string;
   primary_color: string;
   accent_color:  string;
   sidebar_color: string;
   logo_url:      string;
+  contact_phone:         string;
+  contact_email:         string;
+  contact_website:       string;
+  contact_welcome_image: string;
+  contact_team_numbers:  string;
 };
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
@@ -132,13 +139,20 @@ export default function AdminSettingsPage() {
     const get = (name: string, fallback: string) =>
       v?.getPropertyValue(name).trim() || fallback;
     return {
-      woo_visible_to_admin: false,
-      ai_visible_to_admin:  false,
+      woo_visible_to_admin:    false,
+      ai_visible_to_admin:     false,
+      wa_visible_to_admin:     true,
+      portal_visible_to_admin: true,
       app_name:      "Order Portal",
       primary_color: get("--color-brand",   "#6b2e1a"),
       accent_color:  get("--color-gold",    "#c9a535"),
       sidebar_color: get("--sb-bg",         "#ffffff"),
       logo_url:      "/uploads/logo.png",
+      contact_phone:         "",
+      contact_email:         "",
+      contact_website:       "",
+      contact_welcome_image: "",
+      contact_team_numbers:  "",
     };
   });
   const [loading,       setLoading]       = useState(true);
@@ -235,15 +249,17 @@ export default function AdminSettingsPage() {
     if (file) uploadLogo(file);
   }
 
-  function toggle(key: "woo_visible_to_admin" | "ai_visible_to_admin") {
+  function toggle(key: "woo_visible_to_admin" | "ai_visible_to_admin" | "wa_visible_to_admin" | "portal_visible_to_admin") {
     const newValue = !settings[key];
     setSettings((prev) => ({ ...prev, [key]: newValue }));
     save(key, newValue);
   }
 
   const toggleRows = [
-    { key: "woo_visible_to_admin" as const, label: "WooCommerce Section", description: "Allow Admin role to see and manage Woo Categories" },
-    { key: "ai_visible_to_admin"  as const, label: "AI Bot Section",       description: "Allow Admin role to see AI Instructions and Keyword Manager" },
+    { key: "wa_visible_to_admin"     as const, label: "WhatsApp Section", description: "Allow Admin role to see Team Inbox, Customers, Campaigns and WA settings" },
+    { key: "portal_visible_to_admin" as const, label: "Portal Section",   description: "Allow Admin role to see Orders, Branches, Users and New Order" },
+    { key: "woo_visible_to_admin"    as const, label: "WooCommerce Section", description: "Allow Admin role to see and manage Woo Categories" },
+    { key: "ai_visible_to_admin"     as const, label: "AI Bot Section",       description: "Allow Admin role to see AI Instructions and Keyword Manager" },
   ];
 
   return (
@@ -489,6 +505,64 @@ export default function AdminSettingsPage() {
             {logoError && (
               <p className="mt-2 text-xs text-danger">{logoError}</p>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Company Profile ── */}
+      <div>
+        <div className="mb-4">
+          <h2 className="text-base font-bold text-ink">Company Profile</h2>
+          <p className="mt-0.5 text-sm text-ink-muted">Used as placeholders in WhatsApp flows — <code className="text-xs bg-canvas px-1 py-0.5 rounded">{"{contact_phone}"}</code>, <code className="text-xs bg-canvas px-1 py-0.5 rounded">{"{contact_email}"}</code>, etc.</p>
+        </div>
+
+        <div className="rounded-2xl border border-rule bg-white divide-y divide-rule">
+          {(
+            [
+              { key: "contact_phone"         as const, label: "Phone Number",   placeholder: "+966 50 000 0000", type: "text" },
+              { key: "contact_email"         as const, label: "Email",          placeholder: "hello@company.com", type: "email" },
+              { key: "contact_website"       as const, label: "Website",        placeholder: "https://company.com", type: "url" },
+              { key: "contact_welcome_image" as const, label: "Welcome Image URL", placeholder: "https://…/welcome.jpg", type: "url" },
+            ] as { key: keyof Settings & string; label: string; placeholder: string; type: string }[]
+          ).map(({ key, label, placeholder, type }) => (
+            <div key={key} className="px-5 py-4">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="text-sm font-semibold text-ink">{label}</p>
+                  <p className="text-xs text-ink-muted mt-0.5 font-mono">{`{${key}}`}</p>
+                </div>
+                {saving === key && <Spinner />}
+                {saved  === key && <Tick />}
+              </div>
+              <input
+                type={type}
+                value={settings[key] as string}
+                onChange={(e) => setSettings((p) => ({ ...p, [key]: e.target.value }))}
+                onBlur={(e) => save(key, e.target.value)}
+                className="w-full rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
+                placeholder={placeholder}
+              />
+            </div>
+          ))}
+
+          {/* Team Numbers — textarea */}
+          <div className="px-5 py-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold text-ink">Team Numbers</p>
+                <p className="text-xs text-ink-muted mt-0.5">Comma-separated WhatsApp numbers for handoff</p>
+              </div>
+              {saving === "contact_team_numbers" && <Spinner />}
+              {saved  === "contact_team_numbers" && <Tick />}
+            </div>
+            <textarea
+              rows={3}
+              value={settings.contact_team_numbers}
+              onChange={(e) => setSettings((p) => ({ ...p, contact_team_numbers: e.target.value }))}
+              onBlur={(e) => save("contact_team_numbers", e.target.value)}
+              className="w-full rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20 resize-none"
+              placeholder="+966500000001, +966500000002"
+            />
           </div>
         </div>
       </div>

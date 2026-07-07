@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Auto-sync new contacts to Google Sheets (fire-and-forget, never blocks the webhook)
-    if (isSheetsConfigured() && conversation.unreadCount === 1) {
+    if ((await isSheetsConfigured()) && conversation.unreadCount === 1) {
       appendCustomerRow({ phone: waId, name: name || waId, firstSeen: msgTime }).catch(() => {});
     }
 

@@ -14,7 +14,7 @@ type Step = {
   id?: number; _uid?: number;
   stepKey: string; message: string;
   inputType: "button" | "list" | "message" | "search";
-  isEntry: boolean; showProductCard: boolean;
+  isEntry: boolean; showProductCard: boolean; handoffToAgent: boolean;
   imageUrl: string; sortOrder: number; options: Option[];
   _x?: number; _y?: number; disabled?: boolean; _imgH?: number;
   captureVar?: string; label?: string; isFallback?: boolean;
@@ -62,7 +62,7 @@ function normaliseFlow(d: any): Flow {
   return {
     ...d, description: d.description ?? "", triggerKeywords: d.triggerKeywords ?? "", isFallback: d.isFallback ?? false,
     steps: (d.steps ?? []).map((s: Step, i: number) => ({
-      ...s, showProductCard: s.showProductCard ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false,
+      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false,
       label: s.label ?? undefined, captureVar: s.captureVar ?? undefined,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       _x: s._x ?? (s as any).positionX ?? 80 + i * 320, _y: s._y ?? (s as any).positionY ?? 120,
@@ -75,8 +75,8 @@ function normaliseFlow(d: any): Flow {
   };
 }
 function newOption(n = 0): Option { return { label: "", value: "", description: "", nextStepKey: "", dataSource: "static", sortOrder: n, customApiUrl: "", customApiPath: "", customApiLabel: "", customApiValue: "" }; }
-function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y }; }
-function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu", nextStepKey: "step_1" }], _x: 80, _y: 340 }; }
+function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y }; }
+function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu", nextStepKey: "step_1" }], _x: 80, _y: 340 }; }
 
 type IP = { size?: number; className?: string };
 function Svg({ children, s = 16, cls = "" }: { children: React.ReactNode; s?: number; cls?: string }) {
@@ -316,7 +316,7 @@ function StepNode({ step, isSelected, isMultiSel, issues, onSelect, onDrag, onDe
           </p>
         </div>
         {/* Options — no dots here, they're rendered outside */}
-        {step.options.length === 0 ? (
+        {step.inputType === "message" ? null : step.options.length === 0 ? (
           <div className="border-t border-gray-100 px-3.5 flex items-center text-gray-300 italic text-[11px]" style={{ height: CARD_OPT_H }}>
             No options
           </div>
@@ -386,10 +386,14 @@ function OptEditor({ opt, index, stepKeys, onChange, onDelete, isBtn, isFallback
     <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2.5">
         <span className="h-5 w-5 shrink-0 rounded-full bg-white border border-gray-200 text-[10px] font-bold text-gray-400 flex items-center justify-center">{index+1}</span>
-        <input value={opt.label} maxLength={isBtn ? 20 : 24}
-          onChange={(e) => onChange({ ...opt, label: e.target.value, value: opt.value || slugify(e.target.value) })}
-          placeholder={dyn ? "Fallback label..." : "Option label..."}
-          className="flex-1 text-sm text-gray-800 bg-transparent focus:outline-none min-w-0 placeholder:text-gray-300" />
+        {dyn ? (
+          <span className="flex-1 text-sm text-gray-300 italic truncate">Auto-filled from {DS.find((s) => s.v === opt.dataSource)?.l ?? "data source"}</span>
+        ) : (
+          <input value={opt.label} maxLength={isBtn ? 20 : 24}
+            onChange={(e) => onChange({ ...opt, label: e.target.value, value: slugify(e.target.value) })}
+            placeholder="Option label..."
+            className="flex-1 text-sm text-gray-800 bg-transparent focus:outline-none min-w-0 placeholder:text-gray-300" />
+        )}
         {!isFallbackStep && <button type="button" onClick={onDelete} className="text-gray-300 hover:text-red-400 transition"><IcX /></button>}
       </div>
       <div className="px-3 pb-3 border-t border-gray-200 pt-2.5 space-y-2">
@@ -556,7 +560,11 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
           <label className={LBL}>Step type</label>
           <div className="grid grid-cols-2 gap-2">
             {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
-              <button key={t} type="button" onClick={() => onChange({ ...step, inputType: t as ST })}
+              <button key={t} type="button" onClick={() => {
+                const next: Step = { ...step, inputType: t as ST };
+                if (t === "message") next.options = [];
+                onChange(next);
+              }}
                 className="flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition"
                 style={step.inputType === t ? { borderColor: c.color, backgroundColor: c.bg, color: c.color } : { borderColor: "#e5e7eb", color: "#6b7280" }}>
                 <c.ic size={14} /><span className="text-xs font-semibold">{c.label}</span>
@@ -672,6 +680,19 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
             <div>
               <p className={"text-sm font-semibold " + (step.showProductCard ? "text-blue-700" : "text-gray-700")}>Show product card</p>
               <p className="text-[11px] text-gray-400">Image + price + link after product selection</p>
+            </div>
+          </button>
+        )}
+        {/* Hand off to agent toggle — available on any step */}
+        {!step.isFallback && (
+          <button type="button" onClick={() => onChange({ ...step, handoffToAgent: !step.handoffToAgent })}
+            className={"w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition " + (step.handoffToAgent ? "border-rose-400 bg-rose-50" : "border-gray-200 hover:border-rose-200")}>
+            <div className={"shrink-0 h-5 w-9 rounded-full transition-colors " + (step.handoffToAgent ? "bg-rose-500" : "bg-gray-200")}>
+              <span className={"block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform " + (step.handoffToAgent ? "translate-x-[18px]" : "translate-x-0.5")} />
+            </div>
+            <div>
+              <p className={"text-sm font-semibold " + (step.handoffToAgent ? "text-rose-700" : "text-gray-700")}>Hand off to agent</p>
+              <p className="text-[11px] text-gray-400">Notifies Team Inbox — bot keeps running until agent takes over</p>
             </div>
           </button>
         )}
@@ -1508,9 +1529,15 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
       {showSet && (() => {
         const tags = flow.triggerKeywords ? flow.triggerKeywords.split(",").map((t) => t.trim()).filter(Boolean) : [];
         function addTag(raw: string) {
-          const t = raw.trim().toLowerCase().replace(/[^a-z0-9_\- ]/g, "");
+          const t = raw.trim().toLowerCase();
           if (!t || tags.includes(t)) return;
           upFlow({ triggerKeywords: [...tags, t].join(", ") });
+        }
+        function addTagsBulk(raw: string) {
+          const incoming = raw.split(/[,،\n]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+          const merged = [...tags];
+          incoming.forEach((t) => { if (!merged.includes(t)) merged.push(t); });
+          upFlow({ triggerKeywords: merged.join(", ") });
         }
         function removeTag(t: string) { upFlow({ triggerKeywords: tags.filter((k) => k !== t).join(", ") }); }
         return (
@@ -1556,6 +1583,10 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(e.currentTarget.value); e.currentTarget.value = ""; }
                           if (e.key === "Backspace" && !e.currentTarget.value && tags.length) removeTag(tags[tags.length - 1]);
+                        }}
+                        onPaste={(e) => {
+                          e.preventDefault();
+                          addTagsBulk(e.clipboardData.getData("text"));
                         }}
                         onBlur={(e) => { if (e.currentTarget.value) { addTag(e.currentTarget.value); e.currentTarget.value = ""; } }}
                       />

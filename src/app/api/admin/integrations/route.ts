@@ -9,6 +9,7 @@ const INTEGRATION_KEYS = [
   "wa_access_token", "wa_phone_number_id", "wa_business_account_id",
   "wc_url", "wc_consumer_key", "wc_consumer_secret",
   "bot_url", "sync_secret", "inbox_webhook_secret",
+  "google_oauth_client_id", "google_oauth_client_secret",
 ];
 
 export async function GET() {
@@ -21,7 +22,8 @@ export async function GET() {
       WHERE key IN (
         'wa_access_token', 'wa_phone_number_id', 'wa_business_account_id',
         'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
-        'bot_url', 'sync_secret', 'inbox_webhook_secret'
+        'bot_url', 'sync_secret', 'inbox_webhook_secret',
+        'google_oauth_client_id', 'google_oauth_client_secret'
       )
     `;
 

@@ -273,6 +273,7 @@ model Conversation {
   assignedTo      User?              @relation("InboxAssignedTo", fields: [assignedToId], references: [id])
   status          ConversationStatus @default(OPEN)
   botPaused       Boolean            @default(false)
+  agentRequested  Boolean            @default(false)
   lastHumanReplyAt DateTime?
   lastInboundAt   DateTime?
   tags            String[]           @default([])
@@ -369,6 +370,7 @@ model BotFlowStep {
   isEntry         Boolean         @default(false) @map("is_entry")
   isFallback      Boolean         @default(false) @map("is_fallback")
   showProductCard Boolean         @default(false) @map("show_product_card")
+  handoffToAgent  Boolean         @default(false) @map("handoff_to_agent")
   imageUrl        String?         @map("image_url")
   sortOrder       Int             @default(0) @map("sort_order")
   positionX       Int             @default(80) @map("position_x")

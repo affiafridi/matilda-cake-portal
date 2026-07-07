@@ -13,7 +13,7 @@ export async function GET() {
     await requireRole(ALLOWED);
 
     const result = await prisma.conversation.aggregate({
-      where:  { status: { not: "RESOLVED" } },
+      where:  { status: { not: "RESOLVED" }, OR: [{ botPaused: true }, { agentRequested: true }] },
       _sum:   { unreadCount: true },
     });
 

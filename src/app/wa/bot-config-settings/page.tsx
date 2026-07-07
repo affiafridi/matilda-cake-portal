@@ -94,55 +94,6 @@ function PlaceholderChips({ shop, onInsert }: { shop: Shop; onInsert: (p: string
   );
 }
 
-// ── Team Numbers Repeater ─────────────────────────────────────────────────
-
-function TeamNumbersRepeater({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [items, setItems] = useState<string[]>([""]);
-  const [synced, setSynced] = useState(false);
-
-  useEffect(() => {
-    if (!synced && value) {
-      const nums = value.split(",").map((s) => s.trim()).filter(Boolean);
-      if (nums.length > 0) { setItems(nums); setSynced(true); }
-    }
-  }, [value, synced]);
-
-  function update(idx: number, val: string) {
-    const next = [...items]; next[idx] = val; setItems(next);
-    onChange(next.filter(Boolean).join(","));
-  }
-  function add() { setItems((p) => [...p, ""]); }
-  function remove(idx: number) {
-    const next = items.filter((_, i) => i !== idx);
-    const final = next.length > 0 ? next : [""];
-    setItems(final);
-    onChange(final.filter(Boolean).join(","));
-  }
-
-  return (
-    <div className="space-y-2">
-      {items.map((num, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted font-mono w-5 text-right shrink-0">{idx + 1}.</span>
-          <input value={num} onChange={(e) => update(idx, e.target.value)} placeholder="971501234567"
-            className="flex-1 rounded-lg border border-rule bg-canvas px-3 py-2 text-sm font-mono text-ink focus:outline-none focus:ring-2 focus:ring-brand/30" />
-          <button type="button" onClick={() => remove(idx)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-rule text-ink-muted hover:bg-red-50 hover:border-red-200 hover:text-red-500 transition">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-              <path d="M18 6L6 18M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-      ))}
-      <button type="button" onClick={add}
-        className="flex items-center gap-1.5 rounded-lg border border-dashed border-rule px-3 py-1.5 text-xs font-medium text-ink-muted hover:border-brand hover:text-brand transition">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M12 5v14M5 12h14"/></svg>
-        Add number
-      </button>
-    </div>
-  );
-}
-
 // ── Keywords manager ──────────────────────────────────────────────────────
 
 function KeywordsManager({ keywords, onAdd, onDelete }: {
@@ -194,9 +145,7 @@ function KeywordsManager({ keywords, onAdd, onDelete }: {
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function BotConfigSettingsPage() {
-  const [shop,     setShop]     = useState<Shop>(DEFAULT_SHOP);
-  const [savedShop, setSavedShop] = useState<Shop>(DEFAULT_SHOP);
-  const [shopState, setShopState] = useState<SaveState>("idle");
+  const [shop, setShop] = useState<Shop>(DEFAULT_SHOP);
 
   const [keywords, setKeywords] = useState<Keyword[]>([]);
 
@@ -212,31 +161,13 @@ export default function BotConfigSettingsPage() {
       .then((r) => r.json())
       .then((j) => {
         if (!j.ok) return;
-        const s = j.data.shop as Shop;
-        setShop(s); setSavedShop(s);
+        setShop(j.data.shop as Shop);
         setKeywords(j.data.keywords as Keyword[]);
         const reps = j.data.replies as Reply[];
         setReplies(reps); setSavedReplies(reps);
       })
       .catch(() => {});
   }, []);
-
-  // ── Shop save ────────────────────────────────────────────────────────────
-
-  const shopDirty = JSON.stringify(shop) !== JSON.stringify(savedShop);
-
-  async function saveShop() {
-    setShopState("saving");
-    try {
-      await fetch("/api/admin/bot-config", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ section: "shop", data: shop }),
-      });
-      setSavedShop(shop);
-      setShopState("saved");
-      setTimeout(() => setShopState("idle"), 2500);
-    } catch { setShopState("error"); setTimeout(() => setShopState("idle"), 3000); }
-  }
 
   // ── Keywords ─────────────────────────────────────────────────────────────
 
@@ -319,51 +250,22 @@ export default function BotConfigSettingsPage() {
         </p>
       </div>
 
-      {/* ── Row 1: Contact Info + Team Numbers ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        {/* Contact Info */}
-        <div className="lg:col-span-2 rounded-xl border border-rule bg-surface p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Contact Info</h2>
-            <SaveBtn state={shopState} dirty={shopDirty} onClick={saveShop} />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Phone" hint="e.g. +971 50 123 4567">
-              <input value={shop.phone} onChange={(e) => setShop((p) => ({ ...p, phone: e.target.value }))}
-                placeholder="+971 50 123 4567" className={INPUT} />
-            </Field>
-            <Field label="Email">
-              <input value={shop.email} onChange={(e) => setShop((p) => ({ ...p, email: e.target.value }))}
-                placeholder="order@yourstore.com" className={INPUT} />
-            </Field>
-            <Field label="Website">
-              <input value={shop.website} onChange={(e) => setShop((p) => ({ ...p, website: e.target.value }))}
-                placeholder="https://yourstore.com" className={INPUT} />
-            </Field>
-            <Field label="Welcome Image URL" hint="Image sent on first message">
-              <input value={shop.welcomeImage} onChange={(e) => setShop((p) => ({ ...p, welcomeImage: e.target.value }))}
-                placeholder="https://yourstore.com/welcome.jpg" className={INPUT} />
-            </Field>
-          </div>
+      {/* Locked notice */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-amber-500 shrink-0 mt-0.5">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <div>
+          <p className="text-sm font-semibold text-amber-800">This page is temporarily locked</p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            Bot Config is under review while we evaluate what&apos;s still needed alongside the Flow Builder. It will be unlocked or redesigned shortly.
+          </p>
         </div>
-
-        {/* Team Numbers */}
-        <div className="rounded-xl border border-rule bg-surface p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Team Numbers</h2>
-            <SaveBtn state={shopState} dirty={shopDirty} onClick={saveShop} />
-          </div>
-          <p className="text-[11px] text-ink-muted">Bot will NOT reply to these. No spaces or +.</p>
-          <TeamNumbersRepeater
-            value={shop.teamNumbers}
-            onChange={(v) => setShop((p) => ({ ...p, teamNumbers: v }))}
-          />
-        </div>
-
       </div>
 
-      {/* ── Row 2: Keywords ── */}
+      <div className="pointer-events-none opacity-40 space-y-6">
+
+      {/* ── Row 1: Keywords ── */}
       <div className="rounded-xl border border-rule bg-surface p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -413,76 +315,163 @@ export default function BotConfigSettingsPage() {
         })}
       </div>
 
-      {/* Google Sheets Export */}
-      <GoogleSheetsSection />
+      </div>{/* end locked wrapper */}
 
     </div>
   );
 }
 
+function Spinner() {
+  return <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>;
+}
+
 function GoogleSheetsSection() {
-  const [exporting, setExporting] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; text: string; url?: string } | null>(null);
+  const [loading,     setLoading]     = useState(true);
+  const [connected,   setConnected]   = useState(false);
+  const [sheets,      setSheets]      = useState<{ id: string; name: string }[]>([]);
+  const [sheetId,     setSheetId]     = useState<string | null>(null);
+  const [sheetName,   setSheetName]   = useState<string | null>(null);
+  const [saving,      setSaving]      = useState(false);
+  const [exporting,   setExporting]   = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [msg,         setMsg]         = useState<{ ok: boolean; text: string; url?: string } | null>(null);
+
+  useEffect(() => {
+    // Check for redirect result from OAuth callback
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "connected") setMsg({ ok: true, text: "Google account connected!" });
+    if (params.get("google") === "error")     setMsg({ ok: false, text: "Google connection failed. Please try again." });
+    loadStatus();
+  }, []);
+
+  async function loadStatus() {
+    setLoading(true);
+    try {
+      const r = await fetch("/api/admin/integrations/google/sheets").then((r) => r.json());
+      if (r.ok) {
+        setConnected(r.data.connected);
+        setSheets(r.data.sheets ?? []);
+        setSheetId(r.data.sheetId);
+        setSheetName(r.data.sheetName);
+      }
+    } catch { /**/ }
+    setLoading(false);
+  }
+
+  async function handleSelectSheet(id: string, name: string) {
+    setSaving(true);
+    await fetch("/api/admin/integrations/google/sheets", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name }),
+    });
+    setSheetId(id); setSheetName(name); setSaving(false);
+    setMsg({ ok: true, text: `Sheet "${name}" selected` });
+  }
 
   async function handleExport() {
-    setExporting(true);
-    setResult(null);
+    setExporting(true); setMsg(null);
     try {
       const r = await fetch("/api/admin/customers/export-sheets", { method: "POST" }).then((r) => r.json());
-      if (r.ok) {
-        setResult({ ok: true, text: `${r.data.count} contacts exported`, url: r.data.sheetUrl });
-      } else {
-        setResult({ ok: false, text: r.error ?? "Export failed" });
-      }
-    } catch {
-      setResult({ ok: false, text: "Could not reach server" });
-    }
+      if (r.ok) setMsg({ ok: true, text: `${r.data.count} contacts exported`, url: r.data.sheetUrl });
+      else setMsg({ ok: false, text: r.error ?? "Export failed" });
+    } catch { setMsg({ ok: false, text: "Export failed" }); }
     setExporting(false);
+  }
+
+  async function handleDisconnect() {
+    if (!confirm("Disconnect Google Sheets? Auto-sync will stop.")) return;
+    setDisconnecting(true);
+    await fetch("/api/admin/integrations/google/disconnect", { method: "POST" });
+    setConnected(false); setSheets([]); setSheetId(null); setSheetName(null);
+    setMsg({ ok: true, text: "Google account disconnected" });
+    setDisconnecting(false);
   }
 
   return (
     <div className="rounded-2xl border border-rule bg-surface p-5 space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
             <svg viewBox="0 0 24 24" className="h-4 w-4 text-green-600" fill="currentColor">
               <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/>
             </svg>
-            Google Sheets
-          </h2>
-          <p className="text-[11px] text-ink-muted mt-0.5">
-            Export all WhatsApp contacts to your Google Sheet. New contacts are also added automatically.
-          </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Google Sheets</h2>
+            <p className="text-[11px] text-ink-muted">Sync WhatsApp contacts automatically</p>
+          </div>
         </div>
-        <button type="button" onClick={handleExport} disabled={exporting}
-          className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 transition disabled:opacity-40 shrink-0">
-          {exporting ? (
-            <><svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg> Exporting…</>
-          ) : "Export to Sheet"}
-        </button>
+
+        {loading ? <Spinner /> : connected ? (
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-green-600 bg-green-50 px-2.5 py-1 rounded-full">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" /> Connected
+            </span>
+            <button type="button" onClick={handleDisconnect} disabled={disconnecting}
+              className="text-xs text-ink-muted hover:text-red-500 transition">
+              {disconnecting ? "…" : "Disconnect"}
+            </button>
+          </div>
+        ) : (
+          <a href="/api/admin/integrations/google/connect"
+            className="flex items-center gap-2 rounded-lg bg-brand px-3.5 py-1.5 text-sm font-medium text-white hover:bg-brand-dark transition shrink-0">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+              <path d="M12 0C5.372 0 0 5.373 0 12s5.372 12 12 12c6.627 0 12-5.373 12-12S18.627 0 12 0zm.14 19.018c-3.868 0-7-3.14-7-7.018 0-3.878 3.132-7.018 7-7.018 1.89 0 3.47.697 4.682 1.829l-1.974 1.978v-.004c-.735-.702-1.667-1.062-2.708-1.062-2.31 0-4.187 1.956-4.187 4.273 0 2.315 1.877 4.277 4.187 4.277 2.096 0 3.522-1.202 3.816-2.852H12.14v-2.737h6.585c.088.47.135.96.135 1.474 0 4.01-2.677 6.86-6.72 6.86z"/>
+            </svg>
+            Connect Google
+          </a>
+        )}
       </div>
 
-      {result && (
-        <div className={`rounded-xl px-4 py-2.5 text-sm flex items-center justify-between gap-3 ${result.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-          <span>{result.text}</span>
-          {result.url && (
-            <a href={result.url} target="_blank" rel="noopener noreferrer"
-              className="text-xs font-semibold underline underline-offset-2 shrink-0">
-              Open Sheet →
-            </a>
+      {/* Sheet picker — shown after connected */}
+      {connected && (
+        <div className="space-y-2">
+          <label className="block text-[11px] font-semibold text-ink-muted uppercase tracking-wide">
+            Select sheet to sync contacts into
+          </label>
+          <div className="flex gap-2">
+            <select
+              value={sheetId ?? ""}
+              onChange={(e) => {
+                const selected = sheets.find((s) => s.id === e.target.value);
+                if (selected) handleSelectSheet(selected.id, selected.name);
+              }}
+              className="flex-1 rounded-xl border border-rule bg-canvas px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30">
+              <option value="">— Choose a sheet —</option>
+              {sheets.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            {saving && <div className="flex items-center px-2"><Spinner /></div>}
+          </div>
+          {sheetName && (
+            <p className="text-[11px] text-green-600">
+              ✓ Syncing to <strong>{sheetName}</strong> — new contacts added automatically
+            </p>
           )}
         </div>
       )}
 
-      <div className="rounded-xl bg-canvas border border-rule p-3 space-y-1">
-        <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Setup required</p>
-        <p className="text-xs text-ink-muted">Add these to your environment variables:</p>
-        <div className="font-mono text-[11px] text-ink space-y-0.5 mt-1">
-          <p>GOOGLE_SHEETS_SPREADSHEET_ID=<span className="text-ink-muted">your-sheet-id</span></p>
-          <p>GOOGLE_SHEETS_CLIENT_EMAIL=<span className="text-ink-muted">service-account@project.iam.gserviceaccount.com</span></p>
-          <p>GOOGLE_SHEETS_PRIVATE_KEY=<span className="text-ink-muted">-----BEGIN RSA PRIVATE KEY-----...</span></p>
+      {/* Export button — shown when sheet is selected */}
+      {connected && sheetId && (
+        <button type="button" onClick={handleExport} disabled={exporting}
+          className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 transition disabled:opacity-40">
+          {exporting ? <><Spinner /> Exporting…</> : "Export all contacts now"}
+        </button>
+      )}
+
+      {/* Result message */}
+      {msg && (
+        <div className={`rounded-xl px-4 py-2.5 text-sm flex items-center justify-between gap-3 ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+          <span>{msg.text}</span>
+          {msg.url && (
+            <a href={msg.url} target="_blank" rel="noopener noreferrer"
+              className="text-xs font-semibold underline underline-offset-2 shrink-0">Open Sheet →</a>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

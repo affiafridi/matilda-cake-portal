@@ -1,148 +1,251 @@
 import "server-only";
 import { google } from "googleapis";
+import { prisma } from "@/lib/prisma";
 
-/**
- * Google Sheets integration.
- * Auth: Service Account — no OAuth flow needed.
- *
- * Required env vars:
- *   GOOGLE_SHEETS_SPREADSHEET_ID  — the sheet ID from the URL
- *   GOOGLE_SHEETS_CLIENT_EMAIL    — service account email
- *   GOOGLE_SHEETS_PRIVATE_KEY     — service account private key (with \n as newlines)
- *
- * Sheet must be shared with the service account email (Editor access).
- */
+const SCOPES = [
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/drive.readonly",
+];
 
-function getClient() {
-  const email = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const key   = process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (!email || !key) throw new Error("Google Sheets credentials not configured");
+const SHEET_TAB  = "Customers";
+const HEADERS    = ["Phone", "Name", "Source", "First Seen", "Status"];
 
-  const auth = new google.auth.JWT({
-    email,
-    key,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  return google.sheets({ version: "v4", auth });
+// ── OAuth client ───────────────────────────────────────────────────────────
+
+async function getOAuthCredentials() {
+  const [clientId, clientSecret] = await Promise.all([
+    getSetting("google_oauth_client_id"),
+    getSetting("google_oauth_client_secret"),
+  ]);
+  return {
+    clientId:     clientId     || process.env.GOOGLE_OAUTH_CLIENT_ID     || "",
+    clientSecret: clientSecret || process.env.GOOGLE_OAUTH_CLIENT_SECRET || "",
+  };
 }
 
-export function isSheetsConfigured(): boolean {
-  return !!(
-    process.env.GOOGLE_SHEETS_SPREADSHEET_ID &&
-    process.env.GOOGLE_SHEETS_CLIENT_EMAIL &&
-    process.env.GOOGLE_SHEETS_PRIVATE_KEY
+export async function getOAuthClient() {
+  const { clientId, clientSecret } = await getOAuthCredentials();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+
+  if (!clientId || !clientSecret) throw new Error("Google OAuth credentials not configured. Go to Integrations → Google OAuth to add them.");
+
+  return new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    `${appUrl}/api/admin/integrations/google/callback`,
   );
 }
 
-const SHEET_NAME  = "Customers";
-const HEADERS     = ["Phone", "Name", "Source", "First Seen", "Status"];
+export async function isOAuthConfigured(): Promise<boolean> {
+  const { clientId, clientSecret } = await getOAuthCredentials();
+  return !!(clientId && clientSecret);
+}
 
-/**
- * Ensures the sheet exists with correct headers.
- * Safe to call multiple times — won't duplicate headers.
- */
-async function ensureSheet(spreadsheetId: string) {
-  const sheets = getClient();
+export async function getAuthUrl(): Promise<string> {
+  const oauth = await getOAuthClient();
+  return oauth.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: SCOPES,
+  });
+}
 
-  // Check if sheet exists
-  const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET_NAME);
+// ── Token storage (portal_settings) ───────────────────────────────────────
+
+async function saveSetting(key: string, value: string) {
+  await prisma.$executeRaw`
+    INSERT INTO portal_settings (key, value) VALUES (${key}, ${value})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
+}
+
+async function getSetting(key: string): Promise<string | null> {
+  const rows = await prisma.$queryRaw<{ value: string }[]>`
+    SELECT value FROM portal_settings WHERE key = ${key}
+  `;
+  return rows[0]?.value ?? null;
+}
+
+async function deleteSetting(key: string) {
+  await prisma.$executeRaw`DELETE FROM portal_settings WHERE key = ${key}`;
+}
+
+export async function saveGoogleTokens(tokens: {
+  access_token:  string;
+  refresh_token: string;
+  expiry_date:   number;
+}) {
+  await Promise.all([
+    saveSetting("google_access_token",  tokens.access_token),
+    saveSetting("google_refresh_token", tokens.refresh_token),
+    saveSetting("google_token_expiry",  String(tokens.expiry_date)),
+  ]);
+}
+
+export async function clearGoogleTokens() {
+  await Promise.all([
+    deleteSetting("google_access_token"),
+    deleteSetting("google_refresh_token"),
+    deleteSetting("google_token_expiry"),
+    deleteSetting("google_sheet_id"),
+    deleteSetting("google_sheet_name"),
+  ]);
+}
+
+export async function saveSelectedSheet(id: string, name: string) {
+  await Promise.all([
+    saveSetting("google_sheet_id",   id),
+    saveSetting("google_sheet_name", name),
+  ]);
+}
+
+export async function getGoogleConnection(): Promise<{
+  connected: boolean;
+  sheetId: string | null;
+  sheetName: string | null;
+}> {
+  const [accessToken, sheetId, sheetName] = await Promise.all([
+    getSetting("google_access_token"),
+    getSetting("google_sheet_id"),
+    getSetting("google_sheet_name"),
+  ]);
+  return { connected: !!accessToken, sheetId, sheetName };
+}
+
+// ── Authenticated Sheets client ────────────────────────────────────────────
+
+async function getSheetsClient() {
+  const [accessToken, refreshToken, expiry] = await Promise.all([
+    getSetting("google_access_token"),
+    getSetting("google_refresh_token"),
+    getSetting("google_token_expiry"),
+  ]);
+
+  if (!accessToken || !refreshToken) throw new Error("Google account not connected");
+
+  const oauth = await getOAuthClient();
+  oauth.setCredentials({
+    access_token:  accessToken,
+    refresh_token: refreshToken,
+    expiry_date:   expiry ? Number(expiry) : undefined,
+  });
+
+  // Auto-refresh expired token
+  oauth.on("tokens", async (tokens) => {
+    if (tokens.access_token) await saveSetting("google_access_token", tokens.access_token);
+    if (tokens.expiry_date)  await saveSetting("google_token_expiry",  String(tokens.expiry_date));
+  });
+
+  return google.sheets({ version: "v4", auth: oauth });
+}
+
+async function getDriveClient() {
+  const [accessToken, refreshToken, expiry] = await Promise.all([
+    getSetting("google_access_token"),
+    getSetting("google_refresh_token"),
+    getSetting("google_token_expiry"),
+  ]);
+
+  if (!accessToken || !refreshToken) throw new Error("Google account not connected");
+
+  const oauth = await getOAuthClient();
+  oauth.setCredentials({
+    access_token:  accessToken,
+    refresh_token: refreshToken,
+    expiry_date:   expiry ? Number(expiry) : undefined,
+  });
+
+  return google.drive({ version: "v3", auth: oauth });
+}
+
+// ── Sheet helpers ──────────────────────────────────────────────────────────
+
+async function ensureTab(sheets: ReturnType<typeof google.sheets>, spreadsheetId: string) {
+  const meta   = await sheets.spreadsheets.get({ spreadsheetId });
+  const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET_TAB);
 
   if (!exists) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: SHEET_NAME } } }],
-      },
+      requestBody: { requests: [{ addSheet: { properties: { title: SHEET_TAB } } }] },
     });
-    // Write headers
     await sheets.spreadsheets.values.update({
-      spreadsheetId,
-      range: `${SHEET_NAME}!A1`,
+      spreadsheetId, range: `${SHEET_TAB}!A1`,
       valueInputOption: "RAW",
       requestBody: { values: [HEADERS] },
     });
   }
 }
 
-/**
- * Appends a single customer row to the sheet.
- * Called automatically when a new conversation arrives.
- */
-export async function appendCustomerRow(data: {
-  phone: string;
-  name: string;
-  source?: string;
-  firstSeen?: Date;
-  status?: string;
-}): Promise<void> {
-  if (!isSheetsConfigured()) return;
+// ── Public API ─────────────────────────────────────────────────────────────
 
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID!;
-  await ensureSheet(spreadsheetId);
-
-  const sheets = getClient();
-
-  // Check if phone already exists — avoid duplicates
-  const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A:A`,
+/** List all Google Sheets the user has access to (for the picker dropdown). */
+export async function listUserSheets(): Promise<{ id: string; name: string }[]> {
+  const drive = await getDriveClient();
+  const res   = await drive.files.list({
+    q:      "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+    fields: "files(id, name)",
+    orderBy: "modifiedTime desc",
+    pageSize: 50,
   });
-  const phones = (existing.data.values ?? []).flat();
-  if (phones.includes(data.phone)) return; // already in sheet
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A1`,
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: {
-      values: [[
-        data.phone,
-        data.name,
-        data.source ?? "WhatsApp",
-        data.firstSeen ? data.firstSeen.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-        data.status ?? "Active",
-      ]],
-    },
-  });
+  return (res.data.files ?? []).map((f) => ({ id: f.id!, name: f.name! }));
 }
 
-/**
- * Bulk export — clears the sheet and rewrites all rows.
- * Called from the export button in the portal.
- */
+/** Append one customer row — skips duplicates. Called on new WhatsApp contact. */
+export async function appendCustomerRow(data: {
+  phone: string; name: string; source?: string; firstSeen?: Date;
+}): Promise<void> {
+  const sheetId = await getSetting("google_sheet_id");
+  if (!sheetId) return; // no sheet selected yet
+
+  try {
+    const sheets = await getSheetsClient();
+    await ensureTab(sheets, sheetId);
+
+    const existing = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId, range: `${SHEET_TAB}!A:A`,
+    });
+    const phones = (existing.data.values ?? []).flat();
+    if (phones.includes(data.phone)) return;
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId, range: `${SHEET_TAB}!A1`,
+      valueInputOption: "USER_ENTERED", insertDataOption: "INSERT_ROWS",
+      requestBody: {
+        values: [[
+          data.phone, data.name, data.source ?? "WhatsApp",
+          data.firstSeen ? data.firstSeen.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          "Active",
+        ]],
+      },
+    });
+  } catch (err) {
+    console.error("[sheets] appendCustomerRow failed:", err);
+  }
+}
+
+/** Bulk export — clears the sheet and rewrites all rows. */
 export async function exportAllCustomers(customers: {
-  phone: string;
-  name: string;
-  source?: string;
-  firstSeen?: Date | null;
-  status?: string;
-}[]): Promise<{ spreadsheetId: string; sheetUrl: string }> {
-  if (!isSheetsConfigured()) throw new Error("Google Sheets not configured");
+  phone: string; name: string; source?: string;
+  firstSeen?: Date | null; status?: string;
+}[]): Promise<{ sheetUrl: string; count: number }> {
+  const sheetId = await getSetting("google_sheet_id");
+  if (!sheetId) throw new Error("No sheet selected. Please pick a sheet first.");
 
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID!;
-  await ensureSheet(spreadsheetId);
+  const sheets = await getSheetsClient();
+  await ensureTab(sheets, sheetId);
 
-  const sheets = getClient();
-
-  // Clear existing data (keep headers row)
   await sheets.spreadsheets.values.clear({
-    spreadsheetId,
-    range: `${SHEET_NAME}!A2:Z`,
+    spreadsheetId: sheetId, range: `${SHEET_TAB}!A2:Z`,
   });
 
   if (customers.length > 0) {
     await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${SHEET_NAME}!A2`,
-      valueInputOption: "USER_ENTERED",
-      insertDataOption: "INSERT_ROWS",
+      spreadsheetId: sheetId, range: `${SHEET_TAB}!A2`,
+      valueInputOption: "USER_ENTERED", insertDataOption: "INSERT_ROWS",
       requestBody: {
         values: customers.map((c) => [
-          c.phone,
-          c.name,
-          c.source ?? "WhatsApp",
+          c.phone, c.name, c.source ?? "WhatsApp",
           c.firstSeen ? c.firstSeen.toISOString().slice(0, 10) : "",
           c.status ?? "Active",
         ]),
@@ -150,8 +253,9 @@ export async function exportAllCustomers(customers: {
     });
   }
 
-  return {
-    spreadsheetId,
-    sheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-  };
+  return { sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}`, count: customers.length };
+}
+
+export async function isSheetsConfigured(): Promise<boolean> {
+  return isOAuthConfigured();
 }

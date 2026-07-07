@@ -23,7 +23,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/manage":        { title: "Manage Templates",  parent: "WhatsApp" },
   "/wa/settings":      { title: "Settings",          parent: "WhatsApp" },
   "/wa/inbox":               { title: "Team Inbox",         parent: "WhatsApp" },
-  "/wa/bot-config":          { title: "Woo Categories",    parent: "WooCommerce" },
+  "/wa/woocommerce":         { title: "WooCommerce", parent: "WooCommerce" },
   "/wa/keywords":            { title: "Keyword Manager" },
   "/wa/ai":                  { title: "AI Instructions" },
   "/wa/bot-config-settings": { title: "Bot Config" },
@@ -46,12 +46,14 @@ type NavItem = {
 };
 
 const MAIN_NAV: NavItem[] = [
-  { href: "/dashboard",           label: "Dashboard",     roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcDashboard },
-  { href: "/new-order",           label: "New Order",     roles: ["SUPER_ADMIN","ADMIN","AGENT"],            icon: IcPlus },
-  { href: "/orders",              label: "Orders",        roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcOrders },
-  { href: "/admin/branches",      label: "Branches",      roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcBranch },
-  { href: "/admin/users",         label: "Users",         roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcUsers },
-  { href: "/admin/quick-replies", label: "Quick Replies", roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcQuickReply },
+  { href: "/dashboard", label: "Dashboard", roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcDashboard },
+];
+
+const PORTAL_NAV: NavItem[] = [
+  { href: "/new-order",      label: "New Order", roles: ["SUPER_ADMIN","ADMIN","AGENT"],            icon: IcPlus },
+  { href: "/orders",         label: "Orders",    roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcOrders },
+  { href: "/admin/branches", label: "Branches",  roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcBranch },
+  { href: "/admin/users",    label: "Users",     roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcUsers },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
@@ -60,16 +62,17 @@ const SETTINGS_NAV: NavItem[] = [
 ];
 
 const WA_NAV: { href: string; label: string; icon: (p: SVGProps<SVGSVGElement>) => ReactElement; roles: readonly Role[] }[] = [
-  { href: "/wa/inbox",     label: "Team Inbox",       icon: IcInbox,     roles: ["SUPER_ADMIN", "ADMIN", "AGENT"] },
-  { href: "/customers",    label: "Customers",        icon: IcCustomers, roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/templates", label: "Send Campaign",    icon: IcSend,      roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/campaigns", label: "Campaign History", icon: IcHistory,   roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/manage",    label: "Manage Templates", icon: IcTemplate,  roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/settings",  label: "Settings",         icon: IcSettings,  roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/inbox",             label: "Team Inbox",       icon: IcInbox,      roles: ["SUPER_ADMIN", "ADMIN", "AGENT"] },
+  { href: "/customers",            label: "Customers",        icon: IcCustomers,  roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/admin/quick-replies",  label: "Quick Replies",    icon: IcQuickReply, roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/templates",         label: "Send Campaign",    icon: IcSend,       roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/campaigns",         label: "Campaign History", icon: IcHistory,    roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/manage",            label: "Manage Templates", icon: IcTemplate,   roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/settings",          label: "Settings",         icon: IcSettings,   roles: ["SUPER_ADMIN", "ADMIN"] },
 ];
 
 const WOO_NAV = [
-  { href: "/wa/bot-config", label: "Woo Categories", icon: IcWoo },
+  { href: "/wa/woocommerce", label: "WooCommerce", icon: IcWoo },
 ];
 
 const AI_NAV = [
@@ -89,10 +92,12 @@ const ROLE_LABEL: Record<Role, string> = {
 // ── AppShell ───────────────────────────────────────────────────────────────
 
 type Settings = {
-  woo_visible_to_admin: boolean;
-  ai_visible_to_admin:  boolean;
-  app_name?:     string;
-  logo_url?:     string;
+  woo_visible_to_admin:    boolean;
+  ai_visible_to_admin:     boolean;
+  wa_visible_to_admin:     boolean;
+  portal_visible_to_admin: boolean;
+  app_name?:  string;
+  logo_url?:  string;
 };
 
 export default function AppShell({
@@ -144,12 +149,15 @@ export default function AppShell({
   const appName = settings?.app_name ?? "Order Portal";
   const logoUrl = settings?.logo_url ?? "/uploads/logo.png";
 
-  const waNavItems   = WA_NAV.filter((i) => i.roles.includes(user.role));
-  const isWaUser     = waNavItems.length > 0;
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
-  const showWoo      = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin ?? false));
-  const showAI       = isSuperAdmin || (user.role === "ADMIN" && (settings?.ai_visible_to_admin  ?? false));
+  const waNavItems    = WA_NAV.filter((i) => i.roles.includes(user.role));
+  const isWaUser      = waNavItems.length > 0;
+  const isSuperAdmin  = user.role === "SUPER_ADMIN";
+  const showWoo    = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin    ?? false));
+  const showAI     = isSuperAdmin || (user.role === "ADMIN" && (settings?.ai_visible_to_admin     ?? false));
+  const showWA     = isSuperAdmin || user.role === "AGENT" || (user.role === "ADMIN" && (settings?.wa_visible_to_admin     ?? true));
+  const showPortal = isSuperAdmin || user.role === "AGENT" || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin ?? true));
   const items         = MAIN_NAV.filter((i) => i.roles.includes(user.role));
+  const portalItems   = PORTAL_NAV.filter((i) => i.roles.includes(user.role));
   const settingsItems = SETTINGS_NAV.filter((i) => i.roles.includes(user.role));
   const meta     = getPageMeta(pathname);
 
@@ -199,88 +207,55 @@ export default function AppShell({
         {/* Nav scroll area */}
         <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-3 space-y-3">
 
-          {/* PORTAL section */}
-          <div>
-            <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">Menu</p>
-            <div className="space-y-0.5">
-              {items.map((item) => {
-                const active = isActive(item.href);
-                const Icon = item.icon;
-                return (
-                  <Link key={item.href} href={item.href}
-                    style={active
-                      ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" }
-                      : { color: "var(--sb-fg)" }
-                    }
-                    className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
-                    onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
-                    onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
-                    <span
-                      style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
-                      <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
-                    </span>
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Settings nested group */}
-            {settingsItems.length > 0 && (
-              <div className="mt-0.5">
-                <button
-                  type="button"
-                  onClick={() => setSettingsOpen((v) => !v)}
-                  style={{ color: "var(--sb-fg)" }}
-                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "")}>
-                  <span style={{ background: "var(--sb-icon-bg)" }} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
-                    <IcPortalSettings style={{ color: "var(--sb-icon-color)" }} className="h-4 w-4" />
+          {/* Dashboard */}
+          <div className="space-y-0.5">
+            {items.map((item) => {
+              const active = isActive(item.href);
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href}
+                  style={active ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" } : { color: "var(--sb-fg)" }}
+                  className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
+                  onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
+                  onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
+                  <span style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
+                    <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
                   </span>
-                  <span className="flex-1 text-left">Settings</span>
-                  <svg
-                    viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
-                    strokeLinecap="round" strokeLinejoin="round"
-                    className={["h-3.5 w-3.5 shrink-0 transition-transform duration-200", settingsOpen ? "rotate-180" : ""].join(" ")}
-                    style={{ color: "var(--sb-muted)" }}>
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
-                </button>
-
-                {settingsOpen && (
-                  <div className="mt-1 ml-[22px] relative">
-                    {/* vertical line */}
-                    <div className="absolute left-[5px] top-0 bottom-0 w-px" style={{ background: "var(--sb-border)" }} />
-                    <div className="space-y-1">
-                      {settingsItems.map((item) => {
-                        const active = isActive(item.href);
-                        return (
-                          <Link key={item.href} href={item.href}
-                            style={{ color: active ? "var(--sb-active-bg)" : "var(--sb-muted)" }}
-                            className="relative flex items-center gap-2.5 py-1.5 pl-5 pr-2 text-[13px] font-medium transition-colors duration-150"
-                            onMouseEnter={!active ? (e) => { (e.currentTarget as HTMLElement).style.color = "var(--sb-fg)"; } : undefined}
-                            onMouseLeave={!active ? (e) => { (e.currentTarget as HTMLElement).style.color = "var(--sb-muted)"; } : undefined}>
-                            {/* dot */}
-                            <span className="absolute left-[2px] h-[7px] w-[7px] rounded-full border transition-colors"
-                              style={{
-                                background:   active ? "var(--sb-active-bg)" : "var(--sb-bg)",
-                                borderColor:  active ? "var(--sb-active-bg)" : "var(--sb-muted)",
-                              }} />
-                            {item.label}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
 
+          {/* PORTAL section */}
+          {showPortal && portalItems.length > 0 && (
+            <div>
+              <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">Portal</p>
+              <div className="space-y-0.5">
+                {portalItems.map((item) => {
+                  const active = isActive(item.href);
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.href} href={item.href}
+                      style={active ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" } : { color: "var(--sb-fg)" }}
+                      className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
+                      onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
+                      onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
+                      <span style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
+                        <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
+                      </span>
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* WHATSAPP section — admin only */}
-          {isWaUser && (
+          {isWaUser && showWA && (
             <div>
               {/* Section label */}
               <div className="mb-1 flex items-center gap-2 px-3">
@@ -402,7 +377,33 @@ export default function AppShell({
             </div>
           )}
 
-          {/* GENERAL section */}
+          {/* ADMIN section */}
+          {settingsItems.length > 0 && (
+            <div>
+              <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">Admin</p>
+              <div className="space-y-0.5">
+                {settingsItems.map((item) => {
+                  const active = isActive(item.href);
+                  const Icon = item.icon;
+                  return (
+                    <Link key={item.href} href={item.href}
+                      style={active ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" } : { color: "var(--sb-fg)" }}
+                      className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
+                      onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
+                      onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
+                      <span style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
+                        <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
+                      </span>
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SIGN OUT */}
           <div>
             <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">General</p>
             <div className="space-y-0.5">
@@ -502,7 +503,9 @@ export default function AppShell({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -20,6 +20,13 @@ export async function GET(req: NextRequest) {
     if (assignedTo === "me")          where.assignedToId = actor.id;
     else if (assignedTo === "unassigned") where.assignedToId = null;
 
+    // By default show conversations where agent was requested OR bot is paused
+    // Pass ?botPaused=all to see everything including active bot conversations
+    const botPausedParam = searchParams.get("botPaused");
+    if (botPausedParam !== "all") {
+      where.OR = [{ botPaused: true }, { agentRequested: true }];
+    }
+
     const conversations = await prisma.conversation.findMany({
       where,
       orderBy: { lastMessageAt: "desc" },
@@ -30,6 +37,7 @@ export async function GET(req: NextRequest) {
         customerName:    true,
         status:          true,
         botPaused:       true,
+        agentRequested:  true,
         tags:            true,
         lastInboundAt:   true,
         unreadCount:     true,

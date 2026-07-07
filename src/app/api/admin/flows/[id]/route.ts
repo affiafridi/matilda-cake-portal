@@ -18,7 +18,7 @@ type OptionInput = {
 
 type StepInput = {
   id?: number; stepKey: string; message: string;
-  inputType?: string; isEntry?: boolean; isFallback?: boolean; showProductCard?: boolean;
+  inputType?: string; isEntry?: boolean; isFallback?: boolean; showProductCard?: boolean; handoffToAgent?: boolean;
   imageUrl?: string | null; sortOrder?: number; options?: OptionInput[];
   positionX?: number; positionY?: number;
   label?: string | null; captureVar?: string | null;
@@ -92,6 +92,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
               isEntry:         step.isEntry ?? false,
               isFallback:      step.isFallback ?? false,
               showProductCard: step.showProductCard ?? false,
+              handoffToAgent:  step.handoffToAgent  ?? false,
               imageUrl:        step.imageUrl || null,
               sortOrder:       step.sortOrder ?? si,
               positionX:       step.positionX ?? 80,
@@ -110,6 +111,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
               isEntry:         step.isEntry ?? false,
               isFallback:      step.isFallback ?? false,
               showProductCard: step.showProductCard ?? false,
+              handoffToAgent:  step.handoffToAgent  ?? false,
               imageUrl:        step.imageUrl || null,
               sortOrder:       step.sortOrder ?? si,
               positionX:       step.positionX ?? 80,

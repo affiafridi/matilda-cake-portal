@@ -13,19 +13,30 @@ export async function GET() {
 
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM portal_settings
-      WHERE key IN ('woo_visible_to_admin', 'ai_visible_to_admin', 'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url', 'inbox_template_name')
+      WHERE key IN (
+        'woo_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin',
+        'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url', 'inbox_template_name',
+        'contact_phone', 'contact_email', 'contact_website', 'contact_welcome_image', 'contact_team_numbers'
+      )
     `;
 
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return jsonOk({
-      woo_visible_to_admin: (map["woo_visible_to_admin"] ?? "false") === "true",
-      ai_visible_to_admin:  (map["ai_visible_to_admin"]  ?? "false") === "true",
+      woo_visible_to_admin:    (map["woo_visible_to_admin"]    ?? "false") === "true",
+      ai_visible_to_admin:     (map["ai_visible_to_admin"]     ?? "false") === "true",
+      wa_visible_to_admin:     (map["wa_visible_to_admin"]     ?? "true")  === "true",
+      portal_visible_to_admin: (map["portal_visible_to_admin"] ?? "true")  === "true",
       app_name:      map["app_name"]      ?? "Order Portal",
       primary_color: map["primary_color"] ?? "#6b2e1a",
       accent_color:  map["accent_color"]  ?? "#c9a535",
       sidebar_color: map["sidebar_color"] ?? "#ffffff",
-      logo_url:             map["logo_url"]             ?? "/uploads/logo.png",
-      inbox_template_name:  map["inbox_template_name"]  ?? "conversation_followup",
+      logo_url:            map["logo_url"]            ?? "/uploads/logo.png",
+      inbox_template_name: map["inbox_template_name"] ?? "conversation_followup",
+      contact_phone:         map["contact_phone"]         ?? "",
+      contact_email:         map["contact_email"]         ?? "",
+      contact_website:       map["contact_website"]       ?? "",
+      contact_welcome_image: map["contact_welcome_image"] ?? "",
+      contact_team_numbers:  map["contact_team_numbers"]  ?? "",
     });
   } catch (err) {
     return handleApiError(err);
@@ -39,12 +50,14 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json() as { key: string; value: boolean | string };
     const allowed = [
-      "woo_visible_to_admin", "ai_visible_to_admin", "app_name",
+      "woo_visible_to_admin", "ai_visible_to_admin", "wa_visible_to_admin", "portal_visible_to_admin", "app_name",
       "primary_color", "accent_color", "sidebar_color", "logo_url",
       "inbox_template_name",
+      "contact_phone", "contact_email", "contact_website", "contact_welcome_image", "contact_team_numbers",
       "wa_access_token", "wa_phone_number_id", "wa_business_account_id",
       "wc_url", "wc_consumer_key", "wc_consumer_secret",
       "bot_url", "sync_secret", "inbox_webhook_secret",
+      "google_oauth_client_id", "google_oauth_client_secret",
     ];
     if (!allowed.includes(body.key)) return jsonError("Invalid key", 400);
 
