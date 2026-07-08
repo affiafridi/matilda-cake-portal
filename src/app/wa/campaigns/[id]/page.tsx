@@ -259,10 +259,8 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
                   <thead>
                     <tr className="border-b border-rule bg-canvas/50 text-left">
                       <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Contact</th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Status</th>
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Message Status</th>
                       <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Sent</th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Delivered</th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Read</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-rule">
@@ -284,7 +282,7 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
                               </div>
                             </div>
                           </td>
-                          {/* Status */}
+                          {/* Message Status — shows highest status + its timestamp */}
                           <td className="px-5 py-3.5">
                             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${badge.classes}`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
@@ -293,6 +291,11 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
                             {r.errorMsg && (
                               <p className="mt-1 text-[11px] text-red-500 max-w-[180px] truncate" title={r.errorMsg}>{r.errorMsg}</p>
                             )}
+                            {(r.readAt || r.deliveredAt) && (
+                              <p className="mt-1 text-[11px] text-ink-muted">
+                                {fmt(r.readAt ?? r.deliveredAt!, "time")} · {fmt(r.readAt ?? r.deliveredAt!, "date")}
+                              </p>
+                            )}
                           </td>
                           {/* Sent */}
                           <td className="px-5 py-3.5 text-xs text-ink-muted whitespace-nowrap">
@@ -300,24 +303,6 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
                               <div>
                                 <p className="font-medium text-ink">{fmt(r.sentAt, "time")}</p>
                                 <p>{fmt(r.sentAt, "date")}</p>
-                              </div>
-                            ) : "—"}
-                          </td>
-                          {/* Delivered */}
-                          <td className="px-5 py-3.5 text-xs text-ink-muted whitespace-nowrap">
-                            {r.deliveredAt ? (
-                              <div>
-                                <p className="font-medium text-emerald-700">{fmt(r.deliveredAt, "time")}</p>
-                                <p>{fmt(r.deliveredAt, "date")}</p>
-                              </div>
-                            ) : "—"}
-                          </td>
-                          {/* Read */}
-                          <td className="px-5 py-3.5 text-xs text-ink-muted whitespace-nowrap">
-                            {r.readAt ? (
-                              <div>
-                                <p className="font-medium text-violet-700">{fmt(r.readAt, "time")}</p>
-                                <p>{fmt(r.readAt, "date")}</p>
                               </div>
                             ) : "—"}
                           </td>
