@@ -24,7 +24,6 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/settings":      { title: "Settings",          parent: "WhatsApp" },
   "/wa/inbox":               { title: "Team Inbox",         parent: "WhatsApp" },
   "/wa/woocommerce":         { title: "WooCommerce", parent: "WooCommerce" },
-  "/wa/keywords":            { title: "Keyword Manager" },
   "/wa/ai":                  { title: "AI Instructions" },
   "/wa/flows":               { title: "Flow Builder",    parent: "AI Bot" },
 };
@@ -76,7 +75,6 @@ const WOO_NAV = [
 
 const AI_NAV = [
   { href: "/wa/ai",                   label: "AI Instructions", icon: IcAI },
-  { href: "/wa/keywords",             label: "Keyword Manager", icon: IcKeyword },
   { href: "/wa/flows",                label: "Flow Builder",    icon: IcFlow },
 ];
 
@@ -537,9 +535,6 @@ function IcHistory(p: SVGProps<SVGSVGElement>) {
 }
 function IcTemplate(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>;
-}
-function IcKeyword(p: SVGProps<SVGSVGElement>) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
 }
 function IcAI(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>;
