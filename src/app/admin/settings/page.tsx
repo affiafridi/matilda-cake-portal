@@ -80,7 +80,6 @@ function applyBrandVarsLive(hex: string) {
 
 type Settings = {
   woo_visible_to_admin:    boolean;
-  ai_visible_to_admin:     boolean;
   wa_visible_to_admin:     boolean;
   portal_visible_to_admin: boolean;
   app_name:      string;
@@ -140,7 +139,6 @@ export default function AdminSettingsPage() {
       v?.getPropertyValue(name).trim() || fallback;
     return {
       woo_visible_to_admin:    false,
-      ai_visible_to_admin:     false,
       wa_visible_to_admin:     true,
       portal_visible_to_admin: true,
       app_name:      "Order Portal",
@@ -249,7 +247,7 @@ export default function AdminSettingsPage() {
     if (file) uploadLogo(file);
   }
 
-  function toggle(key: "woo_visible_to_admin" | "ai_visible_to_admin" | "wa_visible_to_admin" | "portal_visible_to_admin") {
+  function toggle(key: "woo_visible_to_admin" | "wa_visible_to_admin" | "portal_visible_to_admin") {
     const newValue = !settings[key];
     setSettings((prev) => ({ ...prev, [key]: newValue }));
     save(key, newValue);
@@ -259,7 +257,6 @@ export default function AdminSettingsPage() {
     { key: "wa_visible_to_admin"     as const, label: "WhatsApp Section", description: "Allow Admin role to see Team Inbox, Customers, Campaigns and WA settings" },
     { key: "portal_visible_to_admin" as const, label: "Portal Section",   description: "Allow Admin role to see Orders, Branches, Users and New Order" },
     { key: "woo_visible_to_admin"    as const, label: "WooCommerce Section", description: "Allow Admin role to see and manage Woo Categories" },
-    { key: "ai_visible_to_admin"     as const, label: "AI Bot Section",       description: "Allow Admin role to see AI Instructions and Keyword Manager" },
   ];
 
   return (

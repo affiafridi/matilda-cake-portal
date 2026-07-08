@@ -43,7 +43,12 @@ export async function GET(req: NextRequest) {
         unreadCount:     true,
         lastMessageAt:   true,
         lastMessageBody: true,
-        assignedTo:      { select: { id: true, name: true } },
+        assignedTo:          { select: { id: true, name: true } },
+        currentBotFlowId:    true,
+        currentBotFlowName:  true,
+        currentBotStepKey:   true,
+        botContextVariables: true,
+        lastBotActivityAt:   true,
       },
     });
 

@@ -42,10 +42,53 @@ export async function POST(req: NextRequest) {
       const mapped = STATUS_MAP[status];
       if (!mapped) return jsonOk({ skipped: true });
 
+      const now = new Date();
+
+      // Update inbox message status
       await prisma.message.updateMany({
         where: { waMessageId },
         data:  { messageStatus: mapped },
       });
+
+      // Update broadcast recipient status + timestamps
+      const recipient = await prisma.broadcastRecipient.findUnique({
+        where:  { waMessageId },
+        select: { id: true, broadcastId: true, status: true },
+      });
+
+      if (recipient) {
+        const prev = recipient.status;
+        const recipientData: Record<string, unknown> = { status: mapped };
+        const broadcastInc: Record<string, unknown> = {};
+
+        if (mapped === "DELIVERED" && prev !== "DELIVERED" && prev !== "READ") {
+          recipientData.deliveredAt = now;
+          broadcastInc.deliveredCount = { increment: 1 };
+        } else if (mapped === "READ" && prev !== "READ") {
+          recipientData.readAt = now;
+          broadcastInc.readCount = { increment: 1 };
+          // If we somehow missed the delivered webhook, set deliveredAt too
+          if (!recipient.status.includes("DELIVERED") && prev !== "READ") {
+            recipientData.deliveredAt = now;
+            broadcastInc.deliveredCount = { increment: 1 };
+          }
+        } else if (mapped === "FAILED" && prev !== "FAILED") {
+          recipientData.failedAt = now;
+          broadcastInc.failedCount = { increment: 1 };
+        }
+
+        await prisma.broadcastRecipient.update({
+          where: { id: recipient.id },
+          data:  recipientData,
+        });
+
+        if (Object.keys(broadcastInc).length > 0) {
+          await prisma.broadcast.update({
+            where: { id: recipient.broadcastId },
+            data:  broadcastInc,
+          });
+        }
+      }
 
       return jsonOk({ ok: true });
     }

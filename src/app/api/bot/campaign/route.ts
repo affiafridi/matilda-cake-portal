@@ -13,6 +13,7 @@ const schema = z.object({
   customers:         z.array(z.string()).min(1),
   templateName:      z.string().min(1),
   templateLanguage:  z.string().default("en"),
+  campaignName:      z.string().optional(),
   imageUrl:          z.string().optional(),
   headerFormat:      z.string().optional(),
   bodyVarCount:      z.number().int().min(0).default(0),

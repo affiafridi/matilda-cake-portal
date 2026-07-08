@@ -24,7 +24,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/settings":      { title: "Settings",          parent: "WhatsApp" },
   "/wa/inbox":               { title: "Team Inbox",         parent: "WhatsApp" },
   "/wa/woocommerce":         { title: "WooCommerce", parent: "WooCommerce" },
-  "/wa/flows":               { title: "Flow Builder",    parent: "AI Bot" },
+  "/wa/flows":               { title: "Flow Builder",    parent: "WhatsApp" },
 };
 
 function getPageMeta(pathname: string) {
@@ -66,14 +66,11 @@ const WA_NAV: { href: string; label: string; icon: (p: SVGProps<SVGSVGElement>) 
   { href: "/wa/campaigns",         label: "Campaign History", icon: IcHistory,    roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/manage",            label: "Manage Templates", icon: IcTemplate,   roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/settings",          label: "Settings",         icon: IcSettings,   roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/flows",             label: "Flow Builder",     icon: IcFlow,        roles: ["SUPER_ADMIN", "ADMIN"] },
 ];
 
 const WOO_NAV = [
   { href: "/wa/woocommerce", label: "WooCommerce", icon: IcWoo },
-];
-
-const AI_NAV = [
-  { href: "/wa/flows", label: "Flow Builder", icon: IcFlow },
 ];
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -87,7 +84,6 @@ const ROLE_LABEL: Record<Role, string> = {
 
 type Settings = {
   woo_visible_to_admin:    boolean;
-  ai_visible_to_admin:     boolean;
   wa_visible_to_admin:     boolean;
   portal_visible_to_admin: boolean;
   app_name?:  string;
@@ -147,7 +143,6 @@ export default function AppShell({
   const isWaUser      = waNavItems.length > 0;
   const isSuperAdmin  = user.role === "SUPER_ADMIN";
   const showWoo    = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin    ?? false));
-  const showAI     = isSuperAdmin || (user.role === "ADMIN" && (settings?.ai_visible_to_admin     ?? false));
   const showWA     = isSuperAdmin || user.role === "AGENT" || (user.role === "ADMIN" && (settings?.wa_visible_to_admin     ?? true));
   const showPortal = isSuperAdmin || user.role === "AGENT" || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin ?? true));
   const items         = MAIN_NAV.filter((i) => i.roles.includes(user.role));
@@ -323,45 +318,6 @@ export default function AppShell({
                         active ? "bg-white/15" : "bg-[#f3eeff] group-hover:bg-[#f3eeff]",
                       ].join(" ")}>
                         <Icon className={["h-4 w-4", active ? "text-white" : "text-[#7f54b3]"].join(" ")} />
-                      </span>
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* AI BOT section */}
-          {showAI && (
-            <div>
-              <div className="mb-1 flex items-center gap-2 px-3">
-                <div className="h-px flex-1 bg-rule" />
-                <div className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 24 24" fill="#1c1917" className="h-3 w-3" aria-hidden="true">
-                    <path d="M22.28 9.28a5.76 5.76 0 00-.44-4.72 5.83 5.83 0 00-6.26-2.8A5.77 5.77 0 0011.34 0a5.83 5.83 0 00-5.56 4.04 5.77 5.77 0 00-3.85 2.8 5.83 5.83 0 00.72 6.84 5.77 5.77 0 00.44 4.72 5.83 5.83 0 006.26 2.8A5.77 5.77 0 0012.66 24a5.84 5.84 0 005.57-4.04 5.77 5.77 0 003.85-2.8 5.83 5.83 0 00-.8-6.88zM8.23 10.5L12 8.28l3.77 2.18v4.35L12 17l-3.77-2.18V10.5z"/>
-                  </svg>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#1c1917]/60">AI Bot</span>
-                </div>
-                <div className="h-px flex-1 bg-rule" />
-              </div>
-              <div className="space-y-0.5">
-                {AI_NAV.map((item) => {
-                  const active = isActive(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.href} href={item.href}
-                      style={!active ? { color: "var(--sb-fg)" } : undefined}
-                      className={[
-                        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
-                        active
-                          ? "bg-[#1c1917] text-white"
-                          : "hover:bg-[#f5f5f4]/80 hover:text-[#1c1917]",
-                      ].join(" ")}>
-                      <span className={["flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        active ? "bg-white/12" : "bg-[#f5f5f4] group-hover:bg-[#e7e5e4]",
-                      ].join(" ")}>
-                        <Icon className={["h-4 w-4", active ? "text-white" : "text-[#44403c]"].join(" ")} />
                       </span>
                       {item.label}
                     </Link>

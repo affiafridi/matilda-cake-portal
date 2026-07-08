@@ -27,6 +27,7 @@ model User {
   assignedConversations Conversation[]       @relation("InboxAssignedTo")
   sentMessages          Message[]            @relation("MessageSentBy")
   internalNotes         InternalNote[]       @relation("NoteAuthor")
+  broadcasts            Broadcast[]
 
   @@index([role])
   @@index([isActive])
@@ -284,11 +285,32 @@ model Conversation {
   updatedAt       DateTime           @updatedAt
   messages        Message[]
   notes           InternalNote[]
+  events          ConversationEvent[]
+
+  // Bot context — updated by bot via webhook as it processes steps
+  currentBotFlowId    Int?
+  currentBotFlowName  String?
+  currentBotStepKey   String?
+  botContextVariables String?
+  lastBotActivityAt   DateTime?
 
   @@index([status])
   @@index([assignedToId])
   @@index([lastMessageAt])
   @@index([customerId])
+}
+
+/// Activity events shown as labels in the conversation feed (assigned, resolved, etc.)
+model ConversationEvent {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  type           String       // ASSIGNED | UNASSIGNED | STATUS_CHANGED | BOT_PAUSED | BOT_RESUMED | AGENT_REQUESTED
+  actorName      String       // name of the user who triggered the event
+  meta           String?      // JSON: { toName?, fromStatus?, toStatus? }
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
 }
 
 /// Every inbound and outbound WhatsApp message in a conversation.
@@ -382,6 +404,50 @@ model BotFlowStep {
 
   @@unique([flowId, stepKey])
   @@map("bot_flow_steps")
+}
+
+/// A broadcast campaign sent via WhatsApp template.
+/// Created by the bot when it starts sending; updated as statuses come in via webhook.
+model Broadcast {
+  id             String               @id @default(cuid())
+  name           String
+  templateName   String
+  templateLang   String               @default("en")
+  sentById       String?
+  sentBy         User?                @relation(fields: [sentById], references: [id])
+  status         String               @default("SENDING") // SENDING | COMPLETED | FAILED
+  totalCount     Int                  @default(0)
+  sentCount      Int                  @default(0)
+  deliveredCount Int                  @default(0)
+  readCount      Int                  @default(0)
+  failedCount    Int                  @default(0)
+  createdAt      DateTime             @default(now())
+  completedAt    DateTime?
+  recipients     BroadcastRecipient[]
+
+  @@index([createdAt])
+}
+
+/// One row per recipient in a Broadcast. waMessageId links status webhooks back here.
+model BroadcastRecipient {
+  id           String    @id @default(cuid())
+  broadcastId  String
+  broadcast    Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  waId         String
+  customerName String?
+  phone        String?
+  waMessageId  String?   @unique
+  status       String    @default("PENDING") // PENDING | SENT | DELIVERED | READ | FAILED
+  errorMsg     String?
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  readAt       DateTime?
+  failedAt     DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([broadcastId])
+  @@index([waMessageId])
+  @@index([waId])
 }
 
 /// A button or list item within a flow step.

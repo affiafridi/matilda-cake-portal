@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import React, { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +19,12 @@ type ConvSummary = {
   lastMessageAt:   string;
   lastMessageBody: string | null;
   assignedTo:      { id: string; name: string } | null;
+  // Bot context (populated by bot via webhook)
+  currentBotFlowId?:      number | null;
+  currentBotFlowName?:    string | null;
+  currentBotStepKey?:     string | null;
+  botContextVariables?:   string | null;
+  lastBotActivityAt?:     string | null;
 };
 
 type Message = {
@@ -37,6 +43,14 @@ type Note = {
   body:      string;
   createdAt: string;
   author:    { id: string; name: string } | null;
+};
+
+type ConversationEvent = {
+  id:        string;
+  type:      string;
+  actorName: string;
+  meta:      string | null;
+  createdAt: string;
 };
 
 type QuickReply = { id: string; shortcut: string; body: string };
@@ -220,12 +234,11 @@ export default function InboxClient({
   templateConfigured:   boolean;
 }) {
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
-  const [statusFilter,  setStatusFilter]  = useState<"ALL" | "OPEN" | "PENDING" | "RESOLVED" | "PAUSED">("OPEN");
-  const [assignFilter,  setAssignFilter]  = useState<"all" | "me" | "unassigned">("all");
-  const [showBotChats,  setShowBotChats]  = useState(false);
+  const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("unassigned");
   const [search,        setSearch]        = useState("");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
   const [messages,      setMessages]      = useState<Message[]>([]);
+  const [events,        setEvents]        = useState<ConversationEvent[]>([]);
   const [notes,         setNotes]         = useState<Note[]>([]);
   const [convDetail,    setConvDetail]    = useState<ConvSummary | null>(null);
   const [loadingMsgs,   setLoadingMsgs]  = useState(false);
@@ -235,9 +248,10 @@ export default function InboxClient({
   const [customer,        setCustomer]        = useState<CustomerProfile | null>(null);
   const [customerOrders,  setCustomerOrders]  = useState<CustomerOrder[]>([]);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
-  const [showCustomer,    setShowCustomer]    = useState(true);
+  const [rightTab,        setRightTab]        = useState<"contact" | "bot">("contact");
 
-  // Reply
+  // Reply / note input tabs
+  const [replyTab,     setReplyTab]     = useState<"reply" | "note">("reply");
   const [replyText,    setReplyText]    = useState("");
   const [sending,      setSending]      = useState(false);
   const [sendError,    setSendError]    = useState<string | null>(null);
@@ -274,14 +288,12 @@ export default function InboxClient({
     setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 5000);
   }
 
-  // ── Poll conversation list — always fetch ALL so counts are always correct ──
+  // ── Poll conversation list — always fetch ALL so counts stay accurate ──
   useEffect(() => {
     async function fetchConvs() {
       try {
-        const qs = new URLSearchParams({ status: "ALL" });
-        if (assignFilter !== "all") qs.set("assignedTo", assignFilter);
-        if (showBotChats) qs.set("botPaused", "all");
-        const res  = await fetch(`/api/inbox/conversations?${qs}`);
+        // Always fetch all so sidebar counts are correct
+        const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all`);
         const json = await res.json().catch(() => null) as { ok: boolean; data: ConvSummary[] } | null;
         if (!json?.ok) return;
         const newConvs = json.data;
@@ -304,7 +316,7 @@ export default function InboxClient({
     const t = setInterval(fetchConvs, 4000);
     return () => clearInterval(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignFilter, showBotChats]);
+  }, []);
 
   // ── Load messages + notes ─────────────────────────────────────────────────
   useEffect(() => {
@@ -316,10 +328,11 @@ export default function InboxClient({
           fetch(`/api/inbox/conversations/${selectedId}`),
           fetch(`/api/inbox/conversations/${selectedId}/notes`),
         ]);
-        const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
+        const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[]; events: ConversationEvent[] } } | null;
         const nj = await nr.json().catch(() => null) as { ok: boolean; data: Note[] } | null;
         if (mj?.ok) {
           setMessages(mj.data.messages);
+          setEvents(mj.data.events ?? []);
           setConvDetail(mj.data.conversation);
           setConversations((p) => p.map((c) => c.id === selectedId ? { ...c, unreadCount: 0 } : c));
         }
@@ -333,9 +346,9 @@ export default function InboxClient({
           fetch(`/api/inbox/conversations/${selectedId}`),
           fetch(`/api/inbox/conversations/${selectedId}/notes`),
         ]);
-        const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
+        const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[]; events: ConversationEvent[] } } | null;
         const nj = await nr.json().catch(() => null) as { ok: boolean; data: Note[] } | null;
-        if (mj?.ok) { setMessages(mj.data.messages); setConvDetail(mj.data.conversation); }
+        if (mj?.ok) { setMessages(mj.data.messages); setEvents(mj.data.events ?? []); setConvDetail(mj.data.conversation); }
         if (nj?.ok) setNotes(nj.data);
       } catch { /* ignore */ }
     }, 4000);
@@ -490,35 +503,40 @@ export default function InboxClient({
 
   function openConv(id: string) {
     setSelectedId(id);
-    setMessages([]); setNotes([]); setConvDetail(null);
+    setMessages([]); setEvents([]); setNotes([]); setConvDetail(null);
     setCustomer(null); setCustomerOrders([]);
     setReplyText(""); setQrQuery(null); setSendError(null);
-    setShowTagPicker(false);
+    setShowTagPicker(false); setReplyTab("reply");
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const selected      = convDetail ?? conversations.find((c) => c.id === selectedId) ?? null;
   const windowClosed  = is24hWindowClosed(selected?.lastInboundAt ?? null);
 
+  const counts = {
+    unassigned: conversations.filter((c) => !c.assignedTo && (c.botPaused || c.agentRequested)).length,
+    mine:       conversations.filter((c) => c.assignedTo?.id === currentUserId).length,
+    all:        conversations.filter((c) => c.botPaused || c.agentRequested).length,
+    open:       conversations.filter((c) => c.status === "OPEN").length,
+    resolved:   conversations.filter((c) => c.status === "RESOLVED").length,
+    paused:     conversations.filter((c) => c.botPaused).length,
+  };
+
   const filtered = conversations.filter((c) => {
-    if (statusFilter === "OPEN"     && c.status !== "OPEN")     return false;
-    if (statusFilter === "PENDING"  && c.status !== "PENDING")  return false;
-    if (statusFilter === "RESOLVED" && c.status !== "RESOLVED") return false;
-    if (statusFilter === "PAUSED"   && !c.botPaused)            return false;
+    let pass = true;
+    if (view === "unassigned") pass = !c.assignedTo && (c.botPaused || c.agentRequested);
+    else if (view === "mine")  pass = c.assignedTo?.id === currentUserId;
+    else if (view === "all")   pass = c.botPaused || c.agentRequested;
+    else if (view === "open")  pass = c.status === "OPEN";
+    else if (view === "resolved") pass = c.status === "RESOLVED";
+    else if (view === "paused")   pass = c.botPaused;
+    if (!pass) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
       if (!c.customerName.toLowerCase().includes(q) && !c.waId.includes(q)) return false;
     }
     return true;
   });
-
-  const counts = {
-    ALL:      conversations.length,
-    OPEN:     conversations.filter((c) => c.status === "OPEN").length,
-    PENDING:  conversations.filter((c) => c.status === "PENDING").length,
-    RESOLVED: conversations.filter((c) => c.status === "RESOLVED").length,
-    PAUSED:   conversations.filter((c) => c.botPaused).length,
-  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -540,21 +558,12 @@ export default function InboxClient({
       </div>
 
       {/* ════════════════════════════════════════════════════════════
-          LEFT — Conversation list
+          LEFT — WATI-style nav + conversation list
       ════════════════════════════════════════════════════════════ */}
       <div className="flex w-[300px] shrink-0 flex-col border-r border-gray-200 bg-white">
 
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h2 className="text-base font-bold text-gray-900">Inbox</h2>
-          <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand">
-            {conversations.filter((c) => c.unreadCount > 0).length > 0
-              ? `${conversations.filter((c) => c.unreadCount > 0).length} unread`
-              : `${conversations.length} chats`}
-          </span>
-        </div>
-
         {/* Search */}
-        <div className="px-4 pb-3">
+        <div className="px-3 pt-4 pb-3">
           <div className="relative">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
@@ -569,53 +578,50 @@ export default function InboxClient({
           </div>
         </div>
 
-        {/* Bot chats toggle */}
-        <div className="flex items-center justify-between px-4 pb-2">
-          <span className="text-xs text-gray-400">Show bot-only chats</span>
-          <button type="button" onClick={() => setShowBotChats((p) => !p)}
-            className={["relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
-              showBotChats ? "bg-[#25D366]" : "bg-gray-200",
-            ].join(" ")}>
-            <span className={["inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200",
-              showBotChats ? "translate-x-4" : "translate-x-0",
-            ].join(" ")} />
-          </button>
-        </div>
-
-        {/* Assign filter */}
-        <div className="flex gap-1 px-4 pb-3">
-          {([["all","All"],["me","Mine"],["unassigned","Unassigned"]] as const).map(([v, l]) => (
-            <button key={v} onClick={() => setAssignFilter(v)}
-              className={["flex-1 rounded-lg py-1.5 text-xs font-semibold transition",
-                assignFilter === v ? "bg-gray-900 text-white" : "text-gray-500 hover:bg-gray-100",
-              ].join(" ")}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        {/* Status filter — compact chips */}
-        <div className="border-t border-gray-100 px-4 py-2.5 flex flex-wrap gap-1.5">
+        {/* Nav sections */}
+        <div className="overflow-y-auto flex-shrink-0">
+          {/* CONVERSATIONS section */}
+          <p className="px-4 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Conversations</p>
           {([
-            ["ALL",      "All",     "bg-gray-400"],
-            ["OPEN",     "Open",    "bg-emerald-400"],
-            ["PENDING",  "Pending", "bg-amber-400"],
-            ["RESOLVED", "Resolved","bg-gray-300"],
-            ["PAUSED",   "Paused",  "bg-orange-400"],
-          ] as const).map(([v, l, dot]) => (
-            <button key={v} onClick={() => setStatusFilter(v)}
-              className={["flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition",
-                statusFilter === v
-                  ? "bg-gray-900 text-white font-semibold"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200",
+            { key: "unassigned", label: "Unassigned", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/> },
+            { key: "mine",       label: "Assigned to me", icon: <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></> },
+            { key: "all",        label: "All Active",  icon: <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/> },
+          ] as { key: typeof view; label: string; icon: React.ReactNode }[]).map(({ key, label, icon }) => (
+            <button key={key} onClick={() => setView(key)}
+              className={["flex w-full items-center gap-3 px-4 py-2.5 text-sm transition",
+                view === key ? "bg-brand/8 text-brand font-semibold" : "text-gray-600 hover:bg-gray-50",
               ].join(" ")}>
-              <span className={`h-1.5 w-1.5 rounded-full ${statusFilter === v ? "bg-white/70" : dot}`} />
-              {l}
-              <span className={["text-[10px] font-bold", statusFilter === v ? "text-white/70" : "text-gray-400"].join(" ")}>
-                {counts[v]}
-              </span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={["h-4 w-4 shrink-0", view === key ? "text-brand" : "text-gray-400"].join(" ")}>{icon}</svg>
+              <span className="flex-1 text-left">{label}</span>
+              {counts[key as keyof typeof counts] > 0 && (
+                <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", view === key ? "bg-brand/15 text-brand" : "bg-gray-100 text-gray-500"].join(" ")}>
+                  {counts[key as keyof typeof counts]}
+                </span>
+              )}
             </button>
           ))}
+
+          {/* STATUS section */}
+          <p className="px-4 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Status</p>
+          {([
+            { key: "open",     label: "Open",     dot: "bg-emerald-400", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/> },
+            { key: "resolved", label: "Resolved", dot: "bg-gray-300",    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/> },
+            { key: "paused",   label: "Bot Paused", dot: "bg-amber-400", icon: <><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></> },
+          ] as { key: typeof view; label: string; dot: string; icon: React.ReactNode }[]).map(({ key, label, dot, icon }) => (
+            <button key={key} onClick={() => setView(key)}
+              className={["flex w-full items-center gap-3 px-4 py-2.5 text-sm transition",
+                view === key ? "bg-brand/8 text-brand font-semibold" : "text-gray-600 hover:bg-gray-50",
+              ].join(" ")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={["h-4 w-4 shrink-0", view === key ? "text-brand" : "text-gray-400"].join(" ")}>{icon}</svg>
+              <span className="flex-1 text-left">{label}</span>
+              {counts[key as keyof typeof counts] > 0 && (
+                <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", view === key ? "bg-brand/15 text-brand" : "bg-gray-100 text-gray-500"].join(" ")}>
+                  {counts[key as keyof typeof counts]}
+                </span>
+              )}
+            </button>
+          ))}
+          <div className="mx-4 my-3 h-px bg-gray-100" />
         </div>
 
         {/* Conversation list */}
@@ -790,13 +796,18 @@ export default function InboxClient({
                     <option value="RESOLVED">Resolved</option>
                   </select>
 
-                  {/* Customer panel */}
-                  <button onClick={() => setShowCustomer((v) => !v)}
-                    className={["flex h-8 w-8 items-center justify-center rounded-xl border transition",
-                      showCustomer ? "border-brand/30 bg-brand/5 text-brand" : "border-gray-200 text-gray-400 hover:bg-gray-50",
-                    ].join(" ")} title="Customer details">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-                  </button>
+                  {/* Right panel tabs */}
+                  {(["contact", "bot"] as const).map((tab) => (
+                    <button key={tab} onClick={() => setRightTab(tab)}
+                      className={["flex h-8 w-8 items-center justify-center rounded-xl border transition",
+                        rightTab === tab ? "border-brand/30 bg-brand/5 text-brand" : "border-gray-200 text-gray-400 hover:bg-gray-50",
+                      ].join(" ")} title={tab === "contact" ? "Contact" : "Bot Context"}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
+                        {tab === "contact" && <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></>}
+                        {tab === "bot"     && <path strokeLinecap="round" strokeLinejoin="round" d="M8 9h8M8 13h6M5 3h14a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>}
+                      </svg>
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -860,18 +871,62 @@ export default function InboxClient({
 
             {/* ── Chat messages ── */}
             <>
+              {/* Merged message + event feed */}
               <div className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
-                  {loadingMsgs && messages.length === 0 && (
-                    <div className="flex items-center justify-center py-16">
-                      <svg className="h-5 w-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                    </div>
-                  )}
-                  {messages.map((m, i) => {
-                    const isOut   = m.direction === "OUTBOUND";
-                    const showSep = i === 0 || !isSameDay(messages[i - 1].createdAt, m.createdAt);
-                    const showAvatar = !isOut && (i === messages.length - 1 || messages[i + 1]?.direction !== "INBOUND");
+                {loadingMsgs && messages.length === 0 && (
+                  <div className="flex items-center justify-center py-16">
+                    <svg className="h-5 w-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                  </div>
+                )}
+                {(() => {
+                  // Merge messages + events into a sorted feed
+                  type FeedItem = { kind: "msg"; data: Message } | { kind: "evt"; data: ConversationEvent };
+                  const feed: FeedItem[] = [
+                    ...messages.map((m) => ({ kind: "msg" as const, data: m })),
+                    ...events.map((e) => ({ kind: "evt" as const, data: e })),
+                  ].sort((a, b) => new Date(a.data.createdAt).getTime() - new Date(b.data.createdAt).getTime());
+
+                  let lastDay = "";
+                  return feed.map((item, i) => {
+                    const day = new Date(item.data.createdAt).toDateString();
+                    const showSep = day !== lastDay;
+                    lastDay = day;
+
+                    if (item.kind === "evt") {
+                      const ev = item.data;
+                      let label = "";
+                      let meta: Record<string, string> = {};
+                      try { meta = ev.meta ? JSON.parse(ev.meta) : {}; } catch { /**/ }
+                      if (ev.type === "ASSIGNED")       label = `${ev.actorName} assigned this conversation to ${meta.toName ?? "an agent"}`;
+                      else if (ev.type === "UNASSIGNED") label = `${ev.actorName} unassigned this conversation`;
+                      else if (ev.type === "STATUS_CHANGED") label = `${ev.actorName} changed status to ${(meta.toStatus ?? "").toLowerCase()}`;
+                      else if (ev.type === "BOT_PAUSED")  label = `${ev.actorName} paused the bot`;
+                      else if (ev.type === "BOT_RESUMED") label = `${ev.actorName} resumed the bot`;
+                      else label = ev.type.replace(/_/g, " ").toLowerCase();
+                      return (
+                        <Fragment key={`evt-${ev.id}`}>
+                          {showSep && (
+                            <div className="flex items-center gap-3 py-3">
+                              <div className="h-px flex-1 bg-gray-200" />
+                              <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">{dayLabel(ev.createdAt)}</span>
+                              <div className="h-px flex-1 bg-gray-200" />
+                            </div>
+                          )}
+                          <div className="flex items-center justify-center py-1.5">
+                            <span className="rounded-full bg-amber-50 border border-amber-100 px-4 py-1 text-[11px] text-amber-700 font-medium">
+                              {label} · {fmtTime(ev.createdAt)}
+                            </span>
+                          </div>
+                        </Fragment>
+                      );
+                    }
+
+                    const m = item.data as Message;
+                    const msgIndex = messages.indexOf(m);
+                    const isOut = m.direction === "OUTBOUND";
+                    const showAvatar = !isOut && (msgIndex === messages.length - 1 || messages[msgIndex + 1]?.direction !== "INBOUND");
                     return (
-                      <Fragment key={m.id}>
+                      <Fragment key={`msg-${m.id}`}>
                         {showSep && (
                           <div className="flex items-center gap-3 py-3">
                             <div className="h-px flex-1 bg-gray-200" />
@@ -915,16 +970,44 @@ export default function InboxClient({
                         </div>
                       </Fragment>
                     );
-                  })}
-                  <div ref={bottomRef} />
+                  });
+                })()}
+                <div ref={bottomRef} />
+              </div>
+
+              {/* ── Reply / Note box ── */}
+              <div className="shrink-0 border-t border-gray-200 bg-white">
+                {/* Assigned-to banner */}
+                {selected?.assignedTo && (
+                  <div className="flex items-center justify-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0 text-amber-500"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+                    <p className="text-xs text-amber-700">
+                      This conversation is assigned to <span className="font-semibold">{selected.assignedTo.name}</span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Tabs */}
+                <div className="flex items-center gap-0 border-b border-gray-100 px-5">
+                  {(["reply", "note"] as const).map((tab) => (
+                    <button key={tab} onClick={() => setReplyTab(tab)}
+                      className={["py-3 px-1 mr-5 text-sm font-semibold border-b-2 -mb-px transition-colors",
+                        replyTab === tab
+                          ? "border-brand text-brand"
+                          : "border-transparent text-gray-400 hover:text-gray-600",
+                      ].join(" ")}>
+                      {tab === "reply" ? "Reply" : "Note"}
+                    </button>
+                  ))}
                 </div>
 
-                {/* ── Reply box ── */}
-                <div className="shrink-0 border-t border-gray-200 bg-white px-5 py-4">
+                <div className="px-5 py-4">
                   {sendError && (
                     <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{sendError}</p>
                   )}
-                  {qrQuery !== null && qrResults.length > 0 && (
+
+                  {/* Quick reply suggestions — only in reply mode */}
+                  {replyTab === "reply" && qrQuery !== null && qrResults.length > 0 && (
                     <div className="mb-3 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-black/5">
                       {qrResults.map((qr, i) => (
                         <button key={qr.id} type="button" onClick={() => insertQuickReply(qr)}
@@ -940,162 +1023,243 @@ export default function InboxClient({
                       </p>
                     </div>
                   )}
-                  <div className="flex items-end gap-2">
-                    {/* Attach file */}
-                    <input ref={fileInputRef} type="file" className="hidden"
-                      accept="image/*,video/*,audio/*,application/pdf"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) sendMedia(f); e.target.value = ""; }}
-                    />
-                    <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-400 transition hover:bg-gray-50 hover:text-gray-600 disabled:opacity-40"
-                      title="Send image or file">
-                      {uploadingMedia ? (
-                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                      )}
-                    </button>
 
-                    <textarea ref={textareaRef} rows={2} value={replyText}
-                      onChange={(e) => handleReplyChange(e.target.value)}
-                      onKeyDown={handleReplyKeyDown}
-                      placeholder="Type a message… Use / for quick replies"
-                      className="flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition"
-                    />
-                    <button type="button" onClick={() => void sendReply()} disabled={sending || !replyText.trim()}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-                      {sending ? (
-                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                      )}
-                    </button>
-                  </div>
+                  {replyTab === "reply" ? (
+                    <div className="flex items-end gap-2">
+                      <input ref={fileInputRef} type="file" className="hidden"
+                        accept="image/*,video/*,audio/*,application/pdf"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) sendMedia(f); e.target.value = ""; }}
+                      />
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-400 transition hover:bg-gray-50 hover:text-gray-600 disabled:opacity-40"
+                        title="Send image or file">
+                        {uploadingMedia ? (
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                        )}
+                      </button>
+                      <textarea ref={textareaRef} rows={2} value={replyText}
+                        onChange={(e) => handleReplyChange(e.target.value)}
+                        onKeyDown={handleReplyKeyDown}
+                        placeholder="Type a message… Use / for quick replies"
+                        className="flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition"
+                      />
+                      <button type="button" onClick={() => void sendReply()} disabled={sending || !replyText.trim()}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+                        {sending ? (
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    /* Note input */
+                    <form onSubmit={saveNote} className="flex flex-col gap-2">
+                      <textarea rows={3} value={noteText} onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Add an internal note… (not visible to customer)"
+                        className="w-full resize-none rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-gray-800 placeholder:text-amber-400 focus:border-amber-300 focus:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
+                      />
+                      <button type="submit" disabled={savingNote || !noteText.trim()}
+                        className="self-end flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40">
+                        {savingNote ? (
+                          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        )}
+                        Save note
+                      </button>
+                    </form>
+                  )}
                 </div>
-              </>
+              </div>
+            </>
           </>
         )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════
-          RIGHT — Customer panel
+          RIGHT — Tabbed side panel
       ════════════════════════════════════════════════════════════ */}
-      {selectedId && showCustomer && (
+      {selectedId && (
         <div className="flex w-[280px] shrink-0 flex-col border-l border-gray-200 bg-white overflow-y-auto">
-          <div className="px-5 py-5 border-b border-gray-100">
-            <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Contact</p>
-            {loadingCustomer ? (
-              <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-4 rounded-lg bg-gray-100 animate-pulse" />)}</div>
-            ) : customer ? (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={customer.name} size="lg" />
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-900">{customer.name}</p>
-                    <p className="text-[11px] text-gray-400">{customer.id ? "Existing customer" : "New contact"}</p>
-                  </div>
-                </div>
-                <div className="space-y-2.5">
-                  {[
-                    { icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>, text: customer.phone },
-                    customer.email ? { icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>, text: customer.email } : null,
-                    customer.createdAt ? { icon: <><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></>, text: `Since ${fmtDate(customer.createdAt)}` } : null,
-                  ].filter(Boolean).map((row, i) => row && (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5 text-gray-500">{row.icon}</svg>
-                      </div>
-                      <span className="truncate text-sm text-gray-700">{row.text}</span>
-                    </div>
-                  ))}
-                </div>
-                {customer.id && (
-                  <a href={`/customers?q=${encodeURIComponent(customer.phone)}`} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-brand/30 hover:bg-brand/5 hover:text-brand">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                    View full profile
-                  </a>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400">No customer info found.</p>
-            )}
-          </div>
 
-          {/* Orders — only shown when orders exist */}
-          {(loadingCustomer || customerOrders.length > 0) && (
-            <div className="px-5 py-5 border-b border-gray-100">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Orders</p>
-                {customerOrders.length > 0 && (
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">{customerOrders.length}</span>
+          {/* ── Contact tab ── */}
+          {rightTab === "contact" && (
+            <>
+              <div className="px-5 py-5 border-b border-gray-100">
+                <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Contact</p>
+                {loadingCustomer ? (
+                  <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-4 rounded-lg bg-gray-100 animate-pulse" />)}</div>
+                ) : customer ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={customer.name} size="lg" />
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-gray-900">{customer.name}</p>
+                        <p className="text-[11px] text-gray-400">{customer.id ? "Existing customer" : "New contact"}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2.5">
+                      {[
+                        { icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>, text: customer.phone },
+                        customer.email ? { icon: <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>, text: customer.email } : null,
+                        customer.createdAt ? { icon: <><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></>, text: `Since ${fmtDate(customer.createdAt)}` } : null,
+                      ].filter(Boolean).map((row, i) => row && (
+                        <div key={i} className="flex items-center gap-3">
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5 text-gray-500">{row.icon}</svg>
+                          </div>
+                          <span className="truncate text-sm text-gray-700">{row.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {customer.id && (
+                      <a href={`/customers?q=${encodeURIComponent(customer.phone)}`} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-brand/30 hover:bg-brand/5 hover:text-brand">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        View full profile
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No customer info found.</p>
                 )}
               </div>
-              {loadingCustomer ? (
-                <div className="space-y-3">{[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />)}</div>
-              ) : (
-                <div className="space-y-2.5">
-                  {customerOrders.map((o) => (
-                    <a key={o.id} href={`/orders/${o.trackingCode}`} target="_blank" rel="noreferrer"
-                      className="block rounded-2xl border border-gray-100 bg-gray-50/60 p-3.5 transition hover:border-brand/20 hover:bg-brand/5">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="text-sm font-bold text-gray-900">#{o.orderNumber}</span>
-                        <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", ORDER_STATUS_COLOR[o.orderStatus] ?? "bg-gray-100 text-gray-600"].join(" ")}>
-                          {o.orderStatus.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={["text-xs font-semibold", PAYMENT_COLOR[o.paymentStatus] ?? "text-gray-400"].join(" ")}>{o.paymentStatus}</span>
-                        {o.totalAmount && <span className="text-sm font-bold text-gray-800">AED {Number(o.totalAmount).toFixed(0)}</span>}
-                      </div>
-                      {(o.deliveryDate || o.branchName) && (
-                        <p className="mt-1.5 text-[11px] text-gray-400">
-                          {o.deliveryDate ? fmtDate(o.deliveryDate) : ""}{o.branchName ? ` · ${o.branchName}` : ""}
-                        </p>
-                      )}
-                    </a>
-                  ))}
+
+              {/* Orders — only shown when orders exist */}
+              {(loadingCustomer || customerOrders.length > 0) && (
+                <div className="px-5 py-5 border-b border-gray-100">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Orders</p>
+                    {customerOrders.length > 0 && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">{customerOrders.length}</span>
+                    )}
+                  </div>
+                  {loadingCustomer ? (
+                    <div className="space-y-3">{[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />)}</div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {customerOrders.map((o) => (
+                        <a key={o.id} href={`/orders/${o.trackingCode}`} target="_blank" rel="noreferrer"
+                          className="block rounded-2xl border border-gray-100 bg-gray-50/60 p-3.5 transition hover:border-brand/20 hover:bg-brand/5">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <span className="text-sm font-bold text-gray-900">#{o.orderNumber}</span>
+                            <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", ORDER_STATUS_COLOR[o.orderStatus] ?? "bg-gray-100 text-gray-600"].join(" ")}>
+                              {o.orderStatus.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className={["text-xs font-semibold", PAYMENT_COLOR[o.paymentStatus] ?? "text-gray-400"].join(" ")}>{o.paymentStatus}</span>
+                            {o.totalAmount && <span className="text-sm font-bold text-gray-800">AED {Number(o.totalAmount).toFixed(0)}</span>}
+                          </div>
+                          {(o.deliveryDate || o.branchName) && (
+                            <p className="mt-1.5 text-[11px] text-gray-400">
+                              {o.deliveryDate ? fmtDate(o.deliveryDate) : ""}{o.branchName ? ` · ${o.branchName}` : ""}
+                            </p>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+            </>
+          )}
+
+          {/* ── Bot Context tab ── */}
+          {rightTab === "bot" && (
+            <div className="px-5 py-5 space-y-5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Bot Context</p>
+
+              {/* Status badge */}
+              <div className="flex items-center gap-2">
+                <span className={["inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold",
+                  convDetail?.botPaused ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700",
+                ].join(" ")}>
+                  <span className={["h-1.5 w-1.5 rounded-full", convDetail?.botPaused ? "bg-amber-500" : "bg-emerald-500"].join(" ")} />
+                  {convDetail?.botPaused ? "Bot Paused" : "Bot Active"}
+                </span>
+                {convDetail?.agentRequested && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                    Agent Requested
+                  </span>
+                )}
+              </div>
+
+              {/* Current flow / step */}
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3.5 space-y-2.5">
+                  <div>
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Flow</p>
+                    <p className="text-sm font-semibold text-gray-800">
+                      {convDetail?.currentBotFlowName ?? convDetail?.currentBotFlowId
+                        ? (convDetail.currentBotFlowName ?? `Flow #${convDetail.currentBotFlowId}`)
+                        : <span className="text-gray-400 font-normal">No active flow</span>}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Current Step</p>
+                    <p className="font-mono text-xs text-gray-700">
+                      {convDetail?.currentBotStepKey ?? <span className="text-gray-400 font-sans">—</span>}
+                    </p>
+                  </div>
+                  {convDetail?.lastBotActivityAt && (
+                    <div>
+                      <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Last Activity</p>
+                      <p className="text-xs text-gray-500">{fmtTime(convDetail.lastBotActivityAt)}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Captured variables */}
+                {convDetail?.botContextVariables && (() => {
+                  let vars: Record<string, string> = {};
+                  try { vars = JSON.parse(convDetail.botContextVariables); } catch { return null; }
+                  const entries = Object.entries(vars);
+                  if (!entries.length) return null;
+                  return (
+                    <div>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Captured Variables</p>
+                      <div className="space-y-1.5">
+                        {entries.map(([k, v]) => (
+                          <div key={k} className="flex items-start gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                            <span className="mt-0.5 shrink-0 font-mono text-[10px] font-bold text-brand">{k}</span>
+                            <span className="truncate text-xs text-gray-700">{String(v)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {!convDetail?.currentBotFlowId && !convDetail?.botContextVariables && (
+                  <p className="text-xs text-gray-400">No bot activity yet for this conversation.</p>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Notes */}
-          <div className="flex flex-1 flex-col px-5 py-5 min-h-0">
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-              Internal Notes{notes.length > 0 ? ` (${notes.length})` : ""}
-            </p>
-            <div className="flex-1 overflow-y-auto space-y-2.5 min-h-0">
-              {notes.length === 0 && !loadingMsgs && (
-                <p className="text-xs text-gray-400">No notes yet.</p>
-              )}
-              {notes.map((n) => (
-                <div key={n.id} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
-                  <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-700">{n.body}</p>
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-gray-400">
-                    <span className="font-medium text-gray-500">{n.author?.name ?? "Unknown"}</span>
-                    <span>·</span>
-                    <span>{fmtTime(n.createdAt)}</span>
+          {/* Notes history — shown at bottom of contact tab and bot tab */}
+          {notes.length > 0 && (
+            <div className="px-5 py-4 border-t border-gray-100">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Notes ({notes.length})</p>
+              <div className="space-y-2">
+                {notes.map((n) => (
+                  <div key={n.id} className="rounded-xl border border-amber-100 bg-amber-50/60 px-3 py-2.5">
+                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-700">{n.body}</p>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-gray-400">
+                      <span className="font-medium text-amber-700">{n.author?.name ?? "Unknown"}</span>
+                      <span>·</span>
+                      <span>{fmtTime(n.createdAt)}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-            <form onSubmit={saveNote} className="mt-3 flex flex-col gap-2">
-              <textarea rows={2} value={noteText} onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Add a note…"
-                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800 placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 transition"
-              />
-              <button type="submit" disabled={savingNote || !noteText.trim()}
-                className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40">
-                {savingNote ? (
-                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                )}
-                Save note
-              </button>
-            </form>
-          </div>
+          )}
         </div>
       )}
     </div>

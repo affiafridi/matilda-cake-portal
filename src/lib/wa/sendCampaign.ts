@@ -1,11 +1,13 @@
 import "server-only";
 import { botQuery } from "@/lib/botdb";
 import { getIntegrations } from "@/lib/integrations";
+import { prisma } from "@/lib/prisma";
 
 type SendPayload = {
   customers: string[];
   templateName: string;
   templateLanguage: string;
+  campaignName?: string;
   imageUrl?: string;
   headerFormat?: string;
   bodyVarCount: number;
@@ -19,6 +21,7 @@ type SendPayload = {
 type SendResult = {
   sent: number;
   failed: number;
+  broadcastId?: string;
   results: { wa_id: string; status: string; error?: string }[];
 };
 
@@ -77,7 +80,7 @@ async function uploadImageToMeta(
 
 export async function sendCampaign(payload: SendPayload): Promise<SendResult | { error: string }> {
   const {
-    customers, templateName, templateLanguage,
+    customers, templateName, templateLanguage, campaignName,
     imageUrl, headerFormat, bodyVarCount, extraBodyVars,
     urlSuffix, urlButtonIndex, couponCode, couponButtonIndex,
   } = payload;
@@ -119,6 +122,22 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
     staticComponents.push({ type: "button", sub_type: "copy_code", index: String(couponButtonIndex), parameters: [{ type: "coupon_code", coupon_code: couponCode }] });
   }
 
+  // Create broadcast record for tracking
+  let broadcastId: string | undefined;
+  try {
+    const bc = await prisma.broadcast.create({
+      data: {
+        name: campaignName ?? templateName,
+        templateName,
+        templateLang: templateLanguage,
+        totalCount: customers.length,
+        status: "SENDING",
+      },
+      select: { id: true },
+    });
+    broadcastId = bc.id;
+  } catch { /* non-fatal — tracking is best-effort */ }
+
   // Send per customer
   const results: { wa_id: string; status: string; error?: string }[] = [];
 
@@ -159,11 +178,26 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
 
       if (json.error) {
         const detail = json.error.error_user_msg ?? json.error.error_user_title ?? "";
-        results.push({ wa_id: waId, status: "failed", error: `[#${json.error.code ?? "?"}] ${json.error.message}${detail ? ` — ${detail}` : ""}` });
+        const errMsg = `[#${json.error.code ?? "?"}] ${json.error.message}${detail ? ` — ${detail}` : ""}`;
+        results.push({ wa_id: waId, status: "failed", error: errMsg });
+        if (broadcastId) {
+          await prisma.broadcastRecipient.create({ data: { broadcastId, waId, customerName: nameMap[waId] ?? null, status: "FAILED", errorMsg: errMsg, failedAt: new Date() } }).catch(() => {});
+          await prisma.broadcast.update({ where: { id: broadcastId }, data: { failedCount: { increment: 1 } } }).catch(() => {});
+        }
       } else if (json.messages?.[0]?.id) {
+        const waMessageId = json.messages[0].id;
         results.push({ wa_id: waId, status: "sent" });
+        if (broadcastId) {
+          await prisma.broadcastRecipient.create({ data: { broadcastId, waId, customerName: nameMap[waId] ?? null, waMessageId, status: "SENT", sentAt: new Date() } }).catch(() => {});
+          await prisma.broadcast.update({ where: { id: broadcastId }, data: { sentCount: { increment: 1 } } }).catch(() => {});
+        }
       } else {
-        results.push({ wa_id: waId, status: "failed", error: `Unexpected: ${JSON.stringify(json)}` });
+        const errMsg = `Unexpected: ${JSON.stringify(json)}`;
+        results.push({ wa_id: waId, status: "failed", error: errMsg });
+        if (broadcastId) {
+          await prisma.broadcastRecipient.create({ data: { broadcastId, waId, customerName: nameMap[waId] ?? null, status: "FAILED", errorMsg: errMsg, failedAt: new Date() } }).catch(() => {});
+          await prisma.broadcast.update({ where: { id: broadcastId }, data: { failedCount: { increment: 1 } } }).catch(() => {});
+        }
       }
     } catch (e) {
       results.push({ wa_id: waId, status: "failed", error: `Network error: ${String(e)}` });
@@ -175,6 +209,14 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
   const sent   = results.filter((r) => r.status === "sent").length;
   const failed = results.length - sent;
 
+  // Mark broadcast complete
+  if (broadcastId) {
+    await prisma.broadcast.update({
+      where: { id: broadcastId },
+      data: { status: "COMPLETED", completedAt: new Date() },
+    }).catch(() => {});
+  }
+
   // Log to campaign_logs
   try {
     await botQuery(
@@ -184,5 +226,5 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
     );
   } catch { /* log silently */ }
 
-  return { sent, failed, results };
+  return { sent, failed, broadcastId, results };
 }

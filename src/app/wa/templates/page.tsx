@@ -219,6 +219,7 @@ function TemplatesContent() {
     setSending(true); setResult(null); setError(null);
     try {
       const bv = countBodyVars(selected);
+      const campaignName = `${selected.name} — ${new Date().toLocaleDateString("en-AE", { day: "numeric", month: "short", year: "numeric" })}`;
       const res = await fetch("/api/bot/campaign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -226,6 +227,7 @@ function TemplatesContent() {
           customers: preselected,
           templateName: selected.name,
           templateLanguage: selected.language,
+          campaignName,
           // Image header
           imageUrl: hasImageHeader(selected) ? imageUrl.trim() : undefined,
           headerFormat: getComp(selected, "HEADER")?.format,
@@ -244,8 +246,9 @@ function TemplatesContent() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.error);
       setResult(json.data);
-      // Redirect to campaign history after a short delay
-      setTimeout(() => router.push("/wa/campaigns"), 1800);
+      // Redirect to broadcast detail if we have an ID, otherwise list
+      const dest = json.data?.broadcastId ? `/wa/campaigns/${json.data.broadcastId}` : "/wa/campaigns";
+      setTimeout(() => router.push(dest), 1800);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to send");
     } finally { setSending(false); }
