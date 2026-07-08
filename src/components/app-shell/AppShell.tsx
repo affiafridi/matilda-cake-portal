@@ -24,7 +24,6 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/settings":      { title: "Settings",          parent: "WhatsApp" },
   "/wa/inbox":               { title: "Team Inbox",         parent: "WhatsApp" },
   "/wa/woocommerce":         { title: "WooCommerce", parent: "WooCommerce" },
-  "/wa/ai":                  { title: "AI Instructions" },
   "/wa/flows":               { title: "Flow Builder",    parent: "AI Bot" },
 };
 
@@ -74,8 +73,7 @@ const WOO_NAV = [
 ];
 
 const AI_NAV = [
-  { href: "/wa/ai",                   label: "AI Instructions", icon: IcAI },
-  { href: "/wa/flows",                label: "Flow Builder",    icon: IcFlow },
+  { href: "/wa/flows", label: "Flow Builder", icon: IcFlow },
 ];
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -535,9 +533,6 @@ function IcHistory(p: SVGProps<SVGSVGElement>) {
 }
 function IcTemplate(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>;
-}
-function IcAI(p: SVGProps<SVGSVGElement>) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>;
 }
 function IcWoo(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" {...p}><path fill="currentColor" d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2zm2.01 3.33c-.31.04-.54.19-.65.5-.06.18-.04.37.02.56l2.18 6.93 2.27-4.46 2.27 4.46 2.18-6.93c.11-.37-.04-.75-.38-.92a.76.76 0 00-.99.34l-1.08 3.9-1.98-3.88-2.01 3.88-1.08-3.9c-.11-.36-.41-.52-.75-.48zm11.06.12c-.72.04-1.37.46-1.68 1.11-.31.66-.25 1.46.17 2.06.43.61 1.16.93 1.9.84.74-.09 1.38-.59 1.63-1.3.25-.7.08-1.49-.43-2.02a1.87 1.87 0 00-1.59-.69zm0 .98c.36-.01.71.17.91.47.2.3.24.69.09 1.02-.14.34-.46.57-.82.61-.36.04-.72-.12-.94-.42-.22-.3-.26-.7-.1-1.04.16-.34.5-.57.86-.64z"/></svg>;
