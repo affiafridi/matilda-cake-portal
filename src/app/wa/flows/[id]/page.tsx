@@ -34,8 +34,9 @@ function validateFlow(flow: Flow): Map<string, StepIssue[]> {
     }
   }
   for (const s of flow.steps) {
-    if (!s.message.trim()) add(s.stepKey, { severity: "warn", label: "No message" });
-    if ((s.inputType === "button" || s.inputType === "list") && s.options.length === 0) add(s.stepKey, { severity: "error", label: "No options" });
+    const hasDynamic = s.options.some((o) => o.dataSource !== "static");
+    if (!s.showProductCard && !hasDynamic && !s.message.trim()) add(s.stepKey, { severity: "warn", label: "No message" });
+    if (!s.showProductCard && (s.inputType === "button" || s.inputType === "list") && s.options.length === 0) add(s.stepKey, { severity: "error", label: "No options" });
     for (const o of s.options) if (o.nextStepKey && !keys.has(o.nextStepKey)) add(s.stepKey, { severity: "error", label: `Broken link → ${o.nextStepKey}` });
     if (entry && !reachable.has(s.stepKey) && !s.isFallback) add(s.stepKey, { severity: "warn", label: "Unreachable" });
   }
@@ -125,6 +126,137 @@ const LBL = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wi
 
 type LinkLine = { x1: number; y1: number; x2: number; y2: number };
 
+// ── Module picker ─────────────────────────────────────────────────────────────
+type ModuleDef = { id: string; label: string; desc: string; inputType: ST; dataSource?: string; stepPatch?: Partial<Step>; icon: React.ReactNode; color: string; bg: string };
+type ModuleGroup = { id: string; label: string; icon: React.ReactNode; color: string; modules: ModuleDef[] };
+
+const IcWoo   = <svg viewBox="0 0 24 24" fill="currentColor" width={18} height={18}><path d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2z"/></svg>;
+const IcMsgMod = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
+const IcHandoff = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const IcApi    = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>;
+
+const MODULE_GROUPS: ModuleGroup[] = [
+  {
+    id: "messages", label: "Messages", color: "#3b82f6", icon: IcMsgMod,
+    modules: [
+      { id: "msg_text",    label: "Text Message",   desc: "Send a plain text message, no reply needed", inputType: "message", color: "#3b82f6", bg: "#eff6ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> },
+      { id: "msg_buttons", label: "Buttons",        desc: "Up to 3 quick-reply buttons", inputType: "button", color: "#f59e0b", bg: "#fffbeb", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><rect x="2" y="7" width="20" height="4" rx="2"/><rect x="2" y="13" width="20" height="4" rx="2"/></svg> },
+      { id: "msg_list",    label: "List Menu",      desc: "Scrollable list with up to 10 options", inputType: "list", color: "#10b981", bg: "#ecfdf5", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
+    ],
+  },
+  {
+    id: "woocommerce", label: "WooCommerce", color: "#7f54b3", icon: IcWoo,
+    modules: [
+      { id: "wc_categories",  label: "Categories",          desc: "Show all enabled WooCommerce categories as a list", inputType: "list", dataSource: "woocommerce_categories",           color: "#7f54b3", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg> },
+      { id: "wc_by_cat",      label: "Products by Category", desc: "Show products filtered by a selected category", inputType: "list", dataSource: "woocommerce_products_by_category", color: "#7f54b3", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> },
+      { id: "wc_all_products", label: "All Products",        desc: "Browse all published products", inputType: "list", dataSource: "woocommerce_products",                color: "#7f54b3", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> },
+      { id: "wc_search",      label: "Product Search",       desc: "Let customer search products by keyword", inputType: "search", dataSource: "woocommerce_search",              color: "#8b5cf6", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+      { id: "wc_product_card", label: "Product Detail Card",  desc: "Show full product card — image, price, description & add to cart", inputType: "message", stepPatch: { showProductCard: true }, color: "#059669", bg: "#ecfdf5", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="9" cy="10" r="1.5"/><path d="M13 8h4M13 11h4"/></svg> },
+    ],
+  },
+  {
+    id: "handoff", label: "Handoff", color: "#ef4444", icon: IcHandoff,
+    modules: [
+      { id: "handoff_agent", label: "Hand off to Agent", desc: "Notify Team Inbox — bot keeps running until agent takes over", inputType: "message", stepPatch: { handoffToAgent: true }, color: "#ef4444", bg: "#fef2f2", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+    ],
+  },
+  {
+    id: "custom", label: "Custom API", color: "#64748b", icon: IcApi,
+    modules: [
+      { id: "custom_api",        label: "Custom API List",   desc: "Fetch options from your own API endpoint", inputType: "list",   dataSource: "custom_api",        color: "#64748b", bg: "#f8fafc", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> },
+      { id: "custom_api_search", label: "Custom API Search", desc: "Search results from your own API endpoint",  inputType: "search", dataSource: "custom_api_search", color: "#64748b", bg: "#f8fafc", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><polyline points="16 18 22 12 16 6"/></svg> },
+    ],
+  },
+];
+
+function ModulePicker({ onSelect, onClose }: { onSelect: (m: ModuleDef) => void; onClose: () => void }) {
+  const [search, setSearch]     = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const inpRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inpRef.current?.focus(); }, []);
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const q = search.toLowerCase();
+  const filtered = q
+    ? MODULE_GROUPS.map((g) => ({ ...g, modules: g.modules.filter((m) => m.label.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q)) })).filter((g) => g.modules.length > 0)
+    : MODULE_GROUPS;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Add Module</p>
+          <div className="relative">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300 pointer-events-none">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input ref={inpRef} value={search} onChange={(e) => { setSearch(e.target.value); setExpanded(null); }}
+              placeholder="Search modules… (e.g. categories, search, buttons)"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300" />
+          </div>
+        </div>
+
+        {/* Module groups */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+          {filtered.map((group) => {
+            const isOpen = q ? true : expanded === group.id;
+            return (
+              <div key={group.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                {/* Group header */}
+                {!q && (
+                  <button type="button" onClick={() => setExpanded(isOpen ? null : group.id)}
+                    className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-gray-50 transition text-left">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0" style={{ backgroundColor: group.color + "18", color: group.color }}>
+                      {group.icon}
+                    </span>
+                    <span className="flex-1 font-semibold text-sm text-gray-700">{group.label}</span>
+                    <span className="text-[11px] text-gray-300 mr-1">{group.modules.length} modules</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={["h-4 w-4 text-gray-300 transition-transform", isOpen ? "rotate-180" : ""].join(" ")}>
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                )}
+
+                {/* Modules */}
+                {isOpen && (
+                  <div className={["space-y-0.5", !q ? "border-t border-gray-100 bg-gray-50/50 p-1.5" : ""].join(" ")}>
+                    {group.modules.map((mod) => (
+                      <button key={mod.id} type="button" onClick={() => { onSelect(mod); onClose(); }}
+                        className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-white hover:shadow-sm transition group">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: mod.bg, color: mod.color }}>
+                          {mod.icon}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-700 group-hover:text-gray-900">{mod.label}</p>
+                          <p className="text-[11px] text-gray-400 leading-snug">{mod.desc}</p>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 text-gray-200 group-hover:text-gray-400 shrink-0 transition">
+                          <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="px-4 py-2.5 border-t border-gray-100 text-[11px] text-gray-300 text-center">
+          Press <kbd className="bg-gray-100 rounded px-1 py-0.5 text-gray-500 font-mono">Esc</kbd> to close
+        </div>
+      </div>
+    </>
+  );
+}
+
 function Connections({ steps, sel, linkLine, onConnContextMenu, onDisconnect }: {
   steps: Step[]; sel: string | null; linkLine: LinkLine | null;
   onConnContextMenu: (screenX: number, screenY: number, fromKey: string, optIdx: number) => void;
@@ -197,7 +329,7 @@ function StepNode({ step, isSelected, isMultiSel, issues, onSelect, onDrag, onDe
   onDelete: () => void; onStartLink: (optIdx: number) => void;
   onRightClick: (x: number, y: number) => void; onImgLoad: (h: number) => void;
 }) {
-  const cfg     = step.isFallback ? { ...CFG[step.inputType], color: "#64748b" } : CFG[step.inputType];
+  const cfg     = step.showProductCard ? { label: "Product Card", color: "#059669", bg: "#ecfdf5", ic: (p: IP) => <Svg s={p.size} cls={p.className}><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="1.5"/><path d="M13 7h5M13 10h5"/></Svg> } : step.isFallback ? { ...CFG[step.inputType], color: "#64748b" } : CFG[step.inputType];
   const dragged = useRef(false);
   const start   = useRef<{ x: number; y: number } | null>(null);
 
@@ -307,37 +439,68 @@ function StepNode({ step, isSelected, isMultiSel, issues, onSelect, onDrag, onDe
             }}
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         )}
-        {/* Message preview */}
-        <div className="px-3.5 py-2.5" style={{ height: CARD_MSG_H, overflow: "hidden" }}>
-          <p className="text-[11px] text-gray-600 line-clamp-3" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
-            {step.message
-              ? step.message.replace(/\n+/g, " ")
-              : <span className="italic text-gray-300">No message yet…</span>}
-          </p>
-        </div>
-        {/* Options — no dots here, they're rendered outside */}
-        {step.inputType === "message" ? null : step.options.length === 0 ? (
-          <div className="border-t border-gray-100 px-3.5 flex items-center text-gray-300 italic text-[11px]" style={{ height: CARD_OPT_H }}>
-            No options
-          </div>
-        ) : step.options.map((opt, i) => {
-          const src = DS.find((s) => s.v === opt.dataSource);
-          const dyn = opt.dataSource !== "static";
-          return (
-            <div key={i} className="flex items-center justify-between border-t border-gray-100 px-3.5 pr-5" style={{ height: CARD_OPT_H }}>
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
-                <span className="text-[11px] font-medium text-gray-700 truncate">
-                  {dyn ? <span className="text-gray-400 italic">{src?.l}</span> : (opt.label || <span className="text-gray-300">Option {i+1}</span>)}
-                </span>
+        {/* Product card preview or normal message/options */}
+        {step.showProductCard ? (
+          <div className="mx-3 my-2.5 rounded-xl border border-emerald-200 overflow-hidden shadow-sm">
+            {/* Product image placeholder */}
+            <div className="bg-emerald-50 h-16 flex flex-col items-center justify-center border-b border-emerald-100 gap-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <span className="text-[8px] text-emerald-300 font-medium">Product Image</span>
+            </div>
+            {/* Fields */}
+            <div className="px-2.5 py-2 space-y-1 bg-white">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] font-bold text-gray-700">Product Name</span>
+                <span className="text-[8px] bg-emerald-100 text-emerald-600 rounded px-1">auto</span>
               </div>
-              <div className="flex items-center gap-1 shrink-0 text-gray-300">
-                {opt.nextStepKey && <span className="text-[10px] bg-gray-100 text-gray-500 px-1 rounded font-mono">{opt.nextStepKey}</span>}
-                <svg viewBox="0 0 12 12" width={10} height={10} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-emerald-600 font-semibold">Price from —</span>
+                <span className="text-[8px] text-gray-400 italic">Variations</span>
               </div>
             </div>
-          );
-        })}
+            {/* CTA button */}
+            <div className="px-2.5 pb-2.5 bg-white">
+              <div className="rounded-lg bg-[#25d366] flex items-center justify-center py-1.5 gap-1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width={9} height={9}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span className="text-[9px] font-bold text-white tracking-wide">Order Now</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="px-3.5 py-2.5" style={{ height: CARD_MSG_H, overflow: "hidden" }}>
+              <p className="text-[11px] text-gray-600 line-clamp-3" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+                {step.message
+                  ? step.message.replace(/\n+/g, " ")
+                  : step.options.some((o) => o.dataSource !== "static")
+                    ? <span className="italic text-blue-300">Optional intro message…</span>
+                    : <span className="italic text-gray-300">No message yet…</span>}
+              </p>
+            </div>
+            {step.inputType === "message" ? null : step.options.length === 0 ? (
+              <div className="border-t border-gray-100 px-3.5 flex items-center text-gray-300 italic text-[11px]" style={{ height: CARD_OPT_H }}>
+                No options
+              </div>
+            ) : step.options.map((opt, i) => {
+              const src = DS.find((s) => s.v === opt.dataSource);
+              const dyn = opt.dataSource !== "static";
+              return (
+                <div key={i} className="flex items-center justify-between border-t border-gray-100 px-3.5 pr-5" style={{ height: CARD_OPT_H }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
+                    <span className="text-[11px] font-medium text-gray-700 truncate">
+                      {dyn ? <span className="text-gray-400 italic">{src?.l}</span> : (opt.label || <span className="text-gray-300">Option {i+1}</span>)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0 text-gray-300">
+                    {opt.nextStepKey && <span className="text-[10px] bg-gray-100 text-gray-500 px-1 rounded font-mono">{opt.nextStepKey}</span>}
+                    <svg viewBox="0 0 12 12" width={10} height={10} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
         {/* Footer */}
         <div className="border-t border-gray-100 bg-gray-50/70 flex items-center justify-between px-3.5" style={{ height: CARD_FOOT_H }}>
           <span className="text-[10px] text-gray-400 font-mono truncate max-w-[120px]">{step.stepKey}</span>
@@ -513,13 +676,14 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
   const otherEntry  = allSteps.some((s) => s.isEntry && s.stepKey !== step.stepKey);
   // Draft key — lives only in this input; committed on blur so the flow never has mid-type duplicate keys
   const [draftKey, setDraftKey] = useState(step.stepKey);
-  useEffect(() => { setDraftKey(step.stepKey); }, [step.stepKey]);
+  useEffect(() => { setDraftKey(step.stepKey); setKeyEditing(false); }, [step.stepKey]);
   const taRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     const el = taRef.current; if (!el) return;
     el.style.height = "auto"; el.style.height = el.scrollHeight + "px";
   }, [step.message]);
-  const draftDup = draftKey !== step.stepKey && allSteps.some((s) => s.stepKey === draftKey);
+  const [keyEditing, setKeyEditing] = useState(false);
+  const draftDup = keyEditing && draftKey !== step.stepKey && allSteps.some((s) => s.stepKey === draftKey);
 
   function commitKey() {
     const cleaned = draftKey.trim();
@@ -544,7 +708,8 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
             : <input
                 value={draftKey}
                 onChange={(e) => setDraftKey(e.target.value.replace(/\s/g, "_").toLowerCase())}
-                onBlur={commitKey}
+                onFocus={() => setKeyEditing(true)}
+                onBlur={() => { setKeyEditing(false); commitKey(); }}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } if (e.key === "Escape") { setDraftKey(step.stepKey); e.currentTarget.blur(); } }}
                 className={"w-full text-sm font-bold bg-transparent focus:outline-none " + (draftDup ? "text-red-500" : "text-gray-800")} />
           }
@@ -556,39 +721,69 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
         <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 p-1.5 text-gray-400 hover:bg-gray-50 transition"><IcX /></button>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-        <div>
-          <label className={LBL}>Step type</label>
-          <div className="grid grid-cols-2 gap-2">
-            {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
-              <button key={t} type="button" onClick={() => {
-                const next: Step = { ...step, inputType: t as ST };
-                if (t === "message") next.options = [];
-                onChange(next);
-              }}
-                className="flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition"
-                style={step.inputType === t ? { borderColor: c.color, backgroundColor: c.bg, color: c.color } : { borderColor: "#e5e7eb", color: "#6b7280" }}>
-                <c.ic size={14} /><span className="text-xs font-semibold">{c.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className={LBL}>Image <span className="normal-case font-normal text-gray-300 ml-1">optional</span></label>
-          {step.imageUrl ? (
+        {isSrch ? (
+          /* Search mode — dedicated banner */
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-3.5 space-y-2">
             <div className="flex items-center gap-2">
-              <img src={step.imageUrl} alt="" className="h-14 w-14 rounded-xl object-cover border border-gray-200 shrink-0"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-500 truncate">{step.imageUrl.split("/").pop()?.split("?")[0] ?? "image"}</p>
-                <button type="button" onClick={() => onChange({ ...step, imageUrl: "" })}
-                  className="mt-1 text-[11px] text-red-400 hover:text-red-600 transition">Remove</button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={15} height={15} className="text-purple-600 shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <p className="text-[11px] font-bold text-purple-700 uppercase tracking-wider">Customer Search Step</p>
+            </div>
+            <p className="text-[11px] text-purple-600 leading-relaxed">Bot asks the question below, customer types their reply, then results load automatically.</p>
+          </div>
+        ) : step.showProductCard ? (
+          /* Product card mode — show auto-fields banner instead of step type + image */
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={15} height={15} className="text-emerald-600 shrink-0"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="9" cy="10" r="1.5"/><path d="M13 8h4M13 11h4"/></svg>
+              <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Product Detail Card</p>
+            </div>
+            <p className="text-[11px] text-emerald-600 leading-relaxed">The following fields load automatically from WooCommerce — no setup needed:</p>
+            <div className="flex flex-col gap-1.5">
+              {["Product image", "Product name", "Price from", "Variations", "Order Now button link"].map((f) => (
+                <div key={f} className="flex items-center gap-1.5 text-[11px] text-emerald-700">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={10} height={10}><polyline points="20 6 9 17 4 12"/></svg>
+                  {f}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div>
+              <label className={LBL}>Step type</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
+                  <button key={t} type="button" onClick={() => {
+                    const next: Step = { ...step, inputType: t as ST };
+                    if (t === "message") next.options = [];
+                    onChange(next);
+                  }}
+                    className="flex items-center gap-2 rounded-xl border-2 px-3 py-2 text-left transition"
+                    style={step.inputType === t ? { borderColor: c.color, backgroundColor: c.bg, color: c.color } : { borderColor: "#e5e7eb", color: "#6b7280" }}>
+                    <c.ic size={14} /><span className="text-xs font-semibold">{c.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          ) : (
-            <ImageInput onUploaded={(url) => onChange({ ...step, imageUrl: url })} />
-          )}
-        </div>
-        <div>
+            <div>
+              <label className={LBL}>Image <span className="normal-case font-normal text-gray-300 ml-1">optional</span></label>
+              {step.imageUrl ? (
+                <div className="flex items-center gap-2">
+                  <img src={step.imageUrl} alt="" className="h-14 w-14 rounded-xl object-cover border border-gray-200 shrink-0"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 truncate">{step.imageUrl.split("/").pop()?.split("?")[0] ?? "image"}</p>
+                    <button type="button" onClick={() => onChange({ ...step, imageUrl: "" })}
+                      className="mt-1 text-[11px] text-red-400 hover:text-red-600 transition">Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <ImageInput onUploaded={(url) => onChange({ ...step, imageUrl: url })} />
+              )}
+            </div>
+          </>
+        )}
+        {!step.showProductCard && <div>
           <div className="flex items-end justify-between mb-1">
             <label className={LBL}>{isMsg ? "Message text" : isSrch ? "Search prompt" : "Bot message"}</label>
             {/* Variable hint — shows all captured vars from other steps */}
@@ -605,7 +800,8 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
           <textarea ref={taRef} value={step.message} rows={1} style={{ overflow: "hidden", minHeight: 36 }} onChange={(e) => { onChange({ ...step, message: e.target.value }); const el = e.currentTarget; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }}
             placeholder={isMsg ? "Welcome to Matilda Cake!" : isSrch ? "What are you looking for?" : "What would you like to order?"}
             className={INP + " resize-none"} />
-        </div>
+        </div>}
+
         {/* Variable capture — for message steps that wait for a reply */}
         {isMsg && (
           <div className="rounded-xl border border-purple-200 bg-purple-50 p-3 space-y-2">
@@ -636,8 +832,7 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
           </label>
         )}
         {isSrch && (
-          <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 space-y-3">
-            <p className="text-[11px] font-bold text-purple-700 uppercase tracking-wider">Search configuration</p>
+          <div className="space-y-4">
             <div>
               <label className={LBL}>Where to search</label>
               <select value={srchOpt.dataSource} onChange={(e) => onChange({ ...step, options: [{ ...srchOpt, dataSource: e.target.value }] })} className={INP}>
@@ -646,7 +841,7 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
               </select>
             </div>
             <div>
-              <label className={LBL}>After customer taps a result</label>
+              <label className={LBL}>After customer taps a result — goes to</label>
               <select value={srchOpt.nextStepKey} onChange={(e) => onChange({ ...step, options: [{ ...srchOpt, nextStepKey: e.target.value }] })} className={INP}>
                 <option value="">End flow</option>
                 {stepKeys.map((k) => <option key={k} value={k}>{k}</option>)}
@@ -655,11 +850,6 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
             {srchOpt.dataSource === "custom_api_search" && (
               <ApiFields opt={srchOpt} isSearch={true} onChange={(o) => onChange({ ...step, options: [o] })} />
             )}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={step.showProductCard}
-                onChange={(e) => onChange({ ...step, showProductCard: e.target.checked })} className="rounded accent-purple-600" />
-              <span className="text-sm text-gray-700">Show product card after selection</span>
-            </label>
           </div>
         )}
         {isMsg && (
@@ -671,17 +861,14 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
             </select>
           </div>
         )}
-        {isInter && hasProd && (
-          <button type="button" onClick={() => onChange({ ...step, showProductCard: !step.showProductCard })}
-            className={"w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition " + (step.showProductCard ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-blue-200")}>
-            <div className={"shrink-0 h-5 w-9 rounded-full transition-colors " + (step.showProductCard ? "bg-blue-500" : "bg-gray-200")}>
-              <span className={"block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform " + (step.showProductCard ? "translate-x-[18px]" : "translate-x-0.5")} />
-            </div>
-            <div>
-              <p className={"text-sm font-semibold " + (step.showProductCard ? "text-blue-700" : "text-gray-700")}>Show product card</p>
-              <p className="text-[11px] text-gray-400">Image + price + link after product selection</p>
-            </div>
-          </button>
+        {step.showProductCard && (
+          <div>
+            <label className={LBL}>After customer views card — goes to</label>
+            <select value={step.options[0]?.nextStepKey ?? ""} onChange={(e) => onChange({ ...step, options: [{ ...newOption(), nextStepKey: e.target.value }] })} className={INP}>
+              <option value="">End flow</option>
+              {stepKeys.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
         )}
         {/* Hand off to agent toggle — available on any step */}
         {!step.isFallback && (
@@ -696,7 +883,7 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
             </div>
           </button>
         )}
-        {isInter && (
+        {isInter && !isSrch && !step.showProductCard && (
           <div>
             <div className="flex items-center justify-between mb-2.5">
               <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
@@ -731,40 +918,82 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
 function StepBubble({ step, onChoose, vars }: { step: Step; onChoose: (nextKey: string, label: string) => void; vars: Record<string,string> }) {
   function fillVars(msg: string) { return msg.replace(/\{(\w+)\}/g, (_, k) => vars[k] ? `[${vars[k]}]` : `{${k}}`); }
   const isSrch = step.inputType === "search";
-  const isAnn  = step.inputType === "message";
+  const isMsg  = step.inputType === "message";
   const dynOpt = step.options.find((o) => o.dataSource !== "static");
   const stBtns = step.options.filter((o) => o.dataSource === "static");
-  const dBtns  = dynOpt ? [{l:"Option 1",k:""},{l:"Option 2",k:""},{l:"Option 3",k:""}] : stBtns.map((o) => ({l:o.label||"Option",k:o.nextStepKey}));
+  const dBtns  = dynOpt ? [{ l: "Option 1", k: "" }, { l: "Option 2", k: "" }, { l: "Option 3", k: "" }] : stBtns.map((o) => ({ l: o.label || "Option", k: o.nextStepKey }));
+  const now    = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  if (step.showProductCard) {
+    return (
+      <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden max-w-[92%] w-full">
+        <div className="bg-gray-100 h-28 flex items-center justify-center border-b border-gray-200">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" width={32} height={32}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <div className="px-3 pt-2.5 pb-1">
+          <p className="text-[11px] font-bold text-gray-800 leading-tight">Product Name</p>
+          <p className="text-[10px] text-[#25d366] font-semibold mt-0.5">From AED 49.00</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">Size: Small · Medium · Large</p>
+        </div>
+        <div className="px-3 pb-2.5">
+          <button type="button" className="w-full mt-1.5 rounded-lg bg-[#25d366] text-white text-[10px] font-bold py-1.5 tracking-wide">
+            Order Now
+          </button>
+        </div>
+        <div className="flex justify-end px-2.5 pb-1.5">
+          <span className="text-[8px] text-gray-300">{now} ✓✓</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-xl rounded-tl-none shadow-sm overflow-hidden max-w-[90%]">
-      {step.imageUrl && <img src={step.imageUrl} alt="" className="w-full" onError={(e) => { (e.target as HTMLImageElement).style.display="none"; }} />}
-      <p className="px-2.5 py-2 text-[10px] text-gray-800 leading-relaxed whitespace-pre-wrap">
-        {fillVars(step.message) || <span className="italic text-gray-400">Message text...</span>}
-      </p>
-      {step.inputType === "button" && (
+    <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden max-w-[92%] w-full">
+      {step.imageUrl && <img src={step.imageUrl} alt="" className="w-full max-h-40 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+      <div className="px-3 pt-2.5 pb-1">
+        <p className="text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap">
+          {fillVars(step.message) || <span className="italic text-gray-300">Message text…</span>}
+        </p>
+        {isSrch && (
+          <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width={10} height={10}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span className="text-[9px] text-gray-300 italic">Type to search…</span>
+          </div>
+        )}
+      </div>
+      <div className="flex justify-end px-2.5 pb-1.5">
+        <span className="text-[8px] text-gray-300">{now} ✓✓</span>
+      </div>
+      {/* Buttons */}
+      {step.inputType === "button" && dBtns.length > 0 && (
         <div className="border-t border-gray-100">
           {dBtns.map((b, i) => (
             <button key={i} type="button" onClick={() => !dynOpt && onChoose(b.k, b.l)}
-              className={"w-full text-center text-[10px] font-medium text-[#0a82ff] py-1.5 transition " + (i>0?"border-t border-gray-100 ":"") + (dynOpt?"opacity-40 cursor-default":"hover:bg-blue-50")}>
+              className={"w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold text-[#0a82ff] py-2 transition " + (i > 0 ? "border-t border-gray-100 " : "") + (dynOpt ? "opacity-40 cursor-default" : "hover:bg-blue-50 active:bg-blue-100")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width={9} height={9}><polyline points="9 18 15 12 9 6"/></svg>
               {b.l}
             </button>
           ))}
-          {dynOpt && <div className="py-1 text-center text-[9px] text-amber-500 bg-amber-50 border-t border-amber-100">Live from API · tap to simulate</div>}
+          {dynOpt && <p className="text-center text-[9px] text-amber-500 py-1 border-t border-amber-100 bg-amber-50">Dynamic · tap to simulate</p>}
         </div>
       )}
-      {step.inputType === "list" && (
-        <div className="border-t border-gray-100">
-          {dBtns.map((b,i) => (
+      {/* List */}
+      {step.inputType === "list" && dBtns.length > 0 && (
+        <div className="border-t border-gray-100 mx-2.5 mb-2.5 mt-1 rounded-xl overflow-hidden border border-gray-100">
+          <div className="px-2.5 py-1 bg-gray-50 border-b border-gray-100">
+            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">Options</p>
+          </div>
+          {dBtns.map((b, i) => (
             <button key={i} type="button" onClick={() => !dynOpt && onChoose(b.k, b.l)}
-              className={"w-full text-left px-2.5 py-1.5 text-[10px] text-[#0a82ff] transition " + (i>0?"border-t border-gray-100 ":"") + (dynOpt?"opacity-40":"hover:bg-blue-50")}>
-              {b.l}
+              className={"w-full flex items-center justify-between px-2.5 py-1.5 text-[10px] text-gray-700 transition " + (i > 0 ? "border-t border-gray-100 " : "") + (dynOpt ? "opacity-50 cursor-default" : "hover:bg-gray-50 active:bg-gray-100")}>
+              <span>{b.l}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width={9} height={9}><polyline points="9 18 15 12 9 6"/></svg>
             </button>
           ))}
-          {dynOpt && <div className="py-1 text-center text-[9px] text-amber-500 bg-amber-50 border-t border-amber-100">Dynamic list</div>}
+          {dynOpt && <p className="text-center text-[9px] text-amber-500 py-1 border-t border-amber-100 bg-amber-50">Dynamic list</p>}
         </div>
       )}
-      {isAnn && <p className="px-2.5 pb-1.5 text-[9px] text-gray-400 italic">Continues automatically →</p>}
-      {isSrch && <p className="px-2.5 pb-1.5 text-[9px] text-purple-500 italic">Waiting for customer to search…</p>}
+      {isMsg && !step.showProductCard && <p className="px-3 pb-2 text-[9px] text-gray-300 italic">Continues automatically →</p>}
     </div>
   );
 }
@@ -828,9 +1057,11 @@ function PhonePreview({ step, allSteps, simMode, onToggleSim }: { step: Step | n
       </div>
     );
     return (
-      <div className="flex flex-col items-center gap-3">
-        <button type="button" onClick={onToggleSim} className="text-[11px] text-blue-500 hover:underline self-start">▶ Simulate flow</button>
-        <StepBubble step={step} onChoose={() => {}} vars={vars} />
+      <div className="flex flex-col gap-2 h-full">
+        <button type="button" onClick={onToggleSim} className="text-[11px] text-blue-500 hover:underline self-start shrink-0">▶ Simulate flow</button>
+        <div className="flex-1 rounded-xl p-3 overflow-y-auto" style={{ background: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c9c3bb' fill-opacity='0.15'%3E%3Cpath d='M30 30l15-15M30 30L15 15M30 30l15 15M30 30L15 45'/%3E%3C/g%3E%3C/svg%3E\") #e5ddd5" }}>
+          <StepBubble step={step} onChoose={() => {}} vars={vars} />
+        </div>
       </div>
     );
   }
@@ -842,18 +1073,24 @@ function PhonePreview({ step, allSteps, simMode, onToggleSim }: { step: Step | n
         <button type="button" onClick={() => { setHistory(entryStep ? [{ step: entryStep }] : []); setVars({}); setCapturing(null); setCaptureInput(""); }}
           className="text-[10px] text-gray-400 hover:text-gray-600">↺ Restart</button>
       </div>
-      <div ref={chatRef} className="flex-1 bg-[#e5ddd5] rounded-xl p-2.5 overflow-y-auto space-y-2 min-h-0">
+      <div ref={chatRef} className="flex-1 rounded-xl overflow-y-auto min-h-0"
+        style={{ background: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c9c3bb' fill-opacity='0.15'%3E%3Cpath d='M30 30l15-15M30 30L15 15M30 30l15 15M30 30L15 45'/%3E%3C/g%3E%3C/svg%3E\") #e5ddd5", padding: "12px 10px" }}>
+        <div className="space-y-3">
         {history.map((h, i) => (
-          <div key={i} className="space-y-1.5">
-            {h.step.message && <StepBubble step={h.step} onChoose={i === history.length - 1 ? choose : () => {}} vars={vars} />}
+          <div key={i} className="space-y-2">
+            <StepBubble step={h.step} onChoose={i === history.length - 1 ? choose : () => {}} vars={vars} />
             {h.chosen && (
               <div className="flex justify-end">
-                <div className="bg-[#dcf8c6] rounded-xl rounded-tr-none px-2 py-1.5 text-[10px] text-gray-700">{h.chosen}</div>
+                <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-none shadow-sm px-3 py-1.5 max-w-[75%]">
+                  <p className="text-[11px] text-gray-800">{h.chosen}</p>
+                  <p className="text-[8px] text-gray-400 text-right mt-0.5">{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ✓✓</p>
+                </div>
               </div>
             )}
           </div>
         ))}
         {history.length === 0 && <p className="text-[10px] text-gray-400 text-center pt-4">No entry step set</p>}
+        </div>
       </div>
       {capturing && (
         <div className="mt-2 flex gap-1.5 shrink-0">
@@ -888,13 +1125,12 @@ function CtxMenuDivider() { return <div className="my-1 border-t border-gray-100
 type CtxMenuProps = {
   x: number; y: number; step: Step;
   onClose: () => void;
-  onAddConnected: (type: ST) => void;
+  onAddConnected: () => void;
   onCopy: () => void; onDelete: () => void; onDuplicate: () => void;
   onDisable: () => void; onEnable: () => void; onUnlink: () => void;
   onLabel: () => void;
 };
 function CtxMenu({ x, y, step, onClose, onAddConnected, onCopy, onDelete, onDuplicate, onDisable, onEnable, onUnlink, onLabel }: CtxMenuProps) {
-  const [showAdd, setShowAdd] = useState(false);
   return (
     <>
       <div className="fixed inset-0 z-40" onMouseDown={onClose} />
@@ -907,22 +1143,11 @@ function CtxMenu({ x, y, step, onClose, onAddConnected, onCopy, onDelete, onDupl
         ) : (
           <>
             {/* Add connected step */}
-            <button type="button" onClick={() => setShowAdd((v) => !v)}
+            <button type="button" onClick={() => onAddConnected()}
               className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition">
               <span className="text-gray-400"><IcPlus size={13} /></span>
-              <span className="flex-1">Add connected step</span>
-              <span className="text-gray-300 text-xs">{showAdd ? "▲" : "▼"}</span>
+              <span className="flex-1">Add connected step…</span>
             </button>
-            {showAdd && (
-              <div className="mx-2 mb-1 bg-gray-50 rounded-lg overflow-hidden border border-gray-100">
-                {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
-                  <button key={t} type="button" onClick={() => { onAddConnected(t); onClose(); }}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-white transition text-left">
-                    <span style={{ color: c.color }}><c.ic size={12} /></span> {c.label}
-                  </button>
-                ))}
-              </div>
-            )}
             <CtxMenuDivider />
             <CtxMenuItem icon={<IcCopy size={13} />}   label="Copy"      sub="Ctrl+C" onClick={() => { onCopy(); onClose(); }} />
             <CtxMenuItem icon={<IcDup size={13} />}    label="Duplicate"              onClick={() => { onDuplicate(); onClose(); }} />
@@ -976,6 +1201,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   const [labelEdit,   setLabelEdit]   = useState<{ stepKey: string; value: string } | null>(null);
   const [connCtx,     setConnCtx]     = useState<{ x: number; y: number; fromKey: string; optIdx: number } | null>(null);
   const [canvasCtx,   setCanvasCtx]   = useState<{ screenX: number; screenY: number; canvasX: number; canvasY: number } | null>(null);
+  const [pickerCtx,   setPickerCtx]   = useState<{ x?: number; y?: number; fromKey?: string } | null>(null);
   const [canUndo,     setCanUndo]     = useState(false);
   const [canRedo,     setCanRedo]     = useState(false);
   const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
@@ -1072,12 +1298,14 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
     if (patch.stepKey && patch.stepKey !== key) setSelKey(patch.stepKey);
   }
 
-  function addStep(type: ST = "button", x?: number, y?: number, fromKey?: string) {
+  function addStep(type: ST = "button", x?: number, y?: number, fromKey?: string, dataSource?: string, stepPatch?: Partial<Step>) {
     if (!flow) return;
     const n = flow.steps.filter((s) => !s.isFallback).length;
     const s = newStep(n, x ?? (n === 0 ? 80 : 80 + Math.round(Math.random() * 220)), y ?? (n === 0 ? 120 : 100 + Math.round(Math.random() * 280)));
     s._uid = ++uidRef.current;
     s.inputType = type;
+    if (dataSource && s.options[0]) s.options[0].dataSource = dataSource;
+    if (stepPatch) Object.assign(s, stepPatch);
     // If spawned from a card, auto-link the first unconnected option
     let steps = [...flow.steps, s];
     if (fromKey) {
@@ -1501,7 +1729,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
             <IcRedo size={15} /> Redo
           </button>
           <div className="w-px h-5 bg-gray-200 mx-0.5" />
-          <button type="button" onClick={() => addStep()}
+          <button type="button" onClick={() => setPickerCtx({})}
             className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 transition">
             <IcPlus size={15} /> Add step
           </button>
@@ -1628,7 +1856,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                 <IcMsg size={36} className="mx-auto text-gray-300 mb-3" />
                 <p className="font-bold text-gray-700 mb-1">No steps yet</p>
                 <p className="text-sm text-gray-400 mb-4">Add your first step to start building the flow</p>
-                <button type="button" onClick={() => addStep()}
+                <button type="button" onClick={() => setPickerCtx({})}
                   className="flex items-center gap-2 mx-auto rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition cursor-pointer">
                   <IcPlus size={15} /> Add first step
                 </button>
@@ -1750,7 +1978,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
         return (
           <CtxMenu x={ctxMenu.x} y={ctxMenu.y} step={step}
             onClose={() => setCtxMenu(null)}
-            onAddConnected={(t) => addStep(t, (step._x ?? 0) + CARD_W + 80, step._y ?? 0, ctxMenu.stepKey)}
+            onAddConnected={() => { setCtxMenu(null); setPickerCtx({ x: (step._x ?? 0) + CARD_W + 80, y: step._y ?? 0, fromKey: ctxMenu.stepKey }); }}
             onCopy={() => copyStep(ctxMenu.stepKey)}
             onDuplicate={() => duplicateStep(ctxMenu.stepKey)}
             onUnlink={() => unlinkStep(ctxMenu.stepKey)}
@@ -1823,14 +2051,11 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
           <div className="fixed inset-0 z-40" onMouseDown={() => setCanvasCtx(null)} />
           <div className="fixed z-50 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 min-w-[185px]"
             style={{ left: canvasCtx.screenX, top: canvasCtx.screenY }}>
-            <p className="px-3.5 pt-1 pb-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Add step here</p>
-            {(Object.entries(CFG) as [ST, typeof CFG[ST]][]).map(([t, c]) => (
-              <button key={t} type="button"
-                onClick={() => { addStep(t, canvasCtx.canvasX, canvasCtx.canvasY); setCanvasCtx(null); }}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition text-left">
-                <span style={{ color: c.color }}><c.ic size={14} /></span> {c.label} step
-              </button>
-            ))}
+            <button type="button"
+              onClick={() => { setPickerCtx({ x: canvasCtx.canvasX, y: canvasCtx.canvasY }); setCanvasCtx(null); }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition text-left">
+              <IcPlus size={14} className="text-blue-500" /> Add step here…
+            </button>
             {clipRef.current && (
               <>
                 <div className="my-1 border-t border-gray-100" />
@@ -1851,6 +2076,16 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
             </button>
           </div>
         </>
+      )}
+
+      {/* Make.com-style module picker */}
+      {pickerCtx !== null && (
+        <ModulePicker
+          onSelect={(mod) => {
+            addStep(mod.inputType, pickerCtx.x, pickerCtx.y, pickerCtx.fromKey, mod.dataSource, mod.stepPatch);
+          }}
+          onClose={() => setPickerCtx(null)}
+        />
       )}
     </div>
   );
