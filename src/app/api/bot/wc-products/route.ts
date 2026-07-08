@@ -21,10 +21,48 @@ export async function GET(req: NextRequest) {
 
     const params   = req.nextUrl.searchParams;
     const catId    = parseInt(params.get("categoryId") ?? "0", 10);
+    const search   = (params.get("search") ?? "").trim();
     const page     = parseInt(params.get("page") ?? "1", 10);
     const perPage  = parseInt(params.get("perPage") ?? "9", 10);
 
-    if (!catId) return jsonError("categoryId is required", 400);
+    if (!catId && !search) return jsonError("categoryId or search is required", 400);
+
+    // ── Search mode ────────────────────────────────────────────────────────
+    if (search) {
+      const offset = (page - 1) * perPage;
+
+      // Try bot_products first (enabled only, search by name)
+      const { rows: countRows } = await botQuery<{ count: string }>(
+        `SELECT COUNT(*) as count FROM bot_products WHERE enabled = true AND name ILIKE $1`,
+        [`%${search}%`],
+      );
+      const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
+
+      if (totalCount > 0) {
+        const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
+          `SELECT wc_id, name, price, image, permalink FROM bot_products
+           WHERE enabled = true AND name ILIKE $1
+           ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
+          [`%${search}%`, perPage, offset],
+        );
+        const totalPages = Math.ceil(totalCount / perPage);
+        const products = rows.map((p) => ({ id: p.wc_id, name: p.name, price: p.price, type: "simple", image: p.image, permalink: p.permalink }));
+        return jsonOk({ products, hasMore: page < totalPages, page, totalPages });
+      }
+
+      // Fallback to WooCommerce search
+      if (!wc_url || !wc_consumer_key || !wc_consumer_secret) return jsonError("WooCommerce not configured", 500);
+      const wcBase = wc_url.replace(/\/$/, "");
+      const auth   = Buffer.from(`${wc_consumer_key}:${wc_consumer_secret}`).toString("base64");
+      const url    = `${wcBase}/wp-json/wc/v3/products?search=${encodeURIComponent(search)}&page=${page}&per_page=${perPage}&status=publish`;
+      const res    = await fetch(url, { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" });
+      if (!res.ok) return jsonError("Failed to search WooCommerce products", 502);
+
+      const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
+      const wcProducts = await res.json() as { id: number; name: string; price: string; type: string; images: { src: string }[]; permalink: string }[];
+      const products = wcProducts.map((p) => ({ id: p.id, name: p.name, price: p.price, type: p.type ?? "simple", image: p.images?.[0]?.src ?? "", permalink: p.permalink }));
+      return jsonOk({ products, hasMore: page < totalPages, page, totalPages });
+    }
 
     const offset = (page - 1) * perPage;
 
