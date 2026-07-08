@@ -14,14 +14,14 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/orders":           { title: "Orders" },
   "/admin/branches":      { title: "Branches",          parent: "Admin" },
   "/admin/users":         { title: "Users",             parent: "Admin" },
-  "/admin/settings":      { title: "Portal Settings",   parent: "Admin" },
+  "/admin/settings":      { title: "Configuration",      parent: "Admin" },
   "/admin/integrations":  { title: "Integrations",       parent: "Admin" },
   "/admin/quick-replies": { title: "Quick Replies",      parent: "Admin" },
   "/customers":        { title: "Customers",         parent: "WhatsApp" },
   "/wa/templates":     { title: "Send Campaign",     parent: "WhatsApp" },
   "/wa/campaigns":     { title: "Campaign History",  parent: "WhatsApp" },
   "/wa/manage":        { title: "Manage Templates",  parent: "WhatsApp" },
-  "/wa/settings":      { title: "Settings",          parent: "WhatsApp" },
+  "/wa/settings":      { title: "Channel Settings",   parent: "WhatsApp Business" },
   "/wa/inbox":               { title: "Team Inbox",         parent: "WhatsApp" },
   "/wa/woocommerce":         { title: "WooCommerce", parent: "WooCommerce" },
   "/wa/flows":               { title: "Flow Builder",    parent: "WhatsApp" },
@@ -54,7 +54,7 @@ const PORTAL_NAV: NavItem[] = [
 ];
 
 const SETTINGS_NAV: NavItem[] = [
-  { href: "/admin/settings",     label: "Portal Settings", roles: ["SUPER_ADMIN"], icon: IcPortalSettings },
+  { href: "/admin/settings",     label: "Configuration",   roles: ["SUPER_ADMIN"], icon: IcPortalSettings },
   { href: "/admin/integrations", label: "Integrations",    roles: ["SUPER_ADMIN"], icon: IcIntegrations },
 ];
 
@@ -65,7 +65,7 @@ const WA_NAV: { href: string; label: string; icon: (p: SVGProps<SVGSVGElement>) 
   { href: "/wa/templates",         label: "Send Campaign",    icon: IcSend,       roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/campaigns",         label: "Campaign History", icon: IcHistory,    roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/manage",            label: "Manage Templates", icon: IcTemplate,   roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/settings",          label: "Settings",         icon: IcSettings,   roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/settings",          label: "Channel Settings", icon: IcSettings,   roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/flows",             label: "Flow Builder",     icon: IcFlow,        roles: ["SUPER_ADMIN", "ADMIN"] },
 ];
 
@@ -250,11 +250,15 @@ export default function AppShell({
               <div className="mb-1 flex items-center gap-2 px-3">
                 <div className="h-px flex-1 bg-rule" />
                 <div className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 24 24" fill="#25D366" className="h-3 w-3" aria-hidden="true">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.528 5.849L.057 23.899a.75.75 0 00.921.921l6.05-1.471A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.857a9.834 9.834 0 01-5.032-1.381l-.36-.214-3.733.907.922-3.638-.235-.374A9.857 9.857 0 012.143 12C2.143 6.55 6.55 2.143 12 2.143S21.857 6.55 21.857 12 17.45 21.857 12 21.857z"/>
+                  {/* WhatsApp Business icon — chat bubble with B badge */}
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
+                    <path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                    <path fill="#25D366" d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.528 5.849L.057 23.899a.75.75 0 00.921.921l6.05-1.471A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.857a9.834 9.834 0 01-5.032-1.381l-.36-.214-3.733.907.922-3.638-.235-.374A9.857 9.857 0 012.143 12C2.143 6.55 6.55 2.143 12 2.143S21.857 6.55 21.857 12 17.45 21.857 12 21.857z"/>
+                    {/* Business badge */}
+                    <circle cx="18.5" cy="18.5" r="5.5" fill="#075E54"/>
+                    <text x="18.5" y="22" textAnchor="middle" fill="white" fontSize="6.5" fontWeight="bold" fontFamily="sans-serif">B</text>
                   </svg>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#075E54]/70">WhatsApp</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#075E54]/70">WhatsApp Business</span>
                 </div>
                 <div className="h-px flex-1 bg-rule" />
               </div>
@@ -497,7 +501,7 @@ function IcSettings(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;
 }
 function IcPortalSettings(p: SVGProps<SVGSVGElement>) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/><path d="M12 8v4M12 16h.01"/></svg>;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="8" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/></svg>;
 }
 function IcQuickReply(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>;

@@ -13,7 +13,7 @@ const jakarta = Plus_Jakarta_Sans({
 export async function generateMetadata(): Promise<Metadata> {
   const { app_name } = await getPortalSettings();
   return {
-    title: `${app_name} — Order Portal`,
+    title: app_name,
     description: `Internal order operations portal for ${app_name}.`,
     icons: {
       icon: [{ url: "/uploads/favicon.webp", type: "image/webp" }],
