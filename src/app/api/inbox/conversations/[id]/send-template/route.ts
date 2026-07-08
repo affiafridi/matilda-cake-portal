@@ -89,6 +89,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           lastMessageAt:    now,
           lastMessageBody:  body,
           lastHumanReplyAt: now,
+          lastInboundAt:    now,  // re-opens the 24h window
           botPaused:        true,
           status:           "OPEN",
         },
