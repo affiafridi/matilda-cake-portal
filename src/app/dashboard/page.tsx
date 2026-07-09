@@ -81,10 +81,18 @@ function DeliveryBar({ sent, failed }: { sent: number; failed: number }) {
 
 // ── Date range helper ─────────────────────────────────────────────────────
 
-function getDateRange(range: string) {
+function getDateRange(range: string, from?: string, to?: string) {
   const today = startOfDayUTC();
   const tomorrow = new Date(today);
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+  if (range === "custom" && from && to) {
+    const start = new Date(`${from}T00:00:00Z`);
+    const end   = new Date(`${to}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + 1); // inclusive
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+    return { start, end, label: `${from} → ${to}`, chartDays: Math.min(days, 60) };
+  }
 
   switch (range) {
     case "yesterday": {
@@ -126,11 +134,13 @@ export default async function DashboardPage({
   const sp = await searchParams;
   const rangeParam  = (typeof sp.range  === "string" ? sp.range  : "today");
   const branchParam = (typeof sp.branch === "string" ? sp.branch : "all");
+  const fromParam   = (typeof sp.from   === "string" ? sp.from   : undefined);
+  const toParam     = (typeof sp.to     === "string" ? sp.to     : undefined);
 
   const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
   const scopeFilter = user.role === "AGENT" ? { createdById: user.id } : {};
 
-  const { start: rangeStart, end: rangeEnd, label: rangeLabel, chartDays } = getDateRange(rangeParam);
+  const { start: rangeStart, end: rangeEnd, label: rangeLabel, chartDays } = getDateRange(rangeParam, fromParam, toParam);
 
   const today = startOfDayUTC();
   const tomorrow = new Date(today);
@@ -283,12 +293,17 @@ export default async function DashboardPage({
   });
 
   const revenueAmount = Number(revenueRange?._sum.totalAmount ?? 0);
+  const firstName = user.name.split(" ")[0];
 
   return (
     <div className="min-h-full bg-[#f4f5f7]">
 
-      {/* ── Filter bar ── */}
-      <div className="flex items-center justify-end px-6 pt-5 pb-2 lg:px-8">
+      {/* ── Top bar: greeting + filters ── */}
+      <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-2 lg:px-8">
+        <div>
+          <h1 className="text-lg font-bold text-ink">Hello, {firstName} 👋</h1>
+          <p className="text-xs text-ink-muted">Here&apos;s your business snapshot.</p>
+        </div>
         <Suspense fallback={<div className="h-9 w-80 animate-pulse rounded-xl bg-rule" />}>
           <DashboardFilters
             branches={branches?.map((b) => ({ id: b.id, name: b.name }))}
@@ -620,18 +635,16 @@ function StatCard({ label, value, icon, sub, color, href }: {
 
   return (
     <Link href={href} className="group flex items-center gap-4 rounded-2xl border border-rule bg-white px-5 py-4 transition-all hover:bg-cream/20 hover:border-caramel/50">
-      <div className={["flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", colors.bg].join(" ")}>
+      <div className={["flex h-10 w-10 shrink-0 items-center justify-center rounded-xl self-center", colors.bg].join(" ")}>
         <span className={colors.iconColor}>{icon}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className={["text-2xl font-bold tabular-nums tracking-tight", colors.num].join(" ")}>{value}</span>
-          <span className="truncate text-sm font-semibold text-ink">{label}</span>
-        </div>
-        <p className="mt-0.5 text-xs text-ink-muted">{sub}</p>
+        <p className="text-xs font-medium text-ink-muted truncate">{label}</p>
+        <p className={["text-2xl font-bold tabular-nums tracking-tight leading-tight", colors.num].join(" ")}>{value}</p>
+        <p className="text-[11px] text-ink-muted leading-tight">{sub}</p>
       </div>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-        className="h-4 w-4 shrink-0 text-rule transition group-hover:text-caramel">
+        className="h-4 w-4 shrink-0 self-center text-rule transition group-hover:text-caramel">
         <path d="M5 12h14M12 5l7 7-7 7"/>
       </svg>
     </Link>
