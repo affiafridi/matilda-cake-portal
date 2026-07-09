@@ -258,7 +258,7 @@ export default function InboxClient({
   const [uploadingMedia,   setUploadingMedia]   = useState(false);
   const [sendingTemplate,  setSendingTemplate]  = useState(false);
   const [templateError,    setTemplateError]    = useState<string | null>(null);
-  const [pendingMedia,     setPendingMedia]     = useState<{ file: File; previewUrl: string; caption: string } | null>(null);
+  const [pendingMedia,     setPendingMedia]     = useState<{ file: File; previewUrl: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Notes
@@ -453,23 +453,40 @@ export default function InboxClient({
     } finally { setSending(false); }
   }
 
-  function stageMedia(file: File) {
-    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
-    setPendingMedia({ file, previewUrl, caption: "" });
+  function stageMedia(files: FileList | File[]) {
+    const added = Array.from(files).map((file) => ({
+      file,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+    }));
+    setPendingMedia((p) => [...p, ...added]);
+  }
+
+  function removePendingMedia(idx: number) {
+    setPendingMedia((p) => {
+      const item = p[idx];
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      return p.filter((_, i) => i !== idx);
+    });
   }
 
   async function sendMedia() {
-    if (!selectedId || uploadingMedia || !pendingMedia) return;
+    if (!selectedId || uploadingMedia || pendingMedia.length === 0) return;
     setUploadingMedia(true); setSendError(null);
     try {
-      const fd = new FormData();
-      fd.append("file", pendingMedia.file);
-      if (pendingMedia.caption.trim()) fd.append("caption", pendingMedia.caption.trim());
-      const res  = await fetch(`/api/inbox/conversations/${selectedId}/reply-media`, { method: "POST", body: fd });
-      const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
-      if (!json?.ok) { setSendError(json?.error ?? "Failed to send media"); return; }
-      if (pendingMedia.previewUrl) URL.revokeObjectURL(pendingMedia.previewUrl);
-      setPendingMedia(null);
+      const caption = replyText.trim();
+      // Send each file sequentially; attach caption only to the last one
+      for (let i = 0; i < pendingMedia.length; i++) {
+        const item = pendingMedia[i];
+        const fd = new FormData();
+        fd.append("file", item.file);
+        if (caption && i === pendingMedia.length - 1) fd.append("caption", caption);
+        const res  = await fetch(`/api/inbox/conversations/${selectedId}/reply-media`, { method: "POST", body: fd });
+        const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
+        if (!json?.ok) { setSendError(json?.error ?? "Failed to send media"); return; }
+        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      }
+      setPendingMedia([]);
+      setReplyText("");
       const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
       const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
       if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
@@ -672,9 +689,17 @@ export default function InboxClient({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={["truncate text-sm", c.unreadCount > 0 ? "font-bold text-gray-900" : "font-medium text-gray-700"].join(" ")}>
-                      {c.customerName}
-                    </span>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className={["truncate text-sm", c.unreadCount > 0 ? "font-bold text-gray-900" : "font-medium text-gray-700"].join(" ")}>
+                        {c.customerName}
+                      </span>
+                      {c.agentRequested && !c.botPaused && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                          Wants Agent
+                        </span>
+                      )}
+                    </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       {c.unreadCount > 0 && (
                         <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-white">
@@ -694,17 +719,6 @@ export default function InboxClient({
                           {tag}
                         </span>
                       ))}
-                      {c.agentRequested && !c.botPaused && (
-                        <div className="flex w-full items-start gap-1 rounded-md bg-rose-50 border border-rose-200 px-1.5 py-1 text-[10px]">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5 mt-px shrink-0 text-rose-600"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                          <span>
-                            <span className="font-semibold text-rose-600">Wants Agent</span>
-                            {c.lastMessageBody && (
-                              <span className="text-rose-400"> · {c.lastMessageBody}</span>
-                            )}
-                          </span>
-                        </div>
-                      )}
                       {c.botPaused && (
                         <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
@@ -1049,71 +1063,65 @@ export default function InboxClient({
                   )}
 
                   {replyTab === "reply" ? (
-                    <div className="flex flex-col gap-2">
-                      <input ref={fileInputRef} type="file" className="hidden"
+                    <div className="flex items-end gap-2">
+                      <input ref={fileInputRef} type="file" className="hidden" multiple
                         accept="image/*,video/*,audio/*,application/pdf"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) stageMedia(f); e.target.value = ""; }}
+                        onChange={(e) => { if (e.target.files?.length) stageMedia(e.target.files); e.target.value = ""; }}
                       />
 
-                      {/* Media preview bar */}
-                      {pendingMedia && (
-                        <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
-                          {/* Thumbnail or file icon */}
-                          {pendingMedia.previewUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={pendingMedia.previewUrl} alt="preview" className="h-20 w-20 shrink-0 rounded-xl object-cover border border-gray-200" />
-                          ) : (
-                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-gray-400"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            </div>
-                          )}
-                          <div className="flex flex-1 flex-col gap-2 min-w-0">
-                            <p className="truncate text-xs font-semibold text-gray-700">{pendingMedia.file.name}</p>
-                            <input
-                              type="text"
-                              value={pendingMedia.caption}
-                              onChange={(e) => setPendingMedia((p) => p ? { ...p, caption: e.target.value } : p)}
-                              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMedia(); } }}
-                              placeholder="Add a caption (optional)…"
-                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20"
-                            />
-                            <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => void sendMedia()} disabled={uploadingMedia}
-                                className="flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition">
-                                {uploadingMedia
-                                  ? <><svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Sending…</>
-                                  : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send</>}
-                              </button>
-                              <button type="button" onClick={() => { if (pendingMedia.previewUrl) URL.revokeObjectURL(pendingMedia.previewUrl); setPendingMedia(null); }}
-                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 transition">
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex items-end gap-2">
-                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia || !!pendingMedia}
+                      {/* Attach button */}
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-400 transition hover:bg-gray-50 hover:text-gray-600 disabled:opacity-40"
-                        title="Attach image or file">
+                        title="Attach images or files">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                       </button>
-                      <textarea ref={textareaRef} rows={2} value={replyText}
-                        onChange={(e) => handleReplyChange(e.target.value)}
-                        onKeyDown={handleReplyKeyDown}
-                        placeholder="Type a message… Use / for quick replies"
-                        className="flex-1 resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition"
-                      />
-                      <button type="button" onClick={() => void sendReply()} disabled={sending || !replyText.trim()}
+
+                      {/* Unified compose box */}
+                      <div className={["flex-1 rounded-2xl border bg-gray-50 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/20",
+                        pendingMedia.length > 0 ? "border-brand/30" : "border-gray-200 focus-within:border-brand/40"].join(" ")}>
+
+                        {/* File thumbnails row */}
+                        {pendingMedia.length > 0 && (
+                          <div className="flex flex-wrap gap-2 px-3 pt-3">
+                            {pendingMedia.map((item, idx) => (
+                              <div key={idx} className="relative group">
+                                {item.previewUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={item.previewUrl} alt="preview" className="h-16 w-16 rounded-xl object-cover border border-gray-200" />
+                                ) : (
+                                  <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-1">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                    <span className="truncate text-[9px] text-gray-400 w-full text-center px-1">{item.file.name.split(".").pop()?.toUpperCase()}</span>
+                                  </div>
+                                )}
+                                <button type="button" onClick={() => removePendingMedia(idx)}
+                                  className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gray-700 text-white opacity-0 group-hover:opacity-100 transition">
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <textarea ref={textareaRef} rows={2} value={replyText}
+                          onChange={(e) => handleReplyChange(e.target.value)}
+                          onKeyDown={handleReplyKeyDown}
+                          placeholder={pendingMedia.length > 0 ? "Add a caption… (optional)" : "Type a message… Use / for quick replies"}
+                          className="w-full resize-none bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Single send button — handles both text and media */}
+                      <button type="button"
+                        onClick={() => pendingMedia.length > 0 ? void sendMedia() : void sendReply()}
+                        disabled={(uploadingMedia || sending) || (pendingMedia.length === 0 && !replyText.trim())}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
-                        {sending ? (
+                        {(sending || uploadingMedia) ? (
                           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                         ) : (
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         )}
                       </button>
-                    </div>
                     </div>
                   ) : (
                     /* Note input */
