@@ -108,8 +108,11 @@ export async function POST(req: NextRequest) {
 
     const msgTime = timestamp ? new Date(timestamp * 1000) : new Date();
 
-    const customer = await prisma.customer.findFirst({
-      where: { OR: [{ whatsappNumber: waId }, { phone: waId }] },
+    // Upsert customer — creates on first message, updates name if it changed
+    const customer = await prisma.customer.upsert({
+      where:  { phone: waId },
+      create: { id: crypto.randomUUID(), name: name || waId, phone: waId, whatsappNumber: waId },
+      update: { name: name || waId, whatsappNumber: waId },
       select: { id: true },
     });
 
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
         id:              crypto.randomUUID(),
         waId,
         customerName:    name || waId,
-        customerId:      customer?.id ?? null,
+        customerId:      customer.id,
         lastMessageAt:   msgTime,
         lastInboundAt:   msgTime,
         lastMessageBody: text ?? mediaType ?? null,
@@ -127,7 +130,7 @@ export async function POST(req: NextRequest) {
       },
       update: {
         customerName:    name || waId,
-        customerId:      customer?.id ?? null,
+        customerId:      customer.id,
         lastMessageAt:   msgTime,
         lastInboundAt:   msgTime,
         lastMessageBody: text ?? mediaType ?? null,
