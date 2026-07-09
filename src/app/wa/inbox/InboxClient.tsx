@@ -392,17 +392,22 @@ export default function InboxClient({
     return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   };
 
-  // Always jump to bottom when switching conversations
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const prevSelectedId = useRef<string | null>(null);
 
-  // On poll/new message: only scroll if user is already near the bottom
+  // Scroll to bottom after messages render — instant on conversation switch, smooth on poll update
   useEffect(() => {
-    if (isNearBottom()) {
+    if (!messages.length) return;
+    const isNewConv = prevSelectedId.current !== selectedId;
+    prevSelectedId.current = selectedId;
+    if (isNewConv) {
+      // Defer one frame so the DOM has painted the messages
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "instant" });
+      });
+    } else if (isNearBottom()) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Close tag picker on outside click ────────────────────────────────────
   useEffect(() => {
