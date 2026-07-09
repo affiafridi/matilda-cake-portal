@@ -258,6 +258,7 @@ export default function InboxClient({
   const [uploadingMedia,   setUploadingMedia]   = useState(false);
   const [sendingTemplate,  setSendingTemplate]  = useState(false);
   const [templateError,    setTemplateError]    = useState<string | null>(null);
+  const [pendingMedia,     setPendingMedia]     = useState<{ file: File; previewUrl: string; caption: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Notes
@@ -437,15 +438,23 @@ export default function InboxClient({
     } finally { setSending(false); }
   }
 
-  async function sendMedia(file: File) {
-    if (!selectedId || uploadingMedia) return;
+  function stageMedia(file: File) {
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
+    setPendingMedia({ file, previewUrl, caption: "" });
+  }
+
+  async function sendMedia() {
+    if (!selectedId || uploadingMedia || !pendingMedia) return;
     setUploadingMedia(true); setSendError(null);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", pendingMedia.file);
+      if (pendingMedia.caption.trim()) fd.append("caption", pendingMedia.caption.trim());
       const res  = await fetch(`/api/inbox/conversations/${selectedId}/reply-media`, { method: "POST", body: fd });
       const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
       if (!json?.ok) { setSendError(json?.error ?? "Failed to send media"); return; }
+      if (pendingMedia.previewUrl) URL.revokeObjectURL(pendingMedia.previewUrl);
+      setPendingMedia(null);
       const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
       const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
       if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
@@ -940,7 +949,13 @@ export default function InboxClient({
                                 ? "rounded-br-md bg-brand text-white"
                                 : "rounded-bl-md bg-white text-gray-800 border border-gray-100",
                             ].join(" ")}>
-                              {m.mediaUrl ? (
+                              {m.mediaUrl && m.mediaType === "image" ? (
+                                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="block">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover" />
+                                  {m.body && m.body !== "[image]" && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                </a>
+                              ) : m.mediaUrl ? (
                                 <a href={m.mediaUrl} target="_blank" rel="noreferrer"
                                   className="flex items-center gap-2 underline underline-offset-2">
                                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
@@ -1014,19 +1029,55 @@ export default function InboxClient({
                   )}
 
                   {replyTab === "reply" ? (
-                    <div className="flex items-end gap-2">
+                    <div className="flex flex-col gap-2">
                       <input ref={fileInputRef} type="file" className="hidden"
                         accept="image/*,video/*,audio/*,application/pdf"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) sendMedia(f); e.target.value = ""; }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) stageMedia(f); e.target.value = ""; }}
                       />
-                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
+
+                      {/* Media preview bar */}
+                      {pendingMedia && (
+                        <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                          {/* Thumbnail or file icon */}
+                          {pendingMedia.previewUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={pendingMedia.previewUrl} alt="preview" className="h-20 w-20 shrink-0 rounded-xl object-cover border border-gray-200" />
+                          ) : (
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-gray-400"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                          )}
+                          <div className="flex flex-1 flex-col gap-2 min-w-0">
+                            <p className="truncate text-xs font-semibold text-gray-700">{pendingMedia.file.name}</p>
+                            <input
+                              type="text"
+                              value={pendingMedia.caption}
+                              onChange={(e) => setPendingMedia((p) => p ? { ...p, caption: e.target.value } : p)}
+                              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendMedia(); } }}
+                              placeholder="Add a caption (optional)…"
+                              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => void sendMedia()} disabled={uploadingMedia}
+                                className="flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition">
+                                {uploadingMedia
+                                  ? <><svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Sending…</>
+                                  : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send</>}
+                              </button>
+                              <button type="button" onClick={() => { if (pendingMedia.previewUrl) URL.revokeObjectURL(pendingMedia.previewUrl); setPendingMedia(null); }}
+                                className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-500 hover:bg-gray-100 transition">
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-end gap-2">
+                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia || !!pendingMedia}
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-400 transition hover:bg-gray-50 hover:text-gray-600 disabled:opacity-40"
-                        title="Send image or file">
-                        {uploadingMedia ? (
-                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                        )}
+                        title="Attach image or file">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                       </button>
                       <textarea ref={textareaRef} rows={2} value={replyText}
                         onChange={(e) => handleReplyChange(e.target.value)}
@@ -1042,6 +1093,7 @@ export default function InboxClient({
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         )}
                       </button>
+                    </div>
                     </div>
                   ) : (
                     /* Note input */
