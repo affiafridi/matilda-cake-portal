@@ -275,6 +275,7 @@ export default function InboxClient({
   const [showTagPicker, setShowTagPicker] = useState(false);
 
   const bottomRef       = useRef<HTMLDivElement>(null);
+  const scrollRef       = useRef<HTMLDivElement>(null);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
   const prevConvsRef    = useRef<Map<string, ConvSummary>>(new Map());
   const selectedIdRef   = useRef<string | null>(null);
@@ -384,9 +385,23 @@ export default function InboxClient({
     setQrIndex(0);
   }, [qrQuery, quickReplies]);
 
-  // ── Auto-scroll ───────────────────────────────────────────────────────────
+  // ── Auto-scroll — only when near bottom or conversation switches ─────────
+  const isNearBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  };
+
+  // Always jump to bottom when switching conversations
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On poll/new message: only scroll if user is already near the bottom
+  useEffect(() => {
+    if (isNearBottom()) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // ── Close tag picker on outside click ────────────────────────────────────
@@ -680,10 +695,15 @@ export default function InboxClient({
                         </span>
                       ))}
                       {c.agentRequested && !c.botPaused && (
-                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                          Wants Agent
-                        </span>
+                        <div className="flex w-full items-start gap-1 rounded-md bg-rose-50 border border-rose-200 px-1.5 py-1 text-[10px]">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5 mt-px shrink-0 text-rose-600"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                          <span>
+                            <span className="font-semibold text-rose-600">Wants Agent</span>
+                            {c.lastMessageBody && (
+                              <span className="text-rose-400"> · {c.lastMessageBody}</span>
+                            )}
+                          </span>
+                        </div>
                       )}
                       {c.botPaused && (
                         <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
@@ -870,7 +890,7 @@ export default function InboxClient({
             {/* ── Chat messages ── */}
             <>
               {/* Merged message + event feed */}
-              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
                 {loadingMsgs && messages.length === 0 && (
                   <div className="flex items-center justify-center py-16">
                     <svg className="h-5 w-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
