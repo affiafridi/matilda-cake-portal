@@ -283,43 +283,17 @@ export default async function DashboardPage({
   });
 
   const revenueAmount = Number(revenueRange?._sum.totalAmount ?? 0);
-  const nowLabel = new Date().toLocaleDateString("en-AE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const firstName = user.name.split(" ")[0];
 
   return (
     <div className="min-h-full bg-[#f4f5f7]">
 
-      {/* ── Page header ── */}
-      <div className="px-6 pt-6 pb-2 lg:px-8">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-caramel">
-              {isAdmin ? "Operations overview" : "Welcome back"}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-ink">
-              Hello, {firstName}
-            </h1>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              {isAdmin ? "Here's your full business snapshot for today." : "Here's what's happening today."}
-            </p>
-          </div>
-          <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-            <p className="text-sm font-semibold text-ink">{nowLabel}</p>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#25D366]" />
-              <p className="text-xs text-ink-muted">Live data</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter bar */}
-        <div className="mt-4 flex justify-end">
-          <Suspense fallback={<div className="h-9 w-80 animate-pulse rounded-xl bg-rule" />}>
-            <DashboardFilters
-              branches={branches?.map((b) => ({ id: b.id, name: b.name }))}
-            />
-          </Suspense>
-        </div>
+      {/* ── Filter bar ── */}
+      <div className="flex items-center justify-end px-6 pt-5 pb-2 lg:px-8">
+        <Suspense fallback={<div className="h-9 w-80 animate-pulse rounded-xl bg-rule" />}>
+          <DashboardFilters
+            branches={branches?.map((b) => ({ id: b.id, name: b.name }))}
+          />
+        </Suspense>
       </div>
 
       <div className="px-6 pb-8 pt-4 lg:px-8 space-y-5">
@@ -638,26 +612,28 @@ function StatCard({ label, value, icon, sub, color, href }: {
   sub: string; color: "brand" | "gold" | "neutral" | "danger"; href: string;
 }) {
   const colors = {
-    brand:   { bg: "bg-brand/10", iconColor: "text-brand", num: "text-ink",  dot: "bg-brand" },
-    gold:    { bg: "bg-gold/10",       iconColor: "text-gold",        num: "text-gold",        dot: "bg-gold" },
-    neutral: { bg: "bg-cream",    iconColor: "text-brand",  num: "text-ink",  dot: "bg-caramel" },
-    danger:  { bg: "bg-[#c62828]/10", iconColor: "text-[#c62828]",  num: "text-[#c62828]",  dot: "bg-[#c62828]" },
+    brand:   { bg: "bg-brand/10",      iconColor: "text-brand",      num: "text-ink" },
+    gold:    { bg: "bg-gold/10",        iconColor: "text-gold",        num: "text-gold" },
+    neutral: { bg: "bg-cream",          iconColor: "text-brand",       num: "text-ink" },
+    danger:  { bg: "bg-[#c62828]/10",   iconColor: "text-[#c62828]",   num: "text-[#c62828]" },
   }[color];
 
   return (
-    <Link href={href} className="group block rounded-2xl border border-rule bg-white p-5 transition-all hover:bg-cream/20 hover:border-caramel/50">
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <div className={["flex h-10 w-10 items-center justify-center rounded-xl", colors.bg].join(" ")}>
-          <span className={colors.iconColor}>{icon}</span>
-        </div>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
-          className="h-4 w-4 text-rule transition group-hover:text-caramel">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
+    <Link href={href} className="group flex items-center gap-4 rounded-2xl border border-rule bg-white px-5 py-4 transition-all hover:bg-cream/20 hover:border-caramel/50">
+      <div className={["flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", colors.bg].join(" ")}>
+        <span className={colors.iconColor}>{icon}</span>
       </div>
-      <p className={["text-3xl font-bold tracking-tight", colors.num].join(" ")}>{value}</p>
-      <p className="mt-1 text-sm font-semibold text-ink">{label}</p>
-      <p className="mt-0.5 text-xs text-ink-muted">{sub}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className={["text-2xl font-bold tabular-nums tracking-tight", colors.num].join(" ")}>{value}</span>
+          <span className="truncate text-sm font-semibold text-ink">{label}</span>
+        </div>
+        <p className="mt-0.5 text-xs text-ink-muted">{sub}</p>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+        className="h-4 w-4 shrink-0 text-rule transition group-hover:text-caramel">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+      </svg>
     </Link>
   );
 }
