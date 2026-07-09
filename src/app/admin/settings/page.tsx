@@ -129,7 +129,16 @@ function Spinner() {
   );
 }
 
+const TABS = [
+  { id: "branding", label: "Branding",        icon: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" },
+  { id: "profile",  label: "Company Profile", icon: "M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z M9 22V12h6v10" },
+  { id: "access",   label: "Access Control",  icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" },
+] as const;
+
+type Tab = typeof TABS[number]["id"];
+
 export default function AdminSettingsPage() {
+  const [tab, setTab] = useState<Tab>("branding");
   const [settings, setSettings] = useState<Settings>(() => {
     // Seed from CSS vars already set by SSR on <html> — avoids color flash
     const v = typeof document !== "undefined"
@@ -266,57 +275,82 @@ export default function AdminSettingsPage() {
   ];
 
   return (
-    <div className="px-6 py-5 lg:px-8 space-y-8">
+    <div className="min-h-screen bg-canvas">
 
-      {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-ink">Configuration</h1>
-        <p className="mt-0.5 text-sm text-ink-muted">Customize branding, company profile, and access controls.</p>
+      {/* ── Tab bar ── */}
+      <div className="bg-white border-b border-rule px-6 lg:px-8">
+        <div className="inline-flex items-center gap-0.5 rounded-xl bg-canvas p-1 mt-4 mb-4">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={[
+                  "flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all duration-150 select-none",
+                  active
+                    ? "bg-white text-brand border border-rule"
+                    : "text-ink-muted hover:text-ink",
+                ].join(" ")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+                  <path d={t.icon} />
+                </svg>
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ── Row 1: Branding + Logo side by side ── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {/* Tab panels */}
+      <div className="px-6 pt-5 pb-8 lg:px-8">
 
-        {/* Left: App name + colors (2/3) */}
-        <div className="lg:col-span-2">
-          <h2 className="mb-3 text-sm font-bold text-ink">Branding</h2>
-          <div className="rounded-2xl border border-rule bg-white divide-y divide-rule">
+        {/* ── Branding ── */}
+        {tab === "branding" && (
+          <div className="max-w-3xl space-y-5">
 
-            {/* App name */}
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-sm font-semibold text-ink">App Name</p>
-                  <p className="text-xs text-ink-muted mt-0.5">Shown in the browser tab and login page</p>
-                </div>
-                {saving === "app_name" && <Spinner />}
-                {saved  === "app_name" && <Tick />}
+            {/* App Name */}
+            <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-3 border-b border-rule bg-canvas/50">
+                <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">App Name</p>
+                {saving === "app_name" ? <Spinner /> : saved === "app_name" ? <Tick /> : null}
               </div>
-              <input
-                type="text"
-                value={settings.app_name}
-                onChange={(e) => setSettings((p) => ({ ...p, app_name: e.target.value }))}
-                onBlur={(e) => save("app_name", e.target.value)}
-                suppressHydrationWarning
-                className="w-full rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
-                placeholder="Order Portal"
-              />
+              <div className="px-5 py-4">
+                <input type="text" value={settings.app_name}
+                  onChange={(e) => setSettings((p) => ({ ...p, app_name: e.target.value }))}
+                  onBlur={(e) => save("app_name", e.target.value)}
+                  suppressHydrationWarning
+                  className="w-full rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
+                  placeholder="Order Portal" />
+                <p className="mt-1.5 text-xs text-ink-muted">Shown in the browser tab and login page</p>
+              </div>
             </div>
 
-            {/* Colors — 3-col grid inside */}
-            <div className="grid grid-cols-1 divide-y divide-rule sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
-              {/* Brand color */}
-              <div className="px-5 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-ink">Brand</p>
-                  {saving === "primary_color" && <Spinner />}
-                  {saved  === "primary_color" && <Tick />}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={settings.primary_color}
-                    onChange={(e) => { setSettings((p) => ({ ...p, primary_color: e.target.value })); applyBrandVarsLive(e.target.value); }}
-                    onBlur={(e) => save("primary_color", e.target.value)}
-                    className="h-9 w-10 cursor-pointer rounded-lg border border-rule bg-canvas p-0.5 shrink-0" />
+            {/* Colors — 3-col grid */}
+            <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+              <div className="px-5 py-3 border-b border-rule bg-canvas/50">
+                <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Colors</p>
+              </div>
+              <div className="grid grid-cols-1 divide-y divide-rule sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+                {/* Brand */}
+                <div className="px-5 py-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">Brand</p>
+                      <p className="text-xs text-ink-muted">Entire UI rethemes</p>
+                    </div>
+                    {saving === "primary_color" ? <Spinner /> : saved === "primary_color" ? <Tick /> : null}
+                  </div>
+                  <label className="block cursor-pointer">
+                    <div className="relative h-14 w-full rounded-xl overflow-hidden" style={{ background: settings.primary_color }}>
+                      <input type="color" value={settings.primary_color}
+                        onChange={(e) => { setSettings((p) => ({ ...p, primary_color: e.target.value })); applyBrandVarsLive(e.target.value); }}
+                        onBlur={(e) => save("primary_color", e.target.value)}
+                        suppressHydrationWarning
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                    </div>
+                  </label>
                   <input type="text" value={settings.primary_color}
                     onChange={(e) => { setSettings((p) => ({ ...p, primary_color: e.target.value })); if (/^#[0-9a-f]{6}$/i.test(e.target.value)) applyBrandVarsLive(e.target.value); }}
                     onBlur={(e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("primary_color", e.target.value); }}
@@ -324,20 +358,24 @@ export default function AdminSettingsPage() {
                     className="w-full rounded-xl border border-rule bg-canvas px-3 py-2 font-mono text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
                     placeholder="#6b2e1a" />
                 </div>
-                <p className="mt-1.5 text-[11px] text-ink-muted">Entire UI rethemes</p>
-              </div>
-              {/* Accent color */}
-              <div className="px-5 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-ink">Accent</p>
-                  {saving === "accent_color" && <Spinner />}
-                  {saved  === "accent_color" && <Tick />}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={settings.accent_color}
-                    onChange={(e) => { setSettings((p) => ({ ...p, accent_color: e.target.value })); applyAccentVarLive(e.target.value); }}
-                    onBlur={(e) => save("accent_color", e.target.value)}
-                    className="h-9 w-10 cursor-pointer rounded-lg border border-rule bg-canvas p-0.5 shrink-0" />
+                {/* Accent */}
+                <div className="px-5 py-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">Accent</p>
+                      <p className="text-xs text-ink-muted">Cards, icons, links</p>
+                    </div>
+                    {saving === "accent_color" ? <Spinner /> : saved === "accent_color" ? <Tick /> : null}
+                  </div>
+                  <label className="block cursor-pointer">
+                    <div className="relative h-14 w-full rounded-xl overflow-hidden" style={{ background: settings.accent_color }}>
+                      <input type="color" value={settings.accent_color}
+                        onChange={(e) => { setSettings((p) => ({ ...p, accent_color: e.target.value })); applyAccentVarLive(e.target.value); }}
+                        onBlur={(e) => save("accent_color", e.target.value)}
+                        suppressHydrationWarning
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                    </div>
+                  </label>
                   <input type="text" value={settings.accent_color}
                     onChange={(e) => { setSettings((p) => ({ ...p, accent_color: e.target.value })); if (/^#[0-9a-f]{6}$/i.test(e.target.value)) applyAccentVarLive(e.target.value); }}
                     onBlur={(e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("accent_color", e.target.value); }}
@@ -345,187 +383,165 @@ export default function AdminSettingsPage() {
                     className="w-full rounded-xl border border-rule bg-canvas px-3 py-2 font-mono text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
                     placeholder="#c9a535" />
                 </div>
-                <p className="mt-1.5 text-[11px] text-ink-muted">Cards, icons, links</p>
-              </div>
-              {/* Sidebar color */}
-              <div className="px-5 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-ink">Sidebar</p>
-                  {saving === "sidebar_color" && <Spinner />}
-                  {saved  === "sidebar_color" && <Tick />}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={settings.sidebar_color}
-                    onChange={(e) => { setSettings((p) => ({ ...p, sidebar_color: e.target.value })); applySidebarVarsLive(e.target.value, settings.primary_color); }}
-                    onBlur={(e) => save("sidebar_color", e.target.value)}
-                    className="h-9 w-10 cursor-pointer rounded-lg border border-rule bg-canvas p-0.5 shrink-0" />
+                {/* Sidebar */}
+                <div className="px-5 py-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">Sidebar</p>
+                      <p className="text-xs text-ink-muted">Left nav background</p>
+                    </div>
+                    {saving === "sidebar_color" ? <Spinner /> : saved === "sidebar_color" ? <Tick /> : null}
+                  </div>
+                  <label className="block cursor-pointer">
+                    <div className="relative h-14 w-full rounded-xl overflow-hidden border border-rule" style={{ background: settings.sidebar_color }}>
+                      <input type="color" value={settings.sidebar_color}
+                        onChange={(e) => { setSettings((p) => ({ ...p, sidebar_color: e.target.value })); applySidebarVarsLive(e.target.value, settings.primary_color); }}
+                        onBlur={(e) => save("sidebar_color", e.target.value)}
+                        suppressHydrationWarning
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                    </div>
+                  </label>
                   <input type="text" value={settings.sidebar_color}
                     onChange={(e) => { setSettings((p) => ({ ...p, sidebar_color: e.target.value })); if (/^#[0-9a-f]{6}$/i.test(e.target.value)) applySidebarVarsLive(e.target.value, settings.primary_color); }}
                     onBlur={(e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("sidebar_color", e.target.value); }}
                     suppressHydrationWarning
                     className="w-full rounded-xl border border-rule bg-canvas px-3 py-2 font-mono text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
                     placeholder="#ffffff" />
-                </div>
-                <div className="mt-2 flex items-center gap-1.5">
-                  {[{ label: "White", hex: "#ffffff" }, { label: "Charcoal", hex: "#1e1e2e" }, { label: "Navy", hex: "#0f172a" }, { label: "Brand", hex: settings.primary_color }].map((p) => (
-                    <button key={p.hex} type="button" title={p.label}
-                      onClick={() => { setSettings((s) => ({ ...s, sidebar_color: p.hex })); applySidebarVarsLive(p.hex, settings.primary_color); save("sidebar_color", p.hex); }}
-                      className="h-5 w-5 rounded-md border-2 border-rule transition hover:scale-110"
-                      style={{ background: p.hex }} />
-                  ))}
+                  <div className="flex items-center gap-1.5">
+                    {[{ label: "White", hex: "#ffffff" }, { label: "Charcoal", hex: "#1e1e2e" }, { label: "Navy", hex: "#0f172a" }, { label: "Brand", hex: settings.primary_color }].map((p) => (
+                      <button key={p.hex} type="button" title={p.label}
+                        onClick={() => { setSettings((s) => ({ ...s, sidebar_color: p.hex })); applySidebarVarsLive(p.hex, settings.primary_color); save("sidebar_color", p.hex); }}
+                        className={["h-5 w-5 rounded-md border-2 transition hover:scale-110 shadow-sm", settings.sidebar_color === p.hex ? "border-brand" : "border-rule"].join(" ")}
+                        style={{ background: p.hex }} />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Right: Logo (1/3) */}
-        <div>
-          <h2 className="mb-3 text-sm font-bold text-ink">Logo</h2>
-          <div className="rounded-2xl border border-rule bg-white p-5 h-[calc(100%-2rem)]">
-            <p className="text-xs text-ink-muted mb-3">JPG, PNG, WebP or SVG — max 2 MB<br/>Recommended: 310 × 70 px</p>
-            <label
-              onDragOver={(e) => { e.preventDefault(); setLogoDragging(true); }}
-              onDragLeave={() => setLogoDragging(false)}
-              onDrop={onLogoDrop}
-              className={["relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 transition mb-3",
-                logoDragging ? "border-caramel bg-cream/30" : "border-rule bg-canvas hover:border-caramel/60 hover:bg-cream/20"].join(" ")}>
-              <input type="file" accept="image/*" className="sr-only" onChange={onLogoFile} />
-              {logoUploading
-                ? <svg className="h-6 w-6 animate-spin text-caramel" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-ink-muted"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>}
-              <p className="text-xs text-ink-muted text-center">{logoUploading ? "Uploading…" : "Click or drag & drop"}</p>
-            </label>
-            {/* Preview */}
-            <div className="relative flex h-16 w-full items-center justify-center rounded-xl border border-rule bg-white p-2">
-              {logoRemoving
-                ? <svg className="h-5 w-5 animate-spin text-ink-muted" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                : settings.logo_url
-                  ? <><img src={settings.logo_url} alt="Logo" className="h-full w-full object-contain" />{/* eslint-disable-line @next/next/no-img-element */}
-                      <button type="button" onClick={removeLogo} title="Remove" className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow-sm hover:bg-red-700 transition-colors">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                      </button></>
-                  : <span className="text-xs text-ink-muted">No logo uploaded</span>}
+            {/* Logo */}
+            <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+              <div className="px-5 py-3 border-b border-rule bg-canvas/50">
+                <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Logo</p>
+              </div>
+              <div className="p-5 flex gap-5 items-start">
+                <label
+                  onDragOver={(e) => { e.preventDefault(); setLogoDragging(true); }}
+                  onDragLeave={() => setLogoDragging(false)}
+                  onDrop={onLogoDrop}
+                  className={["flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 transition",
+                    logoDragging ? "border-caramel bg-cream/30" : "border-rule bg-canvas hover:border-caramel/60 hover:bg-cream/20"].join(" ")}>
+                  <input type="file" accept="image/*" className="sr-only" onChange={onLogoFile} />
+                  {logoUploading
+                    ? <svg className="h-6 w-6 animate-spin text-caramel" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                    : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-ink-muted"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>}
+                  <p className="text-xs text-ink-muted font-medium">{logoUploading ? "Uploading…" : "Click or drag & drop"}</p>
+                  <p className="text-[11px] text-ink-muted/60">PNG, JPG, SVG · max 2 MB</p>
+                </label>
+                {/* Preview */}
+                <div className="flex flex-col gap-2 w-48 shrink-0">
+                  <p className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">Preview</p>
+                  <div className="relative flex h-20 w-full items-center justify-center rounded-xl border border-rule bg-canvas p-2">
+                    {logoRemoving
+                      ? <svg className="h-5 w-5 animate-spin text-ink-muted" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                      : settings.logo_url
+                        ? <><img src={settings.logo_url} alt="Logo" className="h-full w-full object-contain" />{/* eslint-disable-line @next/next/no-img-element */}
+                            <button type="button" onClick={removeLogo} title="Remove" className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow-sm hover:bg-red-700 transition-colors">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            </button></>
+                        : <span className="text-xs text-ink-muted">No logo yet</span>}
+                  </div>
+                  {logoError && <p className="text-xs text-danger">{logoError}</p>}
+                </div>
+              </div>
             </div>
-            {logoError && <p className="mt-2 text-xs text-danger">{logoError}</p>}
+
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* ── Row 2: Company Profile + Access Control side by side ── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-        {/* Company Profile */}
-        <div>
-          <h2 className="mb-3 text-sm font-bold text-ink">Company Profile</h2>
-          <p className="mb-3 text-xs text-ink-muted">Used as placeholders in WhatsApp flows — <code className="bg-canvas px-1 py-0.5 rounded">{"{contact_phone}"}</code>, <code className="bg-canvas px-1 py-0.5 rounded">{"{contact_email}"}</code>, etc.</p>
-          <div className="rounded-2xl border border-rule bg-white divide-y divide-rule">
-            {([
-              { key: "contact_phone"         as const, label: "Phone Number",     placeholder: "+966 50 000 0000",    type: "text" },
-              { key: "contact_email"         as const, label: "Email",            placeholder: "hello@company.com",  type: "email" },
-              { key: "contact_website"       as const, label: "Website",          placeholder: "https://company.com", type: "url" },
-              { key: "contact_welcome_image" as const, label: "Welcome Image URL", placeholder: "https://…/welcome.jpg", type: "url" },
-            ] as { key: keyof Settings & string; label: string; placeholder: string; type: string }[]).map(({ key, label, placeholder, type }) => (
-              <div key={key} className="px-5 py-4">
-                <div className="flex items-center justify-between mb-2">
+        {/* ── Company Profile ── */}
+        {tab === "profile" && (
+          <div className="max-w-2xl">
+            <div className="rounded-2xl border border-rule bg-white divide-y divide-rule">
+              {([
+                { key: "contact_phone"         as const, label: "Phone Number",      desc: "Primary contact number",         placeholder: "+966 50 000 0000",      type: "text" },
+                { key: "contact_email"         as const, label: "Email Address",     desc: "Primary contact email",          placeholder: "hello@company.com",     type: "email" },
+                { key: "contact_website"       as const, label: "Website",           desc: "Company website URL",            placeholder: "https://company.com",   type: "url" },
+                { key: "contact_welcome_image" as const, label: "Welcome Image URL", desc: "Shown in the bot welcome flow",  placeholder: "https://…/welcome.jpg", type: "url" },
+              ] as { key: keyof Settings & string; label: string; desc: string; placeholder: string; type: string }[]).map(({ key, label, desc, placeholder, type }) => (
+                <div key={key} className="px-5 py-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{label}</p>
+                      <p className="text-xs text-ink-muted mt-0.5">{desc} · <span className="font-mono">{`{${key}}`}</span></p>
+                    </div>
+                    {saving === key && <Spinner />}
+                    {saved  === key && <Tick />}
+                  </div>
+                  <input type={type} value={settings[key] as string}
+                    onChange={(e) => setSettings((p) => ({ ...p, [key]: e.target.value }))}
+                    onBlur={(e) => save(key, e.target.value)}
+                    className="w-full rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
+                    placeholder={placeholder} />
+                </div>
+              ))}
+              <div className="px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm font-semibold text-ink">{label}</p>
-                    <p className="text-xs text-ink-muted mt-0.5 font-mono">{`{${key}}`}</p>
+                    <p className="text-sm font-semibold text-ink">Team Numbers</p>
+                    <p className="text-xs text-ink-muted mt-0.5">WhatsApp numbers used for agent handoff</p>
                   </div>
-                  {saving === key && <Spinner />}
-                  {saved  === key && <Tick />}
+                  {saving === "contact_team_numbers" && <Spinner />}
+                  {saved  === "contact_team_numbers" && <Tick />}
                 </div>
-                <input type={type} value={settings[key] as string}
-                  onChange={(e) => setSettings((p) => ({ ...p, [key]: e.target.value }))}
-                  onBlur={(e) => save(key, e.target.value)}
-                  className="w-full rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
-                  placeholder={placeholder} />
-              </div>
-            ))}
-            <div className="px-5 py-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-semibold text-ink">Team Numbers</p>
-                  <p className="text-xs text-ink-muted mt-0.5">WhatsApp numbers used for agent handoff</p>
+                <div className="space-y-2">
+                  {teamNumbers.map((num, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input type="text" value={num} placeholder="+966500000001"
+                        onChange={(e) => { const next = teamNumbers.map((n, i) => i === idx ? e.target.value : n); setTeamNumbers(next); }}
+                        onBlur={() => { const cleaned = teamNumbers.map((n) => n.trim()).filter(Boolean); const joined = cleaned.join(", "); setSettings((p) => ({ ...p, contact_team_numbers: joined })); save("contact_team_numbers", joined); }}
+                        className="flex-1 rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20" />
+                      <button type="button"
+                        onClick={() => { const next = teamNumbers.filter((_, i) => i !== idx); const cleaned = next.map((n) => n.trim()).filter(Boolean); setTeamNumbers(cleaned.length ? cleaned : [""]); const joined = cleaned.join(", "); setSettings((p) => ({ ...p, contact_team_numbers: joined })); save("contact_team_numbers", joined); }}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rule bg-canvas text-ink-muted transition hover:border-danger/40 hover:bg-red-50 hover:text-danger">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setTeamNumbers((p) => [...p, ""])}
+                    className="flex items-center gap-1.5 rounded-xl border border-dashed border-rule px-3.5 py-2 text-sm text-ink-muted transition hover:border-caramel/50 hover:text-caramel w-full justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M12 5v14M5 12h14"/></svg>
+                    Add number
+                  </button>
                 </div>
-                {saving === "contact_team_numbers" && <Spinner />}
-                {saved  === "contact_team_numbers" && <Tick />}
-              </div>
-              <div className="space-y-2">
-                {teamNumbers.map((num, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={num}
-                      placeholder="+966500000001"
-                      onChange={(e) => {
-                        const next = teamNumbers.map((n, i) => i === idx ? e.target.value : n);
-                        setTeamNumbers(next);
-                      }}
-                      onBlur={() => {
-                        const cleaned = teamNumbers.map((n) => n.trim()).filter(Boolean);
-                        const joined = cleaned.join(", ");
-                        setSettings((p) => ({ ...p, contact_team_numbers: joined }));
-                        save("contact_team_numbers", joined);
-                      }}
-                      className="flex-1 rounded-xl border border-rule bg-canvas px-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const next = teamNumbers.filter((_, i) => i !== idx);
-                        const cleaned = next.map((n) => n.trim()).filter(Boolean);
-                        setTeamNumbers(cleaned.length ? cleaned : [""]);
-                        const joined = cleaned.join(", ");
-                        setSettings((p) => ({ ...p, contact_team_numbers: joined }));
-                        save("contact_team_numbers", joined);
-                      }}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rule bg-canvas text-ink-muted transition hover:border-danger/40 hover:bg-red-50 hover:text-danger"
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                        <path d="M18 6L6 18M6 6l12 12"/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setTeamNumbers((p) => [...p, ""])}
-                  className="flex items-center gap-1.5 rounded-xl border border-dashed border-rule px-3.5 py-2 text-sm text-ink-muted transition hover:border-caramel/50 hover:text-caramel w-full justify-center"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                  Add number
-                </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Access Control */}
-        <div>
-          <h2 className="mb-3 text-sm font-bold text-ink">Access Control</h2>
-          <p className="mb-3 text-xs text-ink-muted">Control which sections are visible to Admin users.</p>
-          <div className="rounded-2xl border border-rule bg-white divide-y divide-rule">
-            {toggleRows.map((row) => (
-              <div key={row.key} className="flex items-center justify-between gap-4 px-5 py-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-ink">{row.label}</p>
-                    {saving === row.key && <Spinner />}
-                    {saved  === row.key && <Tick />}
+        {/* ── Access Control ── */}
+        {tab === "access" && (
+          <div className="max-w-2xl">
+            <div className="rounded-2xl border border-rule bg-white divide-y divide-rule">
+              {toggleRows.map((row) => (
+                <div key={row.key} className="flex items-center justify-between gap-4 px-5 py-5">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-ink">{row.label}</p>
+                      {saving === row.key && <Spinner />}
+                      {saved  === row.key && <Tick />}
+                    </div>
+                    <p className="text-xs text-ink-muted mt-0.5">{row.description}</p>
                   </div>
-                  <p className="text-xs text-ink-muted mt-0.5">{row.description}</p>
+                  {loading
+                    ? <div className="h-6 w-11 animate-pulse rounded-full bg-rule shrink-0" />
+                    : <Toggle enabled={settings[row.key]} onChange={() => toggle(row.key)} />}
                 </div>
-                {loading
-                  ? <div className="h-6 w-11 animate-pulse rounded-full bg-rule shrink-0" />
-                  : <Toggle enabled={settings[row.key]} onChange={() => toggle(row.key)} />}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-          <p className="mt-3 text-xs text-ink-muted">Super Admin always has access to all sections.</p>
-        </div>
+        )}
+
       </div>
     </div>
   );

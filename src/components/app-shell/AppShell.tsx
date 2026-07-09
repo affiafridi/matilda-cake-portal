@@ -2,29 +2,29 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactElement, type SVGProps } from "react";
+import { useEffect, useRef, useState, type ReactElement, type SVGProps } from "react";
 
 type Role = "SUPER_ADMIN" | "ADMIN" | "AGENT" | "OPERATOR";
 
 // ── Route → page title map ─────────────────────────────────────────────────
 
 const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?: string }> = {
-  "/dashboard":        { title: "Dashboard" },
-  "/new-order":        { title: "New Order",        parent: "Orders",    parentHref: "/orders" },
-  "/orders":           { title: "Orders" },
-  "/admin/branches":      { title: "Branches",          parent: "Admin" },
-  "/admin/users":         { title: "Users",             parent: "Admin" },
-  "/admin/settings":      { title: "Configuration",      parent: "Admin" },
-  "/admin/integrations":  { title: "Integrations",       parent: "Admin" },
-  "/admin/quick-replies": { title: "Quick Replies",      parent: "Admin" },
-  "/customers":        { title: "Customers",         parent: "WhatsApp" },
-  "/wa/templates":     { title: "Send Campaign",     parent: "WhatsApp" },
-  "/wa/campaigns":     { title: "Campaign History",  parent: "WhatsApp" },
-  "/wa/manage":        { title: "Manage Templates",  parent: "WhatsApp" },
-  "/wa/settings":      { title: "Channel Settings",   parent: "WhatsApp Business" },
-  "/wa/inbox":               { title: "Team Inbox",         parent: "WhatsApp" },
-  "/wa/woocommerce":         { title: "WooCommerce", parent: "WooCommerce" },
-  "/wa/flows":               { title: "Flow Builder",    parent: "WhatsApp" },
+  "/dashboard":           { title: "Dashboard" },
+  "/new-order":           { title: "New Order",         parent: "Orders",    parentHref: "/orders" },
+  "/orders":              { title: "Orders" },
+  "/admin/branches":      { title: "Branches",           parent: "Admin",     parentHref: "/admin/settings" },
+  "/admin/users":         { title: "Users",              parent: "Admin",     parentHref: "/admin/settings" },
+  "/admin/settings":      { title: "Configuration",      parent: "Admin",     parentHref: "/dashboard" },
+  "/admin/integrations":  { title: "Integrations",       parent: "Admin",     parentHref: "/admin/settings" },
+  "/admin/quick-replies": { title: "Quick Replies",      parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/customers":           { title: "Customers",          parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/templates":        { title: "Send Campaign",      parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/campaigns":        { title: "Campaign History",   parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/manage":           { title: "Manage Templates",   parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/settings":         { title: "Channel Settings",   parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",  parentHref: "/dashboard" },
+  "/wa/woocommerce":      { title: "WooCommerce",        parent: "Integrations", parentHref: "/admin/integrations" },
+  "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",  parentHref: "/wa/inbox" },
 };
 
 function getPageMeta(pathname: string) {
@@ -102,16 +102,59 @@ export default function AppShell({
   const [open, setOpen]               = useState(false);
   const [signing, setSigning]         = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  const [navPct, setNavPct]   = useState(0);
+  const [navShow, setNavShow] = useState(false);
+  const navMounted = useRef(false);
+  const navTick    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navDone    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(() =>
     typeof window !== "undefined" && window.location.pathname.startsWith("/admin/settings") ||
     typeof window !== "undefined" && window.location.pathname.startsWith("/admin/integrations")
   );
 
+  function startNav() {
+    if (navTick.current) clearInterval(navTick.current);
+    if (navDone.current) clearTimeout(navDone.current);
+    setNavPct(0);
+    setNavShow(true);
+    // tick up quickly at first, then slow as it approaches 85%
+    let pct = 0;
+    navTick.current = setInterval(() => {
+      pct += (85 - pct) * 0.08;
+      setNavPct(Math.min(pct, 85));
+    }, 60);
+  }
+
+  function finishNav() {
+    if (navTick.current) { clearInterval(navTick.current); navTick.current = null; }
+    setNavPct(100);
+    navDone.current = setTimeout(() => { setNavShow(false); setNavPct(0); }, 380);
+  }
+
+  // Page settled — complete the bar
   useEffect(() => {
     setOpen(false);
     if (pathname.startsWith("/admin/settings") || pathname.startsWith("/admin/integrations")) {
       setSettingsOpen(true);
     }
+    if (!navMounted.current) { navMounted.current = true; return; }
+    finishNav();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // Start bar the moment user clicks an internal link
+  useEffect(() => {
+    function onLinkClick(e: MouseEvent) {
+      const anchor = (e.target as Element).closest("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("http") || href.startsWith("mailto") || href === "#") return;
+      if (href === pathname) return;
+      startNav();
+    }
+    document.addEventListener("click", onLinkClick, true);
+    return () => document.removeEventListener("click", onLinkClick, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Poll unread count for inbox-eligible users
@@ -395,31 +438,31 @@ export default function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
 
         {/* Top header — hidden on full-canvas pages like the flow editor */}
-        <header className={`sticky top-0 z-30 flex h-[64px] shrink-0 items-center justify-between border-b border-[#e8ddd4] bg-white px-6 lg:px-8${/^\/wa\/flows\/\d+/.test(pathname) ? " hidden" : ""}`}>
+        <header className={`sticky top-0 z-30 flex h-[64px] shrink-0 items-center justify-between border-b border-rule bg-white px-6 lg:px-8${/^\/wa\/flows\/\d+/.test(pathname) ? " hidden" : ""}`}>
 
           {/* Left: hamburger (mobile) + breadcrumb */}
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e8ddd4] text-[#7a5c4d] hover:bg-[#f5e6d3]/60 sm:hidden">
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-rule text-ink-muted hover:bg-canvas sm:hidden">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
                 <path d="M4 6h16M4 12h16M4 18h7" />
               </svg>
             </button>
 
             {/* Breadcrumb */}
-            <div className="hidden items-center gap-2 sm:flex">
-              {meta.parent ? (
+            <div className="hidden items-center gap-1.5 sm:flex">
+              {meta.parent && meta.parentHref ? (
                 <>
-                  <Link href={meta.parentHref ?? "#"}
-                    className="text-sm text-[#7a5c4d] hover:text-[#2b1a12] transition">
+                  <Link href={meta.parentHref}
+                    className="text-sm text-ink-muted hover:text-ink transition">
                     {meta.parent}
                   </Link>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-caramel" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-ink-muted/40" aria-hidden="true">
                     <path d="M9 18l6-6-6-6" />
                   </svg>
                 </>
               ) : null}
-              <span className="text-sm font-semibold text-[#2b1a12]">{meta.title}</span>
+              <span className="text-sm font-semibold text-ink">{meta.title}</span>
             </div>
 
             {/* Mobile: just logo */}
@@ -433,7 +476,7 @@ export default function AppShell({
           <div className="flex items-center gap-2">
             {/* Notification bell */}
             <button type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-[#e8ddd4] bg-white text-[#7a5c4d] hover:bg-[#f5e6d3]/60 transition">
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-rule bg-white text-ink-muted hover:bg-canvas transition">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
                 <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
               </svg>
@@ -441,7 +484,7 @@ export default function AppShell({
 
             {/* User avatar + name */}
             <button type="button"
-              className="flex items-center gap-2.5 rounded-xl border border-[#e8ddd4] bg-white px-3 py-1.5 transition hover:bg-[#f5e6d3]/40">
+              className="flex items-center gap-2.5 rounded-xl border border-rule bg-white px-3 py-1.5 transition hover:bg-canvas">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white">
                 {initials || "U"}
               </div>
@@ -449,7 +492,7 @@ export default function AppShell({
                 <p className="text-xs font-semibold leading-tight text-ink">{user.name.split(" ")[0]}</p>
                 <p className="text-[10px] leading-tight text-caramel">{ROLE_LABEL[user.role]}</p>
               </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="hidden h-3 w-3 text-[#7a5c4d] sm:block" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="hidden h-3 w-3 text-ink-muted sm:block" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -457,7 +500,22 @@ export default function AppShell({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto relative">
+          {/* Navigation progress bar */}
+          {navShow && (
+            <div
+              className="absolute inset-x-0 top-0 z-50 h-px"
+              style={{
+                background: "var(--color-brand)",
+                width: `${navPct}%`,
+                opacity: navPct >= 100 ? 0 : 1,
+                transition: navPct >= 100
+                  ? "width 0.18s ease-in, opacity 0.22s ease-out 0.15s"
+                  : "width 0.06s linear, opacity 0.1s",
+                boxShadow: "0 0 4px 0px var(--color-brand)",
+              }}
+            />
+          )}
           {children}
         </main>
       </div>

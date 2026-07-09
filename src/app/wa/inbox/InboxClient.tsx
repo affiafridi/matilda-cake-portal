@@ -745,7 +745,7 @@ export default function InboxClient({
       <div className="flex flex-1 flex-col min-w-0">
         {!selectedId ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-sm border border-gray-100">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white border border-rule">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25} className="h-9 w-9 text-gray-300"><path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </div>
             <div className="text-center">
@@ -959,6 +959,34 @@ export default function InboxClient({
                     }
 
                     const m = item.data as Message;
+
+                    // ── System event bubble (agent handoff trigger) ──
+                    if ((m.direction as string) === "SYSTEM") {
+                      return (
+                        <Fragment key={`msg-${m.id}`}>
+                          {showSep && (
+                            <div className="flex items-center gap-3 py-3">
+                              <div className="h-px flex-1 bg-gray-200" />
+                              <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">{dayLabel(m.createdAt)}</span>
+                              <div className="h-px flex-1 bg-gray-200" />
+                            </div>
+                          )}
+                          <div className="flex justify-center py-1">
+                            <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                              </svg>
+                              <span>
+                                <span className="font-bold">Wants Agent</span>
+                                {m.body && <span className="ml-1 opacity-80">— &ldquo;{m.body}&rdquo;</span>}
+                              </span>
+                            </div>
+                          </div>
+                        </Fragment>
+                      );
+                    }
+
                     const msgIndex = messages.indexOf(m);
                     const isOut = m.direction === "OUTBOUND";
                     const showAvatar = !isOut && (msgIndex === messages.length - 1 || messages[msgIndex + 1]?.direction !== "INBOUND");
@@ -1120,7 +1148,7 @@ export default function InboxClient({
                       <button type="button"
                         onClick={() => pendingMedia.length > 0 ? void sendMedia() : void sendReply()}
                         disabled={(uploadingMedia || sending) || (pendingMedia.length === 0 && !replyText.trim())}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
                         {(sending || uploadingMedia) ? (
                           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                         ) : (
@@ -1136,7 +1164,7 @@ export default function InboxClient({
                         className="w-full resize-none rounded-2xl border border-amber-200 bg-amber-50/50 px-4 py-3 text-sm text-gray-800 placeholder:text-amber-400 focus:border-amber-300 focus:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
                       />
                       <button type="submit" disabled={savingNote || !noteText.trim()}
-                        className="self-end flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40">
+                        className="self-end flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40">
                         {savingNote ? (
                           <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                         ) : (

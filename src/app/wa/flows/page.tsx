@@ -134,7 +134,7 @@ export default function FlowsPage() {
             {reloading ? "Pushing…" : "Push to Bot"}
           </button>
           <button type="button" onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition shadow-sm">
+            className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition">
             <IcPlus /> New Flow
           </button>
         </div>
@@ -166,12 +166,24 @@ export default function FlowsPage() {
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3">
-          <svg className="animate-spin text-brand" width={28} height={28} viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2"/>
-            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-          </svg>
-          <p className="text-xs text-ink-muted">Loading flows…</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-rule bg-white overflow-hidden p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl animate-pulse bg-canvas shrink-0" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 w-2/3 animate-pulse rounded-full bg-canvas" />
+                  <div className="h-3 w-1/3 animate-pulse rounded-full bg-canvas" />
+                </div>
+              </div>
+              <div className="h-3 w-full animate-pulse rounded-full bg-canvas" />
+              <div className="h-3 w-4/5 animate-pulse rounded-full bg-canvas" />
+              <div className="flex gap-2 pt-1">
+                <div className="h-8 flex-1 animate-pulse rounded-xl bg-canvas" />
+                <div className="h-8 flex-1 animate-pulse rounded-xl bg-canvas" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : flows.length === 0 ? (
         /* Empty state */
@@ -249,7 +261,7 @@ function FlowCard({ flow, onToggle, onDelete, onClick }: {
 
   return (
     <div onClick={onClick}
-      className={`group relative rounded-2xl border bg-surface p-5 cursor-pointer shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 ${flow.isActive ? "border-rule" : "border-dashed border-rule opacity-60"}`}>
+      className={`group relative rounded-2xl border bg-surface p-5 cursor-pointer transition-all hover:-translate-y-0.5 ${flow.isActive ? "border-rule" : "border-dashed border-rule opacity-60"}`}>
 
       {/* Top row */}
       <div className="flex items-start justify-between gap-2 mb-3">

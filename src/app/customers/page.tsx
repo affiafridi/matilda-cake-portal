@@ -154,7 +154,7 @@ export default function CustomersPage() {
       .then((r) => r.json())
       .then((json) => {
         if (!json.ok) throw new Error(json.error ?? "Failed");
-        setCustomers(json.data);
+        setCustomers(json.data.customers ?? json.data);
         setSelected(new Set());
       })
       .catch((e) => setError(e.message))
@@ -357,11 +357,9 @@ export default function CustomersPage() {
           </table>
         </div>
 
-        {!loading && customers.length > 0 && (
+        {!loading && customers.length > 0 && selected.size > 0 && (
           <p className="mt-3 text-right text-xs text-ink-muted">
-            {customers.length} customer{customers.length !== 1 ? "s" : ""}
-            {selected.size > 0 && ` · ${selected.size} selected`}
-            {tagFilter && ` · filtered by "${tagFilter}"`}
+            {selected.size} selected{tagFilter && ` · filtered by "${tagFilter}"`}
           </p>
         )}
       </div>

@@ -363,6 +363,7 @@ enum ConversationStatus {
 enum MessageDirection {
   INBOUND
   OUTBOUND
+  SYSTEM
 }
 
 /// A named conversation flow triggered by keywords.

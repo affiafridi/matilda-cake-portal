@@ -2019,7 +2019,7 @@ function ActionBar({
         <button
           type="submit"
           disabled={disabled}
-          className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-dark active:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-focus/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark active:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-focus/40 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {label}
         </button>
@@ -2053,7 +2053,7 @@ function SuccessCard({
   }
 
   return (
-    <div className="rounded-2xl border border-rule bg-surface p-6 shadow-sm sm:p-8">
+    <div className="rounded-2xl border border-rule bg-surface p-6 sm:p-8">
       <div className="flex items-start gap-4">
         <div
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
@@ -2120,7 +2120,7 @@ function SuccessCard({
             <button
               type="button"
               onClick={onReset}
-              className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark active:bg-brand-dark"
+              className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark active:bg-brand-dark"
             >
               Create another order
             </button>

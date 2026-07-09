@@ -53,9 +53,9 @@ function CategoryRow({ cat, index, selected, onSelect, onToggle, onDragStart, on
       onDrop={() => onDrop(index)}
       onClick={onSelect}
       className={["group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition select-none cursor-pointer",
-        dragging === index ? "opacity-40 border-[#7f54b3]/40 shadow-md scale-[0.99]"
-          : selected ? "border-[#7f54b3]/50 bg-[#7f54b3]/5 shadow-sm"
-          : "border-rule bg-white hover:border-[#7f54b3]/20 hover:shadow-sm"].join(" ")}>
+        dragging === index ? "opacity-40 border-[#7f54b3]/40 scale-[0.99]"
+          : selected ? "border-[#7f54b3]/50 bg-[#7f54b3]/5"
+          : "border-rule bg-white hover:border-[#7f54b3]/20"].join(" ")}>
       <DragHandle />
       <span className="w-4 text-center text-[10px] font-bold text-ink-muted/50">{index + 1}</span>
       <div className={["flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold",
@@ -397,7 +397,7 @@ export default function BotConfigPage() {
                     {filteredProds.map((product) => (
                       <div key={product.id}
                         className={["rounded-xl border bg-white overflow-hidden transition",
-                          product.enabled ? "border-rule shadow-sm" : "border-rule opacity-50"].join(" ")}>
+                          product.enabled ? "border-rule" : "border-rule opacity-50"].join(" ")}>
                         {product.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={product.image} alt={product.name} className="w-full h-28 object-cover bg-gray-50"/>

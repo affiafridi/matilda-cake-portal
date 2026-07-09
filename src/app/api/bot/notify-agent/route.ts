@@ -19,27 +19,52 @@ export async function POST(req: NextRequest) {
     if (!secret || secret !== inbox_webhook_secret) return jsonError("Unauthorized", 401);
 
     const body = await req.json().catch(() => ({}));
-    const { waId, customerName } = body as { waId?: string; customerName?: string };
+    const { waId, customerName, message } = body as { waId?: string; customerName?: string; message?: string };
     if (!waId) return jsonError("waId is required", 400);
 
-    await prisma.conversation.upsert({
+    const now = new Date();
+
+    const conv = await prisma.conversation.upsert({
       where:  { waId },
       create: {
         waId,
-        customerName:   customerName ?? "Unknown",
-        agentRequested: true,
-        unreadCount:    1,
-        lastMessageAt:  new Date(),
-        lastMessageBody: "Customer requested an agent",
+        customerName:    customerName ?? "Unknown",
+        agentRequested:  true,
+        unreadCount:     1,
+        lastMessageAt:   now,
+        lastMessageBody: message ?? null,
       },
       update: {
         agentRequested:  true,
         customerName:    customerName ?? undefined,
-        lastMessageAt:   new Date(),
-        lastMessageBody: "Customer requested an agent",
+        lastMessageAt:   now,
+        // Only overwrite lastMessageBody if the bot supplied the trigger message
+        ...(message ? { lastMessageBody: message } : {}),
         unreadCount:     { increment: 1 },
       },
+      select: { id: true },
     });
+
+    // Insert a system event message in the thread so agents see exactly what triggered the handoff
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SYSTEM = "SYSTEM" as any;
+    if (message) {
+      const existing = await prisma.message.findFirst({
+        where: { conversationId: conv.id, direction: SYSTEM, body: message },
+        select: { id: true },
+      });
+      if (!existing) {
+        await prisma.message.create({
+          data: {
+            id:             crypto.randomUUID(),
+            conversationId: conv.id,
+            direction:      SYSTEM,
+            body:           message,
+            createdAt:      now,
+          },
+        });
+      }
+    }
 
     return jsonOk({ notified: true });
   } catch (err) {

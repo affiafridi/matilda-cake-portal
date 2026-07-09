@@ -49,7 +49,7 @@ export function LoginContent({ appName, logoUrl }: { appName: string; logoUrl: s
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm rounded-2xl border border-rule bg-surface p-6 shadow-sm sm:p-8">
+      <div className="w-full max-w-sm rounded-2xl border border-rule bg-surface p-6 sm:p-8">
         <div className="mb-6 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logoUrl} alt={appName} className="mx-auto h-14 w-auto" />
@@ -67,7 +67,7 @@ export function LoginContent({ appName, logoUrl }: { appName: string; logoUrl: s
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               suppressHydrationWarning
-              className="block w-full rounded-lg border border-rule bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30"
+              className="block w-full rounded-lg border border-rule bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30"
               placeholder="you@company.com"
             />
           </div>
@@ -81,7 +81,7 @@ export function LoginContent({ appName, logoUrl }: { appName: string; logoUrl: s
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               suppressHydrationWarning
-              className="block w-full rounded-lg border border-rule bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink shadow-sm focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30"
+              className="block w-full rounded-lg border border-rule bg-canvas px-3.5 py-2.5 text-base sm:text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30"
             />
           </div>
 
@@ -94,7 +94,7 @@ export function LoginContent({ appName, logoUrl }: { appName: string; logoUrl: s
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Signing in…" : "Sign in"}
           </button>

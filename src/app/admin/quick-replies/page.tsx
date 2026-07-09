@@ -65,7 +65,7 @@ export default function QuickRepliesPage() {
       </div>
 
       {/* Create form */}
-      <form onSubmit={create} className="mb-8 rounded-2xl border border-rule bg-surface p-5 shadow-sm">
+      <form onSubmit={create} className="mb-8 rounded-2xl border border-rule bg-surface p-5">
         <h2 className="mb-4 text-sm font-semibold text-ink">Add new quick reply</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -92,18 +92,37 @@ export default function QuickRepliesPage() {
         </div>
         {error && <p className="mt-2 text-xs text-danger">{error}</p>}
         <button type="submit" disabled={saving}
-          className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-dark disabled:opacity-60">
+          className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60">
           {saving ? "Saving…" : "Add quick reply"}
         </button>
       </form>
 
       {/* List */}
       {loading ? (
-        <p className="text-sm text-ink-muted">Loading…</p>
+        <div className="rounded-2xl border border-rule bg-surface overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-rule bg-canvas">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-ink-muted">Shortcut</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-ink-muted">Message</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-ink-muted">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-rule">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3"><div className="h-4 w-24 animate-pulse rounded-full bg-canvas" /></td>
+                  <td className="px-4 py-3"><div className="h-4 w-full animate-pulse rounded-full bg-canvas" /></td>
+                  <td className="px-4 py-3 text-right"><div className="ml-auto h-4 w-16 animate-pulse rounded-full bg-canvas" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : replies.length === 0 ? (
         <p className="text-sm text-ink-muted">No quick replies yet.</p>
       ) : (
-        <div className="rounded-2xl border border-rule bg-surface shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-rule bg-surface overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-rule bg-canvas">

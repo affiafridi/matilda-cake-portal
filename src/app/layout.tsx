@@ -15,6 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: app_name,
     description: `Internal order operations portal for ${app_name}.`,
+    robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
     icons: {
       icon: [{ url: "/uploads/favicon.webp", type: "image/webp" }],
       shortcut: ["/uploads/favicon.webp"],

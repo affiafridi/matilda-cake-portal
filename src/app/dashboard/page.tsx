@@ -3,11 +3,13 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
+import { getPortalSettings } from "@/lib/portalSettings";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from "@/components/orders/status-badges";
 import { DashboardFilters } from "./filters";
+import { OpenConversationsPanel } from "./OpenConversations";
 
 export const dynamic = "force-dynamic";
 
@@ -137,8 +139,12 @@ export default async function DashboardPage({
   const fromParam   = (typeof sp.from   === "string" ? sp.from   : undefined);
   const toParam     = (typeof sp.to     === "string" ? sp.to     : undefined);
 
-  const isAdmin = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
-  const scopeFilter = user.role === "AGENT" ? { createdById: user.id } : {};
+  const isAdmin      = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+  const scopeFilter  = user.role === "AGENT" ? { createdById: user.id } : {};
+
+  const portalSettings = await getPortalSettings();
+  const showPortal = isSuperAdmin || (user.role === "ADMIN" && portalSettings.portal_visible_to_admin) || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN");
 
   const { start: rangeStart, end: rangeEnd, label: rangeLabel, chartDays } = getDateRange(rangeParam, fromParam, toParam);
 
@@ -229,6 +235,30 @@ export default async function DashboardPage({
     `,
   ]);
 
+  // ── WhatsApp inbox stats (portal DB) ──
+  const [
+    waActiveConversations,
+    waPendingConversations,
+    waResolvedConversations,
+    waUnread,
+    waRecentConversations,
+  ] = await Promise.all([
+    prisma.conversation.count({ where: { status: "OPEN" } }),
+    prisma.conversation.count({ where: { status: "PENDING" } }),
+    prisma.conversation.count({ where: { status: "RESOLVED" } }),
+    prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { unreadCount: { gt: 0 } } }),
+    prisma.conversation.findMany({
+      where: { status: "OPEN" },
+      orderBy: { lastMessageAt: "desc" },
+      take: 6,
+      select: {
+        id: true, waId: true, customerName: true,
+        lastMessageBody: true, lastMessageAt: true, unreadCount: true,
+      },
+    }),
+  ]);
+  const waTotalUnread = waUnread._sum.unreadCount ?? 0;
+
   // ── WhatsApp stats (separate DB — safe fallback) ──
   let waCustomers = 0;
   let waCampaignTotal = 0;
@@ -252,7 +282,7 @@ export default async function DashboardPage({
         [rangeStartISO, rangeEndISO]
       ),
       botQuery(
-        "SELECT template_name, sent, failed, total, created_at FROM campaign_logs WHERE created_at >= $1 AND created_at < $2 ORDER BY created_at DESC LIMIT 4",
+        "SELECT template_name, sent, failed, total, created_at FROM campaign_logs WHERE created_at >= $1 AND created_at < $2 ORDER BY created_at DESC LIMIT 5",
         [rangeStartISO, rangeEndISO]
       ),
     ]);
@@ -313,56 +343,54 @@ export default async function DashboardPage({
 
       <div className="px-6 pb-8 pt-4 lg:px-8 space-y-5">
 
-        {/* ── Row 1: Core order stat cards ── */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <StatCard
-            label={rangeParam === "today" ? "Today's Orders" : "Orders"}
-            value={rangeOrderCount}
-            icon={<IcOrders />}
-            sub={rangeParam === "today" ? "Created today" : rangeLabel}
-            color="brand"
-            href="/orders"
-          />
-          <StatCard
-            label="In Progress"
-            value={pendingCount}
-            icon={<IcPending />}
-            sub="Received · Confirmed · Preparing"
-            color="gold"
-            href="/orders?status=RECEIVED,CONFIRMED,PREPARING"
-          />
-          <StatCard
-            label="Upcoming Deliveries"
-            value={upcomingCount}
-            icon={<IcDelivery />}
-            sub="From today onwards"
-            color="neutral"
-            href={`/orders?delivery=${today.toISOString().slice(0, 10)}`}
-          />
-          <StatCard
-            label="Unpaid"
-            value={unpaidCount}
-            icon={<IcUnpaid />}
-            sub="Unpaid or partial"
-            color="danger"
-            href="/orders?payment=UNPAID,PARTIAL"
-          />
-        </div>
+        {/* ── Row 1: Core order stat cards (portal only) ── */}
+        {showPortal && (
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard
+              label={rangeParam === "today" ? "Today's Orders" : "Orders"}
+              value={rangeOrderCount}
+              icon={<IcOrders />}
+              color="brand"
+              href="/orders"
+            />
+            <StatCard
+              label="In Progress"
+              value={pendingCount}
+              icon={<IcPending />}
+              color="gold"
+              href="/orders?status=RECEIVED,CONFIRMED,PREPARING"
+            />
+            <StatCard
+              label="Upcoming Deliveries"
+              value={upcomingCount}
+              icon={<IcDelivery />}
+              color="neutral"
+              href={`/orders?delivery=${today.toISOString().slice(0, 10)}`}
+            />
+            <StatCard
+              label="Unpaid"
+              value={unpaidCount}
+              icon={<IcUnpaid />}
+              color="danger"
+              href="/orders?payment=UNPAID,PARTIAL"
+            />
+          </div>
+        )}
 
         {/* ── Row 2: Admin revenue + WA stats ── */}
         {isAdmin && (
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* Featured revenue card */}
-            <div className="relative overflow-hidden rounded-2xl bg-brand p-5 lg:col-span-1">
+          <div className={["grid gap-4", showPortal ? "lg:grid-cols-3" : "lg:grid-cols-4"].join(" ")}>
+            {/* Featured revenue card — portal only */}
+            {showPortal && <div className="relative overflow-hidden rounded-2xl bg-brand p-5 lg:col-span-1">
               <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
               <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
               <div className="relative">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
                       {rangeParam === "today" ? "Revenue Today" : `Revenue — ${rangeLabel}`}
                     </p>
-                    <p className="mt-2 text-3xl font-bold text-white">{AED.format(revenueAmount)}</p>
+                    <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight text-white">{AED.format(revenueAmount)}</p>
                     <p className="mt-1 text-xs text-white/50">Non-cancelled orders</p>
                   </div>
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
@@ -374,84 +402,82 @@ export default async function DashboardPage({
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </Link>
               </div>
-            </div>
+            </div>}
 
             {/* WA Customers */}
-            <div className="relative overflow-hidden rounded-2xl bg-[#128C7E] p-5">
-              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
-              <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
-              <div className="relative">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
-                      {rangeParam === "today" ? "New WA Customers" : `WA Customers — ${rangeLabel}`}
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-white">{waCustomers.toLocaleString()}</p>
-                    <p className="mt-1 text-xs text-white/50">Registered in period</p>
-                  </div>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                    <IcWA className="h-5 w-5 text-[#25D366]" />
-                  </div>
-                </div>
-                <Link href="/customers" className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#25D366] hover:text-white transition">
-                  Manage customers
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </Link>
-              </div>
-            </div>
+            <WABigCard
+              label={rangeParam === "today" ? "New Contacts" : `New Contacts — ${rangeLabel}`}
+              value={waCustomers}
+
+              link={{ href: "/customers", label: "Manage customers" }}
+              bg="bg-[#128C7E]"
+              icon={<IcWA className="h-5 w-5 text-[#25D366]" />}
+            />
+
+            {/* Active Conversations — WA mode only */}
+            {!showPortal && (
+              <WABigCard
+                label="Active Conversations"
+                value={waActiveConversations}
+
+                link={{ href: "/wa/inbox", label: "Go to inbox" }}
+                bg="bg-[#1e4d8c]"
+                icon={<IcUnread className="h-5 w-5 text-[#60a5fa]" />}
+              />
+            )}
+
+            {/* Unread Messages — WA mode only */}
+            {!showPortal && (
+              <WABigCard
+                label="Unread Messages"
+                value={waTotalUnread}
+
+                link={{ href: "/wa/inbox", label: "View inbox" }}
+                bg={waTotalUnread > 0 ? "bg-[#b45309]" : "bg-[#334155]"}
+                icon={<IcUnread className={waTotalUnread > 0 ? "h-5 w-5 text-[#fde68a]" : "h-5 w-5 text-[#94a3b8]"} />}
+              />
+            )}
 
             {/* Campaigns sent */}
-            <div className="relative overflow-hidden rounded-2xl bg-[#075E54] p-5">
-              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
-              <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
-              <div className="relative">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
-                      {rangeParam === "today" ? "Messages Sent Today" : `Messages Sent — ${rangeLabel}`}
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-white">{waMsgSent.toLocaleString()}</p>
-                    <p className="mt-1 text-xs text-white/50">Via {waCampaignTotal} campaign{waCampaignTotal !== 1 ? "s" : ""}</p>
-                  </div>
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
-                    <IcCampaign className="h-5 w-5 text-[#25D366]" />
-                  </div>
-                </div>
-                <Link href="/wa/campaigns" className="mt-4 flex items-center gap-1 text-xs font-semibold text-[#25D366] hover:text-white transition">
-                  View campaign history
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </Link>
-              </div>
-            </div>
+            <WABigCard
+              label={rangeParam === "today" ? "Messages Sent Today" : `Messages Sent — ${rangeLabel}`}
+              value={waMsgSent}
+
+              link={{ href: "/wa/campaigns", label: "View campaign history" }}
+              bg="bg-[#075E54]"
+              icon={<IcCampaign className="h-5 w-5 text-[#25D366]" />}
+            />
           </div>
         )}
 
-        {/* ── Row 3: Chart + sidebar ── */}
+        {/* ── Row 3: Chart + campaigns/conversations ── */}
         <div className="grid gap-4 lg:grid-cols-3">
 
-          {/* Orders this week chart */}
-          <div className="rounded-2xl border border-rule bg-white p-5 lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-ink">
-                  {rangeParam === "today" || rangeParam === "7d" ? "Orders This Week" : `Orders — ${rangeLabel}`}
-                </p>
-                <p className="mt-0.5 text-xs text-ink-muted">Daily order volume</p>
+          {/* Orders this week chart — portal only */}
+          {showPortal && (
+            <div className="rounded-2xl border border-rule bg-white p-5 lg:col-span-2">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-ink">
+                    {rangeParam === "today" || rangeParam === "7d" ? "Orders This Week" : `Orders — ${rangeLabel}`}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-muted">Daily order volume</p>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-ink-muted">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-brand" /> Peak
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-caramel opacity-75" /> Other days
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-xs text-ink-muted">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-brand" /> Peak
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm bg-caramel opacity-75" /> Other days
-                </span>
-              </div>
+              <WeekChart bars={bars} />
             </div>
-            <WeekChart bars={bars} />
-          </div>
+          )}
 
           {/* Recent WA campaigns */}
-          <div className="rounded-2xl border border-rule bg-white p-5">
+          <div className={["rounded-2xl border border-rule bg-white p-5", !showPortal ? "lg:col-span-2" : ""].join(" ")}>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold text-ink">Recent Campaigns</p>
               <Link href="/wa/campaigns" className="text-xs font-semibold text-caramel hover:text-brand transition">See all →</Link>
@@ -486,13 +512,21 @@ export default async function DashboardPage({
               </ul>
             )}
           </div>
+
+          {/* Recent Conversations — live-polling client component */}
+          {!showPortal && (
+            <OpenConversationsPanel initial={waRecentConversations.map((c) => ({
+              ...c,
+              lastMessageAt: c.lastMessageAt.toISOString(),
+            }))} />
+          )}
         </div>
 
         {/* ── Row 4: Recent orders + sidebar ── */}
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className={["grid gap-4", showPortal ? "lg:grid-cols-3" : "lg:grid-cols-4"].join(" ")}>
 
-          {/* Recent orders table */}
-          <div className="overflow-hidden rounded-2xl border border-rule bg-white lg:col-span-2">
+          {/* Recent orders table — portal only */}
+          {showPortal && <div className="overflow-hidden rounded-2xl border border-rule bg-white lg:col-span-2">
             <div className="flex items-center justify-between border-b border-rule px-5 py-3.5">
               <div>
                 <p className="text-sm font-bold text-ink">Recent Orders</p>
@@ -573,12 +607,12 @@ export default async function DashboardPage({
                 </ul>
               </>
             )}
-          </div>
+          </div>}
 
           {/* Right sidebar */}
-          <div className="space-y-4">
-            {/* Branches (admin) */}
-            {isAdmin && branches && branches.length > 0 && (
+          <div className={["space-y-4", !showPortal ? "lg:col-span-4 grid grid-cols-1 lg:grid-cols-2 gap-4 space-y-0" : ""].join(" ")}>
+            {/* Branches (admin + portal only) */}
+            {showPortal && isAdmin && branches && branches.length > 0 && (
               <div className="rounded-2xl border border-rule bg-white p-5">
                 <p className="mb-3 text-sm font-bold text-ink">Branches</p>
                 <ul className="space-y-2">
@@ -606,13 +640,26 @@ export default async function DashboardPage({
             <div className="rounded-2xl border border-rule bg-white p-5">
               <p className="mb-3 text-sm font-bold text-ink">Quick Actions</p>
               <div className="space-y-2">
-                <QuickLink href="/new-order" icon={<IcPlus />} label="New Order" desc="Capture a customer request" accent />
-                <QuickLink href="/orders" icon={<IcList />} label="Browse Orders" desc="Search, filter and manage" />
-                <QuickLink href={`/orders?delivery=${today.toISOString().slice(0, 10)}`} icon={<IcTruck />} label="Today's Deliveries" desc="What's going out today" />
+                {showPortal && <QuickLink href="/new-order" icon={<IcPlus />} label="New Order" desc="Capture a customer request" accent />}
+                {showPortal && <QuickLink href="/orders" icon={<IcList />} label="Browse Orders" desc="Search, filter and manage" />}
+                {showPortal && <QuickLink href={`/orders?delivery=${today.toISOString().slice(0, 10)}`} icon={<IcTruck />} label="Today's Deliveries" desc="What's going out today" />}
                 <QuickLink href="/wa/templates" icon={<IcSend />} label="Send Campaign" desc="WhatsApp broadcast" />
+                <QuickLink href="/wa/inbox" icon={<IcUnread />} label="Open Inbox" desc="View active conversations" />
                 <QuickLink href="/wa/manage" icon={<IcTemplate />} label="Manage Templates" desc="Create & review templates" />
               </div>
             </div>
+
+            {/* Conversation status donut — WA mode only */}
+            {!showPortal && (
+              <div className="rounded-2xl border border-rule bg-white p-5">
+                <p className="mb-4 text-sm font-bold text-ink">Conversation Status</p>
+                <ConversationDonut
+                  open={waActiveConversations}
+                  pending={waPendingConversations}
+                  resolved={waResolvedConversations}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -620,11 +667,88 @@ export default async function DashboardPage({
   );
 }
 
+// ── Conversation donut chart ──────────────────────────────────────────────
+
+function ConversationDonut({ open, pending, resolved }: { open: number; pending: number; resolved: number }) {
+  const total = open + pending + resolved;
+  const R = 54; const cx = 80; const cy = 80; const strokeW = 18;
+  const circ = 2 * Math.PI * R;
+  const gap = total > 0 ? 2 : 0; // small gap between segments in px
+
+  const segments = [
+    { label: "Open",     value: open,     color: "#25D366", textColor: "text-[#25D366]" },
+    { label: "Pending",  value: pending,  color: "#f59e0b", textColor: "text-amber-500" },
+    { label: "Resolved", value: resolved, color: "#94a3b8", textColor: "text-slate-400" },
+  ];
+
+  let cumulative = 0;
+  const arcs = segments.map((seg) => {
+    const pct   = total > 0 ? seg.value / total : 0;
+    const dash  = Math.max(0, pct * circ - gap);
+    const space = circ - dash;
+    const rot   = -90 + (cumulative / (total || 1)) * 360;
+    cumulative += seg.value;
+    return { ...seg, dash, space, rot };
+  });
+
+  return (
+    <div className="flex items-center gap-5">
+      {/* SVG donut */}
+      <div className="relative shrink-0">
+        <svg viewBox="0 0 160 160" className="h-36 w-36">
+          {/* Track */}
+          <circle cx={cx} cy={cy} r={R} fill="none" stroke="var(--color-cream)" strokeWidth={strokeW} />
+          {total === 0 ? (
+            <circle cx={cx} cy={cy} r={R} fill="none" stroke="#e2e8f0" strokeWidth={strokeW} />
+          ) : (
+            arcs.map((a, i) => (
+              <circle key={i} cx={cx} cy={cy} r={R}
+                fill="none" stroke={a.color} strokeWidth={strokeW}
+                strokeDasharray={`${a.dash} ${a.space}`}
+                strokeLinecap="butt"
+                transform={`rotate(${a.rot} ${cx} ${cy})`}
+              />
+            ))
+          )}
+          {/* Centre label */}
+          <text x={cx} y={cy - 6} textAnchor="middle" fontSize={22} fontWeight={700} fill="var(--color-ink)">
+            {total}
+          </text>
+          <text x={cx} y={cy + 12} textAnchor="middle" fontSize={10} fontWeight={500} fill="var(--color-ink-muted)">
+            Total
+          </text>
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div className="flex-1 space-y-3">
+        {segments.map((seg) => {
+          const pct = total > 0 ? Math.round((seg.value / total) * 100) : 0;
+          return (
+            <div key={seg.label}>
+              <div className="mb-1 flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-medium text-ink-muted">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
+                  {seg.label}
+                </span>
+                <span className="font-bold text-ink">{seg.value} <span className="font-normal text-ink-muted">({pct}%)</span></span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-cream">
+                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: seg.color }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Stat card ─────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, sub, color, href }: {
+function StatCard({ label, value, icon, color, href }: {
   label: string; value: number; icon: React.ReactNode;
-  sub: string; color: "brand" | "gold" | "neutral" | "danger"; href: string;
+  color: "brand" | "gold" | "neutral" | "danger"; href: string;
 }) {
   const colors = {
     brand:   { bg: "bg-brand/10",      iconColor: "text-brand",      num: "text-ink" },
@@ -639,9 +763,8 @@ function StatCard({ label, value, icon, sub, color, href }: {
         <span className={colors.iconColor}>{icon}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-ink-muted truncate">{label}</p>
         <p className={["text-2xl font-bold tabular-nums tracking-tight leading-tight", colors.num].join(" ")}>{value}</p>
-        <p className="text-[11px] text-ink-muted leading-tight">{sub}</p>
+        <p className="text-xs font-medium text-ink-muted truncate">{label}</p>
       </div>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
         className="h-4 w-4 shrink-0 self-center text-rule transition group-hover:text-caramel">
@@ -695,6 +818,34 @@ function IcWA({ className = "h-5 w-5" }: { className?: string }) {
 function IcCampaign({ className = "h-5 w-5" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>;
 }
+function WABigCard({ label, value, link, bg, icon }: {
+  label: string; value: number;
+  link: { href: string; label: string };
+  bg: string; icon: React.ReactNode;
+}) {
+  return (
+    <div className={["relative overflow-hidden rounded-2xl p-5", bg].join(" ")}>
+      <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
+      <div className="absolute -bottom-4 -left-4 h-20 w-20 rounded-full bg-white/5" />
+      <div className="relative">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{label}</p>
+            <p className="mt-1.5 text-2xl font-bold tabular-nums tracking-tight text-white">{value.toLocaleString()}</p>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+            {icon}
+          </div>
+        </div>
+        <Link href={link.href} className="mt-4 flex items-center gap-1 text-xs font-semibold text-white/70 hover:text-white transition">
+          {link.label}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 function IcPlus({ className = "h-4 w-4" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 5v14M5 12h14"/></svg>;
 }
@@ -709,4 +860,7 @@ function IcSend({ className = "h-4 w-4" }: { className?: string }) {
 }
 function IcTemplate({ className = "h-4 w-4" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>;
+}
+function IcUnread({ className = "h-5 w-5" }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/></svg>;
 }

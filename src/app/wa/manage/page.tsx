@@ -20,6 +20,15 @@ type Template = {
 };
 type HeaderType = "NONE" | "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT" | "LOCATION";
 
+type TemplateDraft = {
+  id: number; name: string; category: string; language: string;
+  header_type: HeaderType; header_text: string | null;
+  header_media: { handle?: string; url?: string } | null;
+  body: string; footer_text: string | null;
+  buttons: ButtonDef[]; examples: string[];
+  created_by: string | null; created_at: string; updated_at: string;
+};
+
 // ── Status config ──────────────────────────────────────────────────────────
 
 const STATUS: Record<string, { label: string; dot: string; badge: string }> = {
@@ -27,6 +36,7 @@ const STATUS: Record<string, { label: string; dot: string; badge: string }> = {
   PENDING:  { label: "In review", dot: "bg-amber-400",   badge: "bg-amber-50 text-amber-700 border-amber-200" },
   REJECTED: { label: "Rejected",  dot: "bg-red-400",     badge: "bg-red-50 text-red-700 border-red-200" },
   PAUSED:   { label: "Paused",    dot: "bg-gray-400",    badge: "bg-gray-50 text-gray-600 border-gray-200" },
+  DRAFT:    { label: "Draft",     dot: "bg-slate-400",   badge: "bg-slate-50 text-slate-600 border-slate-200" },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -60,7 +70,7 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
   const profile = useWaProfile();
   return (
     <div className="inline-block w-full">
-      <div className="overflow-hidden rounded-xl rounded-tl-sm bg-white shadow-sm ring-1 ring-black/8">
+      <div className="overflow-hidden rounded-xl rounded-tl-sm bg-white border border-rule">
         {/* Header area */}
         {headerType === "IMAGE" && (
           headerMediaUrl
@@ -506,23 +516,31 @@ function apiButtonToButtonDef(btn: NonNullable<TemplateComponent["buttons"]>[0])
   }
 }
 
-function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin }: {
+function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDuplicate, initialDraft, onDraftSaved }: {
   onCreated: () => void; onCancel: () => void; initialTemplate?: Template; isSuperAdmin: boolean;
+  isDuplicate?: boolean; initialDraft?: TemplateDraft; onDraftSaved?: () => void;
 }) {
-  const isEdit = !!initialTemplate;
+  const isEdit = !!initialTemplate && !isDuplicate;
   const profile = useWaProfile();
-  const [name, setName] = useState(initialTemplate?.name ?? "");
-  const [category, setCategory] = useState(initialTemplate?.category ?? "MARKETING");
-  const [language, setLanguage] = useState(initialTemplate?.language ?? "en");
+  const [name, setName] = useState(() => {
+    if (initialDraft) return initialDraft.name;
+    if (isDuplicate) return "";
+    return initialTemplate?.name ?? "";
+  });
+  const [category, setCategory] = useState(initialDraft?.category ?? initialTemplate?.category ?? "MARKETING");
+  const [language, setLanguage] = useState(initialDraft?.language ?? initialTemplate?.language ?? "en");
   const [headerType, setHeaderType] = useState<HeaderType>(() => {
+    if (initialDraft) return initialDraft.header_type;
     const h = initialTemplate?.components.find((c) => c.type === "HEADER");
     return (h?.format as HeaderType) ?? "NONE";
   });
   const [headerText, setHeaderText] = useState(() => {
+    if (initialDraft) return initialDraft.header_text ?? "";
     const h = initialTemplate?.components.find((c) => c.type === "HEADER");
     return h?.format === "TEXT" ? (h.text ?? "") : "";
   });
   const [headerMedia, setHeaderMedia] = useState<MediaValue>(() => {
+    if (initialDraft) return initialDraft.header_media ?? {};
     const h = initialTemplate?.components.find((c) => c.type === "HEADER");
     if (!h || h.format === "TEXT" || h.format === "LOCATION" || h.format === "NONE") return {};
     const url = h.example?.header_url?.[0];
@@ -536,19 +554,25 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin }: {
   const [locationLat, setLocationLat] = useState("");
   const [locationLng, setLocationLng] = useState("");
   const [body, setBody] = useState(() => {
+    if (initialDraft) return initialDraft.body;
     return initialTemplate?.components.find((c) => c.type === "BODY")?.text ?? "";
   });
   const [footerText, setFooterText] = useState(() => {
+    if (initialDraft) return initialDraft.footer_text ?? "";
     return initialTemplate?.components.find((c) => c.type === "FOOTER")?.text ?? "";
   });
   const [examples, setExamples] = useState<string[]>(() => {
+    if (initialDraft) return initialDraft.examples ?? [];
     const b = initialTemplate?.components.find((c) => c.type === "BODY");
     return b?.example?.body_text?.[0] ?? [];
   });
   const [buttons, setButtons] = useState<ButtonDef[]>(() => {
+    if (initialDraft) return initialDraft.buttons ?? [];
     const btns = initialTemplate?.components.find((c) => c.type === "BUTTONS")?.buttons ?? [];
     return btns.map(apiButtonToButtonDef);
   });
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved]   = useState(false);
   const [showBtnMenu, setShowBtnMenu] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -580,6 +604,23 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin }: {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showBtnMenu]);
+
+  async function saveDraft() {
+    setSavingDraft(true); setError(null);
+    try {
+      const payload = { name, category, language, headerType, headerText, headerMedia, body, footerText, buttons, examples };
+      const method  = initialDraft ? "PUT" : "POST";
+      const body2   = initialDraft ? JSON.stringify({ ...payload, id: initialDraft.id }) : JSON.stringify(payload);
+      const res = await fetch("/api/bot/template-drafts", { method, headers: { "Content-Type": "application/json" }, body: body2 });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error ?? "Failed to save draft");
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 3000);
+      onDraftSaved?.();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save draft");
+    } finally { setSavingDraft(false); }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -619,10 +660,23 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin }: {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
             </button>
             <div className="h-5 w-px bg-rule" />
-            <h1 className="text-sm font-semibold text-ink">{isEdit ? `Edit — ${initialTemplate!.name}` : "New template"}</h1>
+            <h1 className="text-sm font-semibold text-ink">
+              {isEdit ? `Edit — ${initialTemplate!.name}` : isDuplicate ? `Duplicate — ${initialTemplate!.name}` : initialDraft ? `Draft — ${initialDraft.name || "Untitled"}` : "New template"}
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onCancel} className="rounded-lg border border-rule px-4 py-1.5 text-sm font-medium text-ink hover:bg-cream/50 transition">Cancel</button>
+            {/* Save as Draft — not shown when editing a live WA template */}
+            {!isEdit && (
+              <button type="button" onClick={saveDraft} disabled={savingDraft}
+                className="flex items-center gap-2 rounded-lg border border-rule bg-white px-4 py-1.5 text-sm font-semibold text-ink-muted hover:bg-canvas hover:text-ink disabled:opacity-60 transition">
+                {savingDraft
+                  ? <><svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg> Saving…</>
+                  : draftSaved
+                  ? <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-emerald-500"><path d="M20 6L9 17l-5-5"/></svg> <span className="text-emerald-600">Saved!</span></>
+                  : <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> Save as draft</>}
+              </button>
+            )}
             <button form="create-form" type="submit" disabled={submitting}
               className="flex items-center gap-2 rounded-lg bg-[#25D366] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#128C7E] disabled:opacity-60 transition">
               {submitting
@@ -962,6 +1016,44 @@ function resolveHeaderImg(header?: TemplateComponent): string | undefined {
   return `/api/bot/media/preview?handle=${encodeURIComponent(handle)}`;
 }
 
+// ── Confirm dialog ────────────────────────────────────────────────────────
+
+function ConfirmDialog({ open, title, message, confirmLabel = "Delete", danger = true, onConfirm, onCancel }: {
+  open: boolean; title: string; message: string;
+  confirmLabel?: string; danger?: boolean;
+  onConfirm: () => void; onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-surface p-6 space-y-4">
+        <div className="flex items-start gap-3">
+          <div className={["flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", danger ? "bg-red-50" : "bg-canvas"].join(" ")}>
+            {danger
+              ? <svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5 text-ink-muted"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            }
+          </div>
+          <div>
+            <p className="text-sm font-bold text-ink">{title}</p>
+            <p className="mt-0.5 text-sm text-ink-muted">{message}</p>
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onCancel}
+            className="flex-1 rounded-xl border border-rule bg-white py-2.5 text-sm font-semibold text-ink hover:bg-canvas transition">
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            className={["flex-1 rounded-xl py-2.5 text-sm font-semibold text-white transition", danger ? "bg-red-500 hover:bg-red-600" : "bg-brand hover:opacity-90"].join(" ")}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Template row card ─────────────────────────────────────────────────────
 
 const CAT_COLOR: Record<string, string> = {
@@ -977,7 +1069,7 @@ const HEADER_ICON: Record<string, React.ReactNode> = {
   LOCATION: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>,
 };
 
-function TemplateCard({ t, onDelete, deleting, onEdit }: { t: Template; onDelete: () => void; deleting: boolean; onEdit: () => void }) {
+function TemplateCard({ t, onDelete, deleting, onEdit, onDuplicate }: { t: Template; onDelete: () => void; deleting: boolean; onEdit: () => void; onDuplicate: () => void }) {
   const body    = t.components.find((c) => c.type === "BODY");
   const header  = t.components.find((c) => c.type === "HEADER");
   const buttons = t.components.find((c) => c.type === "BUTTONS")?.buttons ?? [];
@@ -1005,7 +1097,7 @@ function TemplateCard({ t, onDelete, deleting, onEdit }: { t: Template; onDelete
 
   return (
     <div className={[
-      "group relative flex flex-col rounded-2xl border bg-white overflow-hidden transition-all hover:shadow-md",
+      "group relative flex flex-col rounded-2xl border bg-white overflow-hidden transition-all",
       t.status === "REJECTED" ? "border-red-200" : "border-rule",
     ].join(" ")}>
       {/* Top: image banner or gradient header */}
@@ -1054,18 +1146,26 @@ function TemplateCard({ t, onDelete, deleting, onEdit }: { t: Template; onDelete
         </div>
       </div>
 
-      {/* Footer: Edit + Delete — always visible */}
+      {/* Footer: Duplicate + Edit + Delete */}
       <div className="flex items-center justify-end gap-1 bg-[#075E54] px-3 py-2">
-        <button onClick={onEdit}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-white hover:bg-white/10 transition">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
-        <button onClick={onDelete} disabled={deleting}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-white hover:bg-white/10 hover:text-red-300 disabled:opacity-50 transition">
-          {deleting
-            ? <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-            : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>}
-        </button>
+        {[
+          { label: "Duplicate", onClick: onDuplicate, icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>, cls: "hover:bg-white/10" },
+          { label: "Edit",      onClick: onEdit,      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>, cls: "hover:bg-white/10" },
+        ].map(({ label, onClick, icon, cls }) => (
+          <div key={label} className="group/tip relative">
+            <button onClick={onClick} className={["flex h-7 w-7 items-center justify-center rounded-lg text-white transition", cls].join(" ")}>{icon}</button>
+            <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tip:opacity-100">{label}</span>
+          </div>
+        ))}
+        <div className="group/tip relative">
+          <button onClick={onDelete} disabled={deleting}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-white hover:bg-white/10 hover:text-red-300 disabled:opacity-50 transition">
+            {deleting
+              ? <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>}
+          </button>
+          <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tip:opacity-100">Delete</span>
+        </div>
       </div>
     </div>
   );
@@ -1073,18 +1173,32 @@ function TemplateCard({ t, onDelete, deleting, onEdit }: { t: Template; onDelete
 
 // ── Main page ──────────────────────────────────────────────────────────────
 
-const FILTERS = ["ALL", "APPROVED", "PENDING", "REJECTED"];
+const FILTERS = ["ALL", "APPROVED", "PENDING", "REJECTED", "DRAFT"];
 
 export default function ManageTemplatesPage() {
   const [templates, setTemplates]   = useState<Template[]>([]);
+  const [drafts,    setDrafts]      = useState<TemplateDraft[]>([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [creating, setCreating]     = useState(false);
-  const [editing, setEditing]       = useState<Template | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [creating, setCreating]         = useState(false);
+  const [editing, setEditing]           = useState<Template | null>(null);
+  const [duplicating, setDuplicating]   = useState<Template | null>(null);
+  const [editingDraft, setEditingDraft] = useState<TemplateDraft | null>(null);
+  const [deletingId, setDeletingId]     = useState<string | null>(null);
+  const [deletingDraftId, setDeletingDraftId] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; confirmLabel?: string; onConfirm: () => void;
+  } | null>(null);
   const [search, setSearch]         = useState("");
   const [filter, setFilter]         = useState("ALL");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  const loadDrafts = useCallback(() => {
+    fetch("/api/bot/template-drafts")
+      .then((r) => r.json())
+      .then((json) => { if (json.ok) setDrafts(json.data ?? []); })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -1095,15 +1209,30 @@ export default function ManageTemplatesPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function doDeleteDraft(id: number) {
+    setDeletingDraftId(id);
+    await fetch("/api/bot/template-drafts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
+    setDeletingDraftId(null);
+  }
+
+  function deleteDraft(d: TemplateDraft) {
+    setConfirmDialog({
+      title: `Delete draft${d.name ? ` "${d.name}"` : ""}?`,
+      message: "This draft will be permanently removed. You won't be able to recover it.",
+      confirmLabel: "Delete draft",
+      onConfirm: () => { setConfirmDialog(null); doDeleteDraft(d.id); },
+    });
+  }
+
   useEffect(() => {
-    load();
+    load(); loadDrafts();
     fetch("/api/me").then((r) => r.json()).then((j) => {
       if (j.ok) setIsSuperAdmin(j.data.role === "SUPER_ADMIN");
     }).catch(() => {});
   }, [load]);
 
-  async function deleteTemplate(t: Template) {
-    if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return;
+  async function doDeleteTemplate(t: Template) {
     setDeletingId(t.id);
     try {
       const res = await fetch("/api/bot/templates/manage", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: t.id, name: t.name }) });
@@ -1114,11 +1243,22 @@ export default function ManageTemplatesPage() {
     finally { setDeletingId(null); }
   }
 
-  if (creating) return <CreateForm isSuperAdmin={isSuperAdmin} onCreated={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} />;
-  if (editing)  return <CreateForm isSuperAdmin={isSuperAdmin} initialTemplate={editing} onCreated={() => { setEditing(null); load(); }} onCancel={() => setEditing(null)} />;
+  function deleteTemplate(t: Template) {
+    setConfirmDialog({
+      title: `Delete "${t.name}"?`,
+      message: "This will permanently remove the template from WhatsApp. This cannot be undone.",
+      confirmLabel: "Delete template",
+      onConfirm: () => { setConfirmDialog(null); doDeleteTemplate(t); },
+    });
+  }
+
+  if (creating)     return <CreateForm isSuperAdmin={isSuperAdmin} onCreated={() => { setCreating(false); load(); }} onCancel={() => setCreating(false)} onDraftSaved={loadDrafts} />;
+  if (editing)      return <CreateForm isSuperAdmin={isSuperAdmin} initialTemplate={editing} onCreated={() => { setEditing(null); load(); }} onCancel={() => setEditing(null)} />;
+  if (duplicating)  return <CreateForm isSuperAdmin={isSuperAdmin} initialTemplate={duplicating} isDuplicate onCreated={() => { setDuplicating(null); load(); }} onCancel={() => setDuplicating(null)} onDraftSaved={loadDrafts} />;
+  if (editingDraft) return <CreateForm isSuperAdmin={isSuperAdmin} initialDraft={editingDraft} onCreated={() => { setEditingDraft(null); load(); loadDrafts(); }} onCancel={() => setEditingDraft(null)} onDraftSaved={loadDrafts} />;
 
   const counts = FILTERS.reduce<Record<string, number>>((a, s) => {
-    a[s] = s === "ALL" ? templates.length : templates.filter((t) => t.status === s).length;
+    a[s] = s === "ALL" ? templates.length : s === "DRAFT" ? drafts.length : templates.filter((t) => t.status === s).length;
     return a;
   }, {});
 
@@ -1127,6 +1267,10 @@ export default function ManageTemplatesPage() {
     const mf = filter === "ALL" || t.status === filter;
     return ms && mf;
   });
+
+  const visibleDrafts = drafts.filter((d) =>
+    !search || d.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const pendingCount = templates.filter((t) => t.status === "PENDING").length;
 
@@ -1146,39 +1290,39 @@ export default function ManageTemplatesPage() {
           </button>
         </div>
 
-        {/* Toolbar: tabs + search + refresh in one line */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {/* Filter tabs — segmented control */}
-          <div className="inline-flex items-center gap-1 rounded-xl border border-rule bg-canvas p-1">
+        {/* Toolbar: tabs + search */}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {/* Filter tabs */}
+          <div className="inline-flex items-center gap-0.5 rounded-xl border border-rule bg-white p-1">
             {FILTERS.map((f) => {
               const label = f === "ALL" ? "All" : STATUS[f]?.label ?? f;
               const active = filter === f;
-              const badgeCfg: Record<string, { bg: string; text: string }> = {
-                ALL:      { bg: "bg-ink/10",        text: "text-ink" },
-                APPROVED: { bg: "bg-emerald-100",   text: "text-emerald-700" },
-                PENDING:  { bg: "bg-amber-100",     text: "text-amber-700" },
-                REJECTED: { bg: "bg-red-100",       text: "text-red-600" },
-              };
               const dotCfg: Record<string, string> = {
                 APPROVED: "bg-emerald-500",
                 PENDING:  "bg-amber-400",
                 REJECTED: "bg-red-500",
+                DRAFT:    "bg-slate-400",
+              };
+              const countCfg: Record<string, string> = {
+                ALL:      active ? "bg-ink/10 text-ink" : "bg-ink/6 text-ink-muted",
+                APPROVED: active ? "bg-emerald-100 text-emerald-700" : "bg-ink/6 text-ink-muted",
+                PENDING:  active ? "bg-amber-100 text-amber-700"     : "bg-ink/6 text-ink-muted",
+                REJECTED: active ? "bg-red-100 text-red-600"         : "bg-ink/6 text-ink-muted",
+                DRAFT:    active ? "bg-slate-100 text-slate-600"     : "bg-ink/6 text-ink-muted",
               };
               return (
                 <button key={f} onClick={() => setFilter(f)}
                   className={[
-                    "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-150 select-none",
-                    active
-                      ? "bg-white text-ink shadow-sm ring-1 ring-black/5"
-                      : "text-ink-muted hover:text-ink",
+                    "flex items-center gap-1.5 rounded-[9px] px-3.5 py-2 text-sm font-semibold transition-all duration-150 select-none",
+                    active ? "bg-brand text-white" : "text-ink-muted hover:bg-canvas hover:text-ink",
                   ].join(" ")}>
-                  {f !== "ALL" && (
+                  {f !== "ALL" && !active && (
                     <span className={["h-1.5 w-1.5 rounded-full shrink-0", dotCfg[f]].join(" ")} />
                   )}
                   {label}
                   <span className={[
                     "rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-                    active ? badgeCfg[f].bg + " " + badgeCfg[f].text : "bg-ink/6 text-ink-muted",
+                    active ? "bg-white/20 text-white" : countCfg[f],
                   ].join(" ")}>
                     {counts[f]}
                   </span>
@@ -1187,17 +1331,17 @@ export default function ManageTemplatesPage() {
             })}
           </div>
 
+          {/* Search + Refresh — pushed to the right */}
           <div className="ml-auto flex items-center gap-2">
-            {/* Search */}
             <div className="relative">
-              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              <input type="search" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-40 rounded-lg border border-rule bg-white py-1.5 pl-8 pr-3 text-sm focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20" />
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input type="search" placeholder="Search templates…" value={search} onChange={(e) => setSearch(e.target.value)}
+                className="w-52 rounded-xl border border-rule bg-white py-2.5 pl-9 pr-4 text-sm text-ink placeholder:text-ink-muted focus:border-brand/40 focus:outline-none focus:ring-1 focus:ring-brand/20" />
             </div>
-            {/* Refresh */}
             <button onClick={load}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rule bg-white text-ink-muted hover:bg-cream/50 transition">
+              className="flex items-center gap-1.5 rounded-xl border border-rule bg-white px-3 py-2.5 text-xs font-semibold text-ink-muted hover:bg-canvas hover:text-ink transition">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              Refresh
             </button>
           </div>
         </div>
@@ -1217,21 +1361,89 @@ export default function ManageTemplatesPage() {
 
       {/* List */}
       <div className="px-6 pb-8 lg:px-8">
-        {loading ? (
+        {/* ── Draft tab ── */}
+        {filter === "DRAFT" ? (
+          visibleDrafts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-rule bg-white py-16 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+              </div>
+              <p className="text-sm font-semibold text-ink">No drafts yet</p>
+              <p className="mt-1 text-xs text-ink-muted">Use &ldquo;Save as draft&rdquo; while creating a template to save your progress.</p>
+              <button onClick={() => setCreating(true)} className="mt-4 rounded-xl bg-[#25D366] px-5 py-2 text-sm font-semibold text-white hover:bg-[#128C7E] transition">
+                + New template
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {visibleDrafts.map((d) => (
+                <div key={d.id} className="group flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all hover:border-slate-300">
+                  {/* Header area */}
+                  <div className="flex h-36 items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-40"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                  </div>
+                  {/* Content */}
+                  <div className="flex flex-1 flex-col p-4">
+                    <div className="mb-1.5 flex items-center gap-2">
+                      <p className="flex-1 truncate text-sm font-semibold text-ink">{d.name || <span className="italic text-ink-muted">Untitled draft</span>}</p>
+                      <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Draft</span>
+                    </div>
+                    <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-ink-muted">{d.body || "No body text yet."}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-md border border-rule bg-canvas px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">{d.category.toLowerCase()}</span>
+                      {d.header_type !== "NONE" && (
+                        <span className="rounded-md border border-rule bg-canvas px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">{d.header_type.charAt(0) + d.header_type.slice(1).toLowerCase()}</span>
+                      )}
+                      <span className="ml-auto text-[10px] text-ink-muted">{new Date(d.updated_at).toLocaleDateString("en-AE", { day: "numeric", month: "short" })}</span>
+                    </div>
+                  </div>
+                  {/* Footer */}
+                  <div className="flex items-center gap-1 bg-slate-700 px-3 py-2">
+                    <span className="flex-1 text-[11px] font-medium text-slate-300 truncate">{d.created_by ?? ""}</span>
+                    {/* Edit draft */}
+                    <div className="group/tip relative">
+                      <button onClick={() => setEditingDraft(d)} className="flex h-7 w-7 items-center justify-center rounded-lg text-white hover:bg-white/10 transition">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      </button>
+                      <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tip:opacity-100">Edit draft</span>
+                    </div>
+                    {/* Submit for review */}
+                    <div className="group/tip relative">
+                      <button onClick={() => setEditingDraft(d)} className="flex h-7 items-center gap-1.5 rounded-lg bg-[#25D366]/20 px-2 text-[11px] font-semibold text-[#25D366] hover:bg-[#25D366]/30 transition">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        Submit
+                      </button>
+                      <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tip:opacity-100">Open & submit for review</span>
+                    </div>
+                    {/* Delete draft */}
+                    <div className="group/tip relative">
+                      <button onClick={() => deleteDraft(d)} disabled={deletingDraftId === d.id} className="flex h-7 w-7 items-center justify-center rounded-lg text-white hover:bg-white/10 hover:text-red-300 disabled:opacity-50 transition">
+                        {deletingDraftId === d.id
+                          ? <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>}
+                      </button>
+                      <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-2 py-1 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tip:opacity-100">Delete</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="rounded-2xl border border-rule bg-white overflow-hidden">
-                <div className="h-36 animate-pulse bg-cream/60" />
+                <div className="h-36 animate-pulse bg-canvas" />
                 <div className="p-4 space-y-2.5">
-                  <div className="h-3.5 w-2/3 animate-pulse rounded-full bg-cream/80" />
-                  <div className="h-3 w-full animate-pulse rounded-full bg-cream/60" />
-                  <div className="h-3 w-4/5 animate-pulse rounded-full bg-cream/60" />
+                  <div className="h-3.5 w-2/3 animate-pulse rounded-full bg-canvas" />
+                  <div className="h-3 w-full animate-pulse rounded-full bg-canvas" />
+                  <div className="h-3 w-4/5 animate-pulse rounded-full bg-canvas" />
                   <div className="mt-3 flex gap-2">
-                    <div className="h-4 w-16 animate-pulse rounded-md bg-cream/80" />
-                    <div className="h-4 w-10 animate-pulse rounded-md bg-cream/60" />
+                    <div className="h-5 w-16 animate-pulse rounded-full bg-canvas" />
+                    <div className="h-5 w-10 animate-pulse rounded-full bg-canvas" />
                   </div>
                 </div>
-                <div className="h-9 animate-pulse bg-cream/40 border-t border-rule" />
+                <div className="h-9 animate-pulse bg-canvas border-t border-rule" />
               </div>
             ))}
           </div>
@@ -1250,10 +1462,21 @@ export default function ManageTemplatesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visible.map((t) => <TemplateCard key={t.id} t={t} deleting={deletingId === t.id} onDelete={() => deleteTemplate(t)} onEdit={() => setEditing(t)} />)}
+            {visible.map((t) => <TemplateCard key={t.id} t={t} deleting={deletingId === t.id} onDelete={() => deleteTemplate(t)} onEdit={() => setEditing(t)} onDuplicate={() => setDuplicating(t)} />)}
           </div>
         )}
       </div>
+
+      {confirmDialog && (
+        <ConfirmDialog
+          open={true}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel={confirmDialog.confirmLabel}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </div>
   );
 }

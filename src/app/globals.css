@@ -10,7 +10,7 @@
   --color-surface: #ffffff;     /* card background */
   --color-ink: #2b1a12;         /* primary text */
   --color-ink-muted: #7a5c4d;   /* secondary text */
-  --color-rule: #e8ddd4;        /* borders */
+  --color-rule: #e5e7eb;        /* borders */
   --color-gold: #c9a535;         /* rich gold for premium accents */
   --color-success: #2e7d32;
   --color-danger: #c62828;
@@ -20,7 +20,7 @@
 /* Minimal scrollbar — sidebar and any overflow containers */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #e0d4c8 transparent;
+  scrollbar-color: #d1d5db transparent;
 }
 .scrollbar-thin::-webkit-scrollbar {
   width: 4px;
@@ -43,4 +43,11 @@ body {
     "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+
+@keyframes progress {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
 }

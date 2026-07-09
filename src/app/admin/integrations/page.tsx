@@ -214,7 +214,7 @@ export default function IntegrationsPage() {
           <div className="flex flex-wrap gap-2">
             {integrations.filter((i) => i.status === "configured").map((int) => (
               <Link key={int.slug} href={`/admin/integrations/${int.slug}`}
-                className="group flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-white px-3 py-2 hover:border-emerald-300 hover:shadow-sm transition">
+                className="group flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-white px-3 py-2 hover:border-emerald-300 transition">
                 <div className="shrink-0">
                   <div className={`h-7 w-7 rounded-lg ${int.iconBg} flex items-center justify-center`}>
                     <span className="scale-75 flex items-center justify-center">{int.icon}</span>
@@ -256,9 +256,9 @@ export default function IntegrationsPage() {
             <div className={[
               "group relative flex flex-col h-full rounded-2xl border bg-surface p-5 transition",
               int.status === "configured"
-                ? "border-emerald-200 hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-500/5 cursor-pointer"
+                ? "border-emerald-200 hover:border-emerald-300 cursor-pointer"
                 : isClickable
-                  ? "border-rule hover:border-brand/40 hover:shadow-md hover:shadow-brand/5 cursor-pointer"
+                  ? "border-rule hover:border-brand/40 cursor-pointer"
                   : "border-rule opacity-60 cursor-default",
             ].join(" ")}>
               {/* Icon + badge row */}
