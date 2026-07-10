@@ -16,10 +16,10 @@ export async function GET() {
     const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
-      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,account_mode,throughput,username&access_token=${token}`, { cache: "no-store" }),
+      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,code_verification_status,quality_rating,messaging_limit_tier,status,account_mode,throughput,username&access_token=${token}`, { cache: "no-store" }),
       fetch(`${GQL}/${id}/whatsapp_business_profile?fields=${PROFILE_FIELDS}&access_token=${token}`, { cache: "no-store" }),
       wabaId
-        ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name&access_token=${token}`, { cache: "no-store" })
+        ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name,phone_numbers&access_token=${token}`, { cache: "no-store" })
         : Promise.resolve(null),
     ]);
 
@@ -29,14 +29,22 @@ export async function GET() {
     const p       = profile?.data?.[0] ?? {};
 
     // Surface Meta API errors to aid debugging
-    if (phone.error) console.error("[wa/profile phone]", phone.error);
-    if (profile.error) console.error("[wa/profile profile]", profile.error);
+    if (phone.error)   console.error("[wa/profile phone]", JSON.stringify(phone.error));
+    if (profile.error) console.error("[wa/profile profile]", JSON.stringify(profile.error));
+    if (waba?.error)   console.error("[wa/profile waba]", JSON.stringify(waba.error));
+
+    // WABA may return name as fallback when phone verified_name is missing
+    const verifiedName = phone.verified_name || waba?.name || "";
+    // Phone number can also be inside WABA phone_numbers list
+    const displayPhone = phone.display_phone_number
+      || waba?.phone_numbers?.data?.[0]?.display_phone_number
+      || "";
 
     return NextResponse.json({
       ok: true,
       data: {
-        verified_name:                phone.verified_name                    ?? "",
-        display_phone_number:         phone.display_phone_number             ?? "",
+        verified_name:                verifiedName,
+        display_phone_number:         displayPhone,
         username:                     phone.username                         ?? null,
         quality_rating:               phone.quality_rating                   ?? null,
         messaging_limit_tier:         phone.messaging_limit_tier             ?? null,

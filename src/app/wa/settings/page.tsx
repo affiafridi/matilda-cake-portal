@@ -258,59 +258,66 @@ export default function WaSettingsPage() {
                 <div>
 
                   {/* Identity + health strip */}
-                  <div className="px-5 pt-5 pb-4 flex items-center gap-4">
-                    {/* Clickable avatar */}
-                    <label className="relative shrink-0 cursor-pointer group">
+                  <div className="px-6 pt-6 pb-5 flex flex-col sm:flex-row sm:items-center gap-5">
+
+                    {/* Avatar */}
+                    <label className="relative shrink-0 cursor-pointer group self-start">
                       <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only"
                         onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadProfilePicture(f); e.target.value = ""; }} />
                       {picUploading
-                        ? <div className="h-14 w-14 rounded-full bg-canvas border border-rule flex items-center justify-center">
+                        ? <div className="h-20 w-20 rounded-2xl bg-canvas border border-rule flex items-center justify-center">
                             <svg className="h-5 w-5 animate-spin text-ink-muted" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
                           </div>
                         : profile.profile_picture_url
-                          ? <img src={profile.profile_picture_url} alt="Profile" className="h-14 w-14 rounded-full object-cover border border-rule" /> /* eslint-disable-line @next/next/no-img-element */
-                          : <div className="h-14 w-14 rounded-full bg-[#25D366]/10 flex items-center justify-center">
-                              <svg viewBox="0 0 24 24" fill="#25D366" className="h-6 w-6"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
+                          ? <img src={profile.profile_picture_url} alt="Profile" className="h-20 w-20 rounded-2xl object-cover border border-rule shadow-sm" /> /* eslint-disable-line @next/next/no-img-element */
+                          : <div className="h-20 w-20 rounded-2xl bg-[#25D366]/10 flex items-center justify-center">
+                              <svg viewBox="0 0 24 24" fill="#25D366" className="h-9 w-9"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413z"/></svg>
                             </div>
                       }
                       {!picUploading && (
-                        <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
                             <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
                           </svg>
                         </div>
                       )}
                     </label>
+
+                    {/* Name + phone */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-ink">{profile.verified_name || "—"}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-base font-bold text-gray-900">
+                          {profile.verified_name || "Business Name"}
+                        </p>
                         {profile.is_official_business_account && (
                           <svg viewBox="0 0 24 24" fill="#1877F2" className="h-4 w-4 shrink-0"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                         )}
                       </div>
-                      <p className="text-xs text-ink-muted">{profile.display_phone_number || "—"}</p>
-                      {profile.username && <p className="text-xs text-brand mt-0.5">@{profile.username}</p>}
-                      {picError && <p className="text-xs text-red-500 mt-0.5">{picError}</p>}
+                      <p className="text-sm text-gray-500 mt-0.5">{profile.display_phone_number || "Phone number"}</p>
+                      {profile.username && <p className="text-xs text-gray-400 mt-1">@{profile.username}</p>}
+                      {picError && <p className="text-xs text-red-500 mt-1">{picError}</p>}
                     </div>
-                    {/* Health pills inline */}
-                    <div className="hidden sm:flex items-center gap-2 shrink-0">
+
+                    {/* Health stats */}
+                    <div className="flex items-stretch gap-px bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 shrink-0">
                       {[
-                        { label: "Status",  value: profile.status,               fallback: "Live" },
-                        { label: "Quality", value: profile.quality_rating,        fallback: "Good" },
-                        { label: "Limit",   value: profile.messaging_limit_tier,  fallback: "Default" },
-                      ].map(({ label, value, fallback }) => {
+                        { label: "Status",  value: profile.status,              fallback: "Live" },
+                        { label: "Quality", value: profile.quality_rating,       fallback: "Good" },
+                        { label: "Limit",   value: profile.messaging_limit_tier, fallback: "Default" },
+                      ].map(({ label, value, fallback }, i) => {
                         const raw = value ?? "";
                         const display = raw.replace(/^TIER_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || fallback;
-                        const isDefault = !raw;
-                        const pill = isDefault                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : /GREEN|CONNECTED|UNLIMITED|LIVE/i.test(raw)          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : /YELLOW|FLAGGED/i.test(raw)                          ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : /RED|DISCONNECTED|RESTRICTED|RATE_LIMITED/i.test(raw)? "bg-red-50 text-red-700 border-red-200"
-                          : "bg-sky-50 text-sky-700 border-sky-200";
+                        const dot = !raw || /GREEN|CONNECTED|UNLIMITED|LIVE/i.test(raw) ? "bg-emerald-400"
+                          : /YELLOW|FLAGGED/i.test(raw)                                  ? "bg-amber-400"
+                          : /RED|DISCONNECTED|RESTRICTED|RATE_LIMITED/i.test(raw)        ? "bg-red-400"
+                          : "bg-sky-400";
                         return (
-                          <div key={label} className={["flex flex-col items-center rounded-xl border px-3 py-1.5 min-w-[64px]", pill].join(" ")}>
-                            <span className="text-[9px] font-bold uppercase tracking-wider opacity-60 mb-0.5">{label}</span>
-                            <span className="text-xs font-semibold leading-tight">{display}</span>
+                          <div key={label} className={["flex flex-col items-center justify-center bg-white px-5 py-3 min-w-[80px]", i > 0 ? "border-l border-gray-100" : ""].join(" ")}>
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">{label}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={["h-1.5 w-1.5 rounded-full shrink-0", dot].join(" ")} />
+                              <span className="text-sm font-semibold text-gray-800">{display}</span>
+                            </div>
                           </div>
                         );
                       })}
