@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     // ── Outbound bot message ───────────────────────────────────────────────
     if (body.type === "outbound") {
-      const { waId, messageId, body: text, mediaUrl, mediaType, metadata, timestamp } = body as {
+      const { waId: rawWaId, messageId, body: text, mediaUrl, mediaType, metadata, timestamp } = body as {
         waId:      string;
         messageId: string;
         body:      string | null;
@@ -104,11 +104,17 @@ export async function POST(req: NextRequest) {
         metadata:  unknown;
         timestamp: number;
       };
-      if (!waId) return jsonError("waId is required", 400);
+      if (!rawWaId) return jsonError("waId is required", 400);
+
+      // Normalize waId — strip leading + so "971x" and "+971x" both match
+      const waId = rawWaId.replace(/^\+/, "");
       const msgTime = timestamp ? new Date(timestamp * 1000) : new Date();
 
       const conv = await prisma.conversation.findUnique({ where: { waId }, select: { id: true } });
-      if (!conv) return jsonOk({ skipped: true }); // no conversation yet
+      if (!conv) {
+        console.warn("[inbox/webhook] outbound: no conversation found for waId:", waId, "(raw:", rawWaId, ")");
+        return jsonOk({ skipped: true, reason: "no_conversation" });
+      }
 
       const existing = messageId
         ? await prisma.message.findUnique({ where: { waMessageId: messageId }, select: { id: true } })
@@ -129,7 +135,7 @@ export async function POST(req: NextRequest) {
           },
         });
         await prisma.conversation.update({
-          where: { waId },
+          where: { id: conv.id },
           data:  { lastMessageAt: msgTime, lastMessageBody: text ?? mediaType ?? "Bot message" },
         });
       }
@@ -137,7 +143,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Inbound message ────────────────────────────────────────────────────
-    const { waId, name, messageId, body: text, mediaUrl, mediaType, timestamp } = body as {
+    const { waId: rawWaIdIn, name, messageId, body: text, mediaUrl, mediaType, timestamp } = body as {
       waId:      string;
       name:      string;
       messageId: string;
@@ -146,6 +152,9 @@ export async function POST(req: NextRequest) {
       mediaType: string | null;
       timestamp: number;
     };
+
+    // Normalize waId — strip leading + so both sides always match
+    const waId = rawWaIdIn?.replace(/^\+/, "");
 
     if (!waId || !messageId) return jsonError("waId and messageId are required", 400);
 
