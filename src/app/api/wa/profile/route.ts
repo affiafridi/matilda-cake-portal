@@ -16,10 +16,10 @@ export async function GET() {
     const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
-      fetch(`${GQL}/${id}?fields=verified_name,name,display_phone_number,phone_number,code_verification_status,quality_rating,messaging_limit_tier,status,account_mode,throughput,username&access_token=${token}`, { cache: "no-store" }),
+      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,throughput,username&access_token=${token}`, { cache: "no-store" }),
       fetch(`${GQL}/${id}/whatsapp_business_profile?fields=${PROFILE_FIELDS}&access_token=${token}`, { cache: "no-store" }),
       wabaId
-        ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name,phone_numbers{verified_name,display_phone_number}&access_token=${token}`, { cache: "no-store" })
+        ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name&access_token=${token}`, { cache: "no-store" })
         : Promise.resolve(null),
     ]);
 
@@ -32,24 +32,8 @@ export async function GET() {
     if (phone.error)   console.error("[wa/profile phone]", JSON.stringify(phone.error));
     if (profile.error) console.error("[wa/profile profile]", JSON.stringify(profile.error));
     if (waba?.error)   console.error("[wa/profile waba]", JSON.stringify(waba.error));
-    // Debug: log what Meta returned for name/phone fields
-    console.log("[wa/profile] phone fields:", JSON.stringify({
-      verified_name: phone.verified_name, name: phone.name,
-      display_phone_number: phone.display_phone_number, phone_number: phone.phone_number,
-      status: phone.status, account_mode: phone.account_mode,
-    }));
-
-    // verified_name is the primary; some accounts return it as "name" instead
-    const verifiedName = phone.verified_name
-      || phone.name
-      || waba?.phone_numbers?.data?.[0]?.verified_name
-      || waba?.name
-      || "";
-    // display_phone_number; some API versions return it as "phone_number"
-    const displayPhone = phone.display_phone_number
-      || phone.phone_number
-      || waba?.phone_numbers?.data?.[0]?.display_phone_number
-      || "";
+    const verifiedName = phone.verified_name || waba?.name || "";
+    const displayPhone = phone.display_phone_number || "";
 
     return NextResponse.json({
       ok: true,
@@ -59,7 +43,7 @@ export async function GET() {
         username:                     phone.username                         ?? null,
         quality_rating:               phone.quality_rating                   ?? null,
         messaging_limit_tier:         phone.messaging_limit_tier             ?? null,
-        status:                       phone.status ?? phone.account_mode     ?? null,
+        status:                       phone.status                           ?? null,
         throughput:                   phone.throughput?.level                ?? null,
         is_official_business_account: waba.is_official_business_account      ?? false,
         profile_picture_url:  p.profile_picture_url ?? null,
