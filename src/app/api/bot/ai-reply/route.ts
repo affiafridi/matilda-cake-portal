@@ -227,13 +227,7 @@ export async function POST(req: NextRequest) {
     const { kb, intents, customPrompt, maxTokens, dailyLimit } = await loadAiSettings();
     const systemPrompt = customPrompt ?? buildSystemPrompt(kb);
 
-    const withinLimit = await checkAndIncrementUsage(dailyLimit);
-    if (!withinLimit) {
-      // Daily limit hit — return empty so bot uses its own fallback
-      return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
-    }
-
-    // Step 1 — classify intent (system prompt gives GPT the business context)
+    // Classify intent first — no usage cost for routing-only intents
     const { intent, query } = await classifyIntent(message, openai_api_key, intents, systemPrompt);
 
     let response: AiReplyResponse;
@@ -244,10 +238,16 @@ export async function POST(req: NextRequest) {
     } else if (intent === "catalog" && intents.catalog) {
       response = { type: "catalog" };
 
+    } else if (intent === "agent" && intents.agent) {
+      response = { type: "agent" };
+
     } else if (intent === "product_search" && intents.search) {
       if (wc_url && wc_consumer_key) {
         const products = await searchWooCommerce(query ?? message, wc_url, wc_consumer_key, wc_consumer_secret);
         if (products.length > 0) {
+          // Only count usage when we actually call generateInfoReply
+          const withinLimit = await checkAndIncrementUsage(dailyLimit);
+          if (!withinLimit) return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
           const list = products.map((p) => `• ${p.name} — ${p.price}\n  ${p.permalink}`).join("\n");
           const aiText = await generateInfoReply(
             `Customer asked: "${message}". Here are matching products:\n${list}\n\nMention them naturally with price and link.`,
@@ -263,11 +263,10 @@ export async function POST(req: NextRequest) {
         response = { type: "product_search", query: query ?? message };
       }
 
-    } else if (intent === "agent" && intents.agent) {
-      response = { type: "agent" };
-
     } else {
-      // info, unknown, disabled intents — all fall through to AI text reply
+      // info, unknown, disabled intents — generate AI text reply
+      const withinLimit = await checkAndIncrementUsage(dailyLimit);
+      if (!withinLimit) return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
       response = { type: "text", reply: reply || "" };
     }
