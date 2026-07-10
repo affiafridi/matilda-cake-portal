@@ -1305,13 +1305,13 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   useEffect(() => { savedRef.current = saved; }, [saved]);
 
   useEffect(() => {
-    if (!showSet || aiLoaded) return;
+    if (!showSet) { setAiLoaded(false); return; }
     fetch("/api/admin/ai-settings")
       .then((r) => r.json())
-      .then((j) => { if (j.ok) { setAiSettings(j.data); if (j.data.ai_kb_use_prompt) setKbTab("prompt"); } })
+      .then((j) => { if (j.ok) { setAiSettings(j.data); setKbTab(j.data.ai_kb_use_prompt ? "prompt" : "fields"); } })
       .catch(() => {})
       .finally(() => setAiLoaded(true));
-  }, [showSet, aiLoaded]);
+  }, [showSet]);
 
   useEffect(() => {
     document.body.style.overflow = showSet ? "hidden" : "";
@@ -1731,7 +1731,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-full gap-3">
-      <svg className="animate-spin text-blue-500" width={32} height={32} viewBox="0 0 24 24" fill="none">
+      <svg className="animate-spin text-slate-400" width={32} height={32} viewBox="0 0 24 24" fill="none">
         <circle cx={12} cy={12} r={10} stroke="currentColor" strokeWidth={3} strokeOpacity={0.15}/>
         <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth={3} strokeLinecap="round"/>
       </svg>
@@ -1776,12 +1776,12 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
           </label>
           <div className="w-px h-5 bg-gray-200 mx-0.5" />
           <button type="button" onClick={() => setShowSet((v) => !v)}
-            className={"relative flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition " + (showSet ? "border-blue-400 text-blue-600 bg-blue-50" : "border-gray-200 text-gray-600 hover:bg-gray-100")}>
+            className={"relative flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition " + (showSet ? "border-slate-400 text-slate-700 bg-slate-50" : "border-gray-200 text-gray-600 hover:bg-gray-100")}>
             <IcGear size={15} /> Settings
             {totalIssues > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{totalIssues}</span>}
           </button>
           <button type="button" onClick={() => setShowPreview((v) => !v)}
-            className={"flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition " + (showPreview ? "border-blue-400 text-blue-600 bg-blue-50" : "border-gray-200 text-gray-600 hover:bg-gray-100")}>
+            className={"flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium transition " + (showPreview ? "border-slate-400 text-slate-700 bg-slate-50" : "border-gray-200 text-gray-600 hover:bg-gray-100")}>
             <IcEye size={15} /> Preview
           </button>
           <div className="w-px h-5 bg-gray-200 mx-0.5" />
@@ -2170,7 +2170,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
               </div>
 
               {/* ── Footer ── */}
-              <div className="shrink-0 border-t border-gray-100 px-8 py-5 flex items-center justify-between bg-white">
+              <div className="shrink-0 border-t border-gray-100 px-8 py-5 flex items-center bg-white">
                 <div>
                   {settingsTab === "ai" && aiSettings.openai_configured && (
                     <button type="button" onClick={saveAi} disabled={aiSaving}
@@ -2213,7 +2213,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                 <p className="font-bold text-gray-700 mb-1">No steps yet</p>
                 <p className="text-sm text-gray-400 mb-4">Add your first step to start building the flow</p>
                 <button type="button" onClick={() => setPickerCtx({})}
-                  className="flex items-center gap-2 mx-auto rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition cursor-pointer">
+                  className="flex items-center gap-2 mx-auto rounded-xl bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition cursor-pointer">
                   <IcPlus size={15} /> Add first step
                 </button>
               </div>
