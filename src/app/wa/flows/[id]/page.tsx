@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Option = {
   id?: number; label: string; value: string;
@@ -1987,11 +1988,11 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                         <div>
                           <p className="text-base font-semibold text-amber-900 mb-1">OpenAI not configured</p>
                           <p className="text-sm text-amber-700 leading-relaxed mb-4">Add your OpenAI API key in Integrations to enable AI Instructions.</p>
-                          <a href="/admin/integrations/openai"
+                          <Link href="/admin/integrations/openai"
                             className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700 transition">
                             Integrations → OpenAI
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                          </a>
+                          </Link>
                         </div>
                       </div>
 
