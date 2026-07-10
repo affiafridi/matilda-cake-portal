@@ -438,13 +438,13 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
       ))}
 
       <div className="flex items-center gap-3 pt-1 border-t border-rule">
-        <button onClick={save} disabled={saveState === "saving"}
-          className={["flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50",
-            isConfigured ? "bg-gray-700 hover:bg-gray-800" : "bg-brand hover:bg-brand-dark",
-          ].join(" ")}>
-          {saveState === "saving" && <Spinner />}
-          {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : isConfigured ? "Update credentials" : "Save credentials"}
-        </button>
+        {!isConfigured && (
+          <button onClick={save} disabled={saveState === "saving"}
+            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 bg-brand hover:bg-brand-dark">
+            {saveState === "saving" && <Spinner />}
+            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : "Save credentials"}
+          </button>
+        )}
         {isConfigured && (
           <button onClick={() => setShowDisconnect(true)}
             className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition">
