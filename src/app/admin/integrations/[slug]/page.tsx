@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -117,6 +117,24 @@ const META: Record<string, IntegrationMeta> = {
       </svg>
     ),
   },
+  "openai": {
+    name: "OpenAI",
+    desc: "Add your OpenAI API key to power AI replies inside the bot. When a customer message doesn't match a flow, the bot asks the AI — which can also search WooCommerce products and reply naturally.",
+    category: "Automation",
+    iconBg: "bg-[#10a37f]/10",
+    features: [
+      "AI fallback replies when no flow matches the message",
+      "Natural language product search via WooCommerce",
+      "Replies with product names, prices and links",
+      "Key stored securely in the portal database",
+      "Bot calls portal /api/bot/ai-reply — key never leaves the portal",
+    ],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#10a37f]" fill="currentColor">
+        <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.032.067L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.843-3.376 2.02-1.164a.076.076 0 0 1 .071 0l4.83 2.786a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.402-.673zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.392.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.993l-2.597 1.5-2.607-1.5z"/>
+      </svg>
+    ),
+  },
 };
 
 // ── Field definitions ─────────────────────────────────────────────────────
@@ -140,6 +158,9 @@ const FIELDS: Record<string, Field[]> = {
   "google-oauth": [
     { key: "google_oauth_client_id",     label: "OAuth Client ID",     hint: "Google Cloud Console → Credentials → OAuth 2.0 Client ID" },
     { key: "google_oauth_client_secret", label: "OAuth Client Secret", type: "password", hint: "Google Cloud Console → Credentials → OAuth 2.0 Client Secret" },
+  ],
+  "openai": [
+    { key: "openai_api_key", label: "API Key", type: "password", hint: "platform.openai.com → API keys → Create new secret key" },
   ],
 };
 
@@ -300,6 +321,7 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
   const [saveState,   setSaveState]   = useState<SaveState>("idle");
   const [loaded,      setLoaded]      = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/admin/integrations")
@@ -324,9 +346,14 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
           body: JSON.stringify({ key: f.key, value: values[f.key] ?? "" }),
         });
       }
-      setIsConfigured(fields.every((f) => values[f.key]?.trim()));
+      const configured = fields.every((f) => values[f.key]?.trim());
+      setIsConfigured(configured);
       setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 2500);
+      if (configured) {
+        setTimeout(() => router.push("/admin/integrations"), 1000);
+      } else {
+        setTimeout(() => setSaveState("idle"), 2500);
+      }
     } catch {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
@@ -335,8 +362,25 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
 
   if (!loaded) {
     return (
-      <div className="flex items-center gap-2 py-6 text-ink-muted text-sm">
-        <Spinner /> Loading credentials…
+      <div className="space-y-5 animate-pulse">
+        {/* banner skeleton */}
+        <div className="flex items-center gap-3 rounded-xl border border-rule bg-canvas px-4 py-3">
+          <div className="h-7 w-7 shrink-0 rounded-full bg-rule" />
+          <div className="space-y-1.5 flex-1">
+            <div className="h-3 w-32 rounded-lg bg-rule" />
+            <div className="h-2.5 w-56 rounded-lg bg-rule" />
+          </div>
+        </div>
+        {/* field skeletons — match how many fields this integration has */}
+        {fields.map((f) => (
+          <div key={f.key} className="space-y-1.5">
+            <div className="h-2.5 w-24 rounded bg-rule" />
+            <div className="h-10 w-full rounded-xl bg-rule" />
+            <div className="h-2 w-48 rounded bg-rule" />
+          </div>
+        ))}
+        {/* save button skeleton */}
+        <div className="h-10 w-28 rounded-xl bg-rule" />
       </div>
     );
   }
@@ -393,6 +437,7 @@ export default function IntegrationDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [tab,          setTab]          = useState<"overview" | "configure">("overview");
   const [isConfigured, setIsConfigured] = useState(false);
+  const [statusLoaded, setStatusLoaded] = useState(false);
 
   useEffect(() => {
     const required: Record<string, string[]> = {
@@ -400,13 +445,15 @@ export default function IntegrationDetailPage() {
       "woocommerce":  ["wc_url", "wc_consumer_key"],
       "bot-server":   ["bot_url", "inbox_webhook_secret"],
       "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
+      "openai":       ["openai_api_key"],
     };
     const keys = required[slug];
-    if (!keys) return;
+    if (!keys) { setStatusLoaded(true); return; }
     fetch("/api/admin/integrations")
       .then((r) => r.json())
       .then((j) => { if (j.ok) setIsConfigured(keys.every((k) => j.data[k]?.trim())); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setStatusLoaded(true));
   }, [slug]);
 
   const meta = META[slug];
@@ -499,18 +546,12 @@ export default function IntegrationDetailPage() {
             </div>
           </div>
 
-          {fields && (
-            <div className={["rounded-2xl border px-5 py-4 flex items-center justify-between gap-4",
-              isConfigured ? "border-emerald-200 bg-emerald-50/60" : "border-brand/20 bg-brand/5",
-            ].join(" ")}>
-              <p className="text-sm text-ink">
-                {isConfigured ? "Credentials are saved and active." : "Ready to connect? Add your credentials in the configuration tab."}
-              </p>
+          {fields && statusLoaded && !isConfigured && (
+            <div className="rounded-2xl border border-brand/20 bg-brand/5 px-5 py-4 flex items-center justify-between gap-4">
+              <p className="text-sm text-ink">Ready to connect? Add your credentials in the configuration tab.</p>
               <button onClick={() => setTab("configure")}
-                className={["shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white transition",
-                  isConfigured ? "bg-gray-700 hover:bg-gray-800" : "bg-brand hover:bg-brand-dark",
-                ].join(" ")}>
-                {isConfigured ? "Update credentials →" : "Go to Configuration →"}
+                className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white bg-brand hover:bg-brand-dark transition">
+                Go to Configuration →
               </button>
             </div>
           )}

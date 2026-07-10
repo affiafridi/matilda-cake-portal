@@ -11,6 +11,7 @@ export type IntegrationSettings = {
   bot_url:                  string;
   sync_secret:              string;
   inbox_webhook_secret:     string;
+  openai_api_key:           string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -23,6 +24,7 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "bot_url",
   "sync_secret",
   "inbox_webhook_secret",
+  "openai_api_key",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. */
@@ -34,7 +36,8 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
       WHERE key IN (
         'wa_access_token', 'wa_phone_number_id', 'wa_business_account_id',
         'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
-        'bot_url', 'sync_secret', 'inbox_webhook_secret'
+        'bot_url', 'sync_secret', 'inbox_webhook_secret',
+        'openai_api_key'
       )
     `;
     map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -50,6 +53,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
     bot_url:                map["bot_url"]                || process.env.BOT_URL                       || "",
     sync_secret:            map["sync_secret"]            || process.env.SYNC_SECRET                   || "",
     inbox_webhook_secret:   map["inbox_webhook_secret"]   || process.env.INBOX_WEBHOOK_SECRET          || "",
+    openai_api_key:         map["openai_api_key"]         || process.env.OPENAI_API_KEY                || "",
   };
 }
 

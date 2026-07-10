@@ -60,6 +60,19 @@ const INTEGRATIONS: IntegrationDef[] = [
     ),
   },
   {
+    slug: "openai",
+    name: "OpenAI",
+    desc: "Connect your OpenAI API key to enable AI-powered replies in the bot — product search, smart responses, and natural language understanding.",
+    category: "Automation",
+    status: "configure",
+    iconBg: "bg-[#10a37f]/10",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#10a37f]" fill="currentColor">
+        <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.032.067L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.843-3.376 2.02-1.164a.076.076 0 0 1 .071 0l4.83 2.786a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.402-.673zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08-4.778 2.758a.795.795 0 0 0-.392.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.993l-2.597 1.5-2.607-1.5z"/>
+      </svg>
+    ),
+  },
+  {
     slug: "bot-server",
     name: "Bot Server",
     desc: "Configure the connection between this portal and your Python WhatsApp bot — URL, sync secret and webhook secret.",
@@ -153,6 +166,7 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "woocommerce":  ["wc_url", "wc_consumer_key"],
   "bot-server":   ["bot_url", "inbox_webhook_secret"],
   "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
+  "openai":       ["openai_api_key"],
 };
 
 const STATUS_BADGE: Record<IntegrationStatus, { label: string; classes: string }> = {
@@ -167,16 +181,13 @@ export default function IntegrationsPage() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [savedValues,    setSavedValues]    = useState<Record<string, string>>({});
   const [gsConnected,    setGsConnected]    = useState(false);
+  const [loaded,         setLoaded]         = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/integrations")
-      .then((r) => r.json())
-      .then((j) => { if (j.ok) setSavedValues(j.data); })
-      .catch(() => {});
-    fetch("/api/admin/integrations/google/sheets")
-      .then((r) => r.json())
-      .then((j) => { if (j.ok) setGsConnected(j.data.connected); })
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/admin/integrations").then((r) => r.json()).then((j) => { if (j.ok) setSavedValues(j.data); }).catch(() => {}),
+      fetch("/api/admin/integrations/google/sheets").then((r) => r.json()).then((j) => { if (j.ok) setGsConnected(j.data.connected); }).catch(() => {}),
+    ]).finally(() => setLoaded(true));
   }, []);
 
   function resolveStatus(slug: string, base: IntegrationStatus): IntegrationStatus {
@@ -207,8 +218,40 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
+      {/* Skeleton while loading */}
+      {!loaded && (
+        <div className="animate-pulse">
+          <div className="flex flex-wrap gap-2 mb-8">
+            {[80, 96, 72, 88].map((w, i) => (
+              <div key={i} className="h-11 rounded-xl border border-rule bg-canvas" style={{ width: w }} />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2 mb-5">
+            {[48, 64, 80, 56, 72, 56, 64].map((w, i) => (
+              <div key={i} className="h-8 rounded-xl bg-rule" style={{ width: w }} />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border border-rule bg-surface p-5 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div className="h-11 w-11 rounded-2xl bg-rule" />
+                  <div className="h-5 w-16 rounded-full bg-rule" />
+                </div>
+                <div className="h-3.5 w-28 rounded bg-rule" />
+                <div className="h-2.5 w-16 rounded bg-rule" />
+                <div className="space-y-1.5">
+                  <div className="h-2 w-full rounded bg-rule" />
+                  <div className="h-2 w-4/5 rounded bg-rule" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Configured integrations summary */}
-      {configuredCount > 0 && (
+      {loaded && configuredCount > 0 && (
         <div className="mb-8">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-ink-muted/60">Active integrations</p>
           <div className="flex flex-wrap gap-2">
@@ -232,7 +275,8 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      {/* Category filter */}
+      {/* Category filter + Grid */}
+      {loaded && <>
       <div className="mb-5 flex flex-wrap gap-2">
         {CATEGORIES.map((cat) => (
           <button key={cat} onClick={() => setActiveCategory(cat)}
@@ -323,6 +367,7 @@ export default function IntegrationsPage() {
           );
         })}
       </div>
+      </>}
     </div>
   );
 }

@@ -60,6 +60,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
       sortOrder?: number; steps?: StepInput[];
     };
 
+    // If activating this flow, deactivate all others first (only one active at a time)
+    if (body.isActive === true) {
+      await prisma.botFlow.updateMany({
+        where: { id: { not: flowId } },
+        data: { isActive: false },
+      });
+    }
+
     // Update flow meta
     await prisma.botFlow.update({
       where: { id: flowId },

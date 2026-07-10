@@ -2,16 +2,16 @@
 
 /* Design tokens — default warm theme. Override via portal_settings brand color. */
 @theme {
-  --color-brand: #6b2e1a;       /* primary brown */
-  --color-brand-dark: #4a1f12;  /* hover / pressed */
-  --color-caramel: #c08a5b;     /* secondary accent */
-  --color-cream: #f5e6d3;       /* soft cream tint */
+  --color-brand: #2563eb;       /* primary blue */
+  --color-brand-dark: #1d4ed8;  /* hover / pressed */
+  --color-caramel: #93c5fd;     /* secondary accent */
+  --color-cream: #eff6ff;       /* soft blue tint */
   --color-canvas: #f4f5f7;      /* page + input background */
   --color-surface: #ffffff;     /* card background */
-  --color-ink: #2b1a12;         /* primary text */
-  --color-ink-muted: #7a5c4d;   /* secondary text */
+  --color-ink: #1a1a1a;         /* primary text — always dark, never brand-derived */
+  --color-ink-muted: #6b7280;   /* secondary text — always neutral gray */
   --color-rule: #e5e7eb;        /* borders */
-  --color-gold: #c9a535;         /* rich gold for premium accents */
+  --color-gold: #6366f1;         /* indigo accent */
   --color-success: #2e7d32;
   --color-danger: #c62828;
   --color-focus: #c08a5b;       /* matches caramel */

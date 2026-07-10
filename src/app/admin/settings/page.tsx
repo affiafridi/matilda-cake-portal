@@ -64,15 +64,15 @@ function applyBrandVarsLive(hex: string) {
   }
   const H = Math.round(h * 360), S = Math.round(s * 100), L = Math.round(l * 100);
   const dk  = Math.max(0,  L - 12);
-  const ink = Math.max(0,  L - 22);
-  const mut = Math.min(90, L + 20);
   const crm = Math.min(97, L + 43);
   const car = Math.min(90, L + 16);
   const root = document.documentElement;
   root.style.setProperty("--color-brand",      hex);
   root.style.setProperty("--color-brand-dark",  `hsl(${H} ${S}% ${dk}%)`);
-  root.style.setProperty("--color-ink",          `hsl(${H} ${S}% ${ink}%)`);
-  root.style.setProperty("--color-ink-muted",    `hsl(${H} ${Math.max(0, S - 12)}% ${mut}%)`);
+  // ink and ink-muted are always dark — never derived from brand lightness
+  // so headings/paragraphs stay readable regardless of brand color choice
+  root.style.setProperty("--color-ink",         "#1a1a1a");
+  root.style.setProperty("--color-ink-muted",   "#6b7280");
   root.style.setProperty("--color-cream",        `hsl(${H} ${Math.max(0, S - 18)}% ${crm}%)`);
   root.style.setProperty("--color-caramel",      `hsl(${H} ${Math.max(0, S - 8)}% ${car}%)`);
   root.style.setProperty("--color-focus",        `hsl(${H} ${Math.max(0, S - 8)}% ${car}%)`);
@@ -151,8 +151,8 @@ export default function AdminSettingsPage() {
       wa_visible_to_admin:     true,
       portal_visible_to_admin: true,
       app_name:      "Order Portal",
-      primary_color: get("--color-brand",   "#6b2e1a"),
-      accent_color:  get("--color-gold",    "#c9a535"),
+      primary_color: get("--color-brand",   "#2563eb"),
+      accent_color:  get("--color-gold",    "#6366f1"),
       sidebar_color: get("--sb-bg",         "#ffffff"),
       logo_url:      "/uploads/logo.png",
       contact_phone:         "",
@@ -356,7 +356,7 @@ export default function AdminSettingsPage() {
                     onBlur={(e) => { if (/^#[0-9a-f]{6}$/i.test(e.target.value)) save("primary_color", e.target.value); }}
                     suppressHydrationWarning
                     className="w-full rounded-xl border border-rule bg-canvas px-3 py-2 font-mono text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
-                    placeholder="#6b2e1a" />
+                    placeholder="#2563eb" />
                 </div>
                 {/* Accent */}
                 <div className="px-5 py-4 space-y-3">

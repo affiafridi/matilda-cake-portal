@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
       "wc_url", "wc_consumer_key", "wc_consumer_secret",
       "bot_url", "sync_secret", "inbox_webhook_secret",
       "google_oauth_client_id", "google_oauth_client_secret",
+      "openai_api_key",
     ];
     if (!allowed.includes(body.key)) return jsonError("Invalid key", 400);
 

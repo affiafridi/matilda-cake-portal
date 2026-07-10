@@ -10,6 +10,7 @@ const INTEGRATION_KEYS = [
   "wc_url", "wc_consumer_key", "wc_consumer_secret",
   "bot_url", "sync_secret", "inbox_webhook_secret",
   "google_oauth_client_id", "google_oauth_client_secret",
+  "openai_api_key",
 ];
 
 export async function GET() {
@@ -23,7 +24,8 @@ export async function GET() {
         'wa_access_token', 'wa_phone_number_id', 'wa_business_account_id',
         'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
         'bot_url', 'sync_secret', 'inbox_webhook_secret',
-        'google_oauth_client_id', 'google_oauth_client_secret'
+        'google_oauth_client_id', 'google_oauth_client_secret',
+        'openai_api_key'
       )
     `;
 
@@ -53,6 +55,7 @@ function envFallback(key: string): string {
     bot_url:                  process.env.BOT_URL,
     sync_secret:              process.env.SYNC_SECRET,
     inbox_webhook_secret:     process.env.INBOX_WEBHOOK_SECRET,
+    openai_api_key:           process.env.OPENAI_API_KEY,
   };
   return map[key] ?? "";
 }

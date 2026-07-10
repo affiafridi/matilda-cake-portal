@@ -67,25 +67,15 @@ export default function FlowsPage() {
     e.stopPropagation();
     const newActive = !flow.isActive;
 
-    // Only one flow can be active at a time — deactivate all others when enabling
-    if (newActive) {
-      const othersToDeactivate = flows.filter((f) => f.id !== flow.id && f.isActive);
-      await Promise.all(othersToDeactivate.map((f) =>
-        fetch(`/api/admin/flows/${f.id}`, {
-          method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isActive: false }),
-        })
-      ));
-    }
-
     await fetch(`/api/admin/flows/${flow.id}`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: newActive }),
     });
 
+    // Server enforces single-active — mirror that in local state
     setFlows((p) => p.map((f) => {
       if (f.id === flow.id) return { ...f, isActive: newActive };
-      if (newActive) return { ...f, isActive: false }; // deactivate all others
+      if (newActive) return { ...f, isActive: false };
       return f;
     }));
   }
@@ -247,6 +237,7 @@ export default function FlowsPage() {
           After editing flows, click <strong>Push to Bot</strong> so changes go live instantly.
         </p>
       )}
+
     </div>
   );
 }
@@ -317,3 +308,4 @@ function NewFlowCard({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
+

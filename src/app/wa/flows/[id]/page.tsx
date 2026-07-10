@@ -122,7 +122,7 @@ const DS = [
 const PROD_SRC  = ["woocommerce_products","woocommerce_products_by_category","woocommerce_search"];
 const NEEDS_URL = ["custom_api","custom_api_search"];
 const INP = "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-gray-300";
-const LBL = "block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5";
+const LBL = "block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2";
 
 type LinkLine = { x1: number; y1: number; x2: number; y2: number };
 
@@ -1168,6 +1168,50 @@ function CtxMenu({ x, y, step, onClose, onAddConnected, onCopy, onDelete, onDupl
   );
 }
 
+// ── AI Instructions types ─────────────────────────────────────────────────
+
+type AiSettings = {
+  openai_configured: boolean;
+  ai_kb_business_name: string; ai_kb_hours: string; ai_kb_location: string;
+  ai_kb_sizes: string; ai_kb_flavours: string; ai_kb_delivery: string;
+  ai_kb_custom_orders: string; ai_kb_extra: string;
+  ai_intent_catalog: boolean; ai_intent_search: boolean;
+  ai_intent_agent: boolean; ai_intent_info: boolean;
+  ai_kb_use_prompt: boolean;
+  ai_kb_prompt: string;
+  ai_max_tokens: number;
+  ai_daily_limit: number;
+};
+const EMPTY_AI: AiSettings = {
+  openai_configured: false,
+  ai_kb_business_name: "", ai_kb_hours: "", ai_kb_location: "",
+  ai_kb_sizes: "", ai_kb_flavours: "", ai_kb_delivery: "",
+  ai_kb_custom_orders: "", ai_kb_extra: "",
+  ai_intent_catalog: true, ai_intent_search: true,
+  ai_intent_agent: true, ai_intent_info: true,
+  ai_kb_use_prompt: false,
+  ai_kb_prompt: "",
+  ai_max_tokens: 150,
+  ai_daily_limit: 200,
+};
+
+function buildCompiledPrompt(s: AiSettings): string {
+  const lines: string[] = [];
+  const name = s.ai_kb_business_name || "your business";
+  lines.push(`You are a helpful assistant for ${name}.`);
+  lines.push("");
+  if (s.ai_kb_hours)         lines.push(`Opening Hours: ${s.ai_kb_hours}`);
+  if (s.ai_kb_location)      lines.push(`Location: ${s.ai_kb_location}`);
+  if (s.ai_kb_sizes)         lines.push(`Products / Services: ${s.ai_kb_sizes}`);
+  if (s.ai_kb_flavours)      lines.push(`Pricing: ${s.ai_kb_flavours}`);
+  if (s.ai_kb_delivery)      lines.push(`Delivery / Shipping: ${s.ai_kb_delivery}`);
+  if (s.ai_kb_custom_orders) lines.push(`Special Requests: ${s.ai_kb_custom_orders}`);
+  if (s.ai_kb_extra) { lines.push(""); lines.push(s.ai_kb_extra); }
+  lines.push("");
+  lines.push("Answer customer questions helpfully and concisely. Keep replies short and friendly.");
+  return lines.join("\n");
+}
+
 export default function FlowEditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id }  = use(params);
   const router  = useRouter();
@@ -1195,6 +1239,13 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   const [showPreview, setShowPreview] = useState(false);
   const [simMode,     setSimMode]     = useState(false);
   const [showSet,     setShowSet]     = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"flow" | "ai">("flow");
+  const [kbTab,       setKbTab]       = useState<"fields" | "prompt">("fields");
+  const [aiSettings,  setAiSettings]  = useState<AiSettings>(EMPTY_AI);
+  const [aiLoaded,    setAiLoaded]    = useState(false);
+  const [aiSaving,    setAiSaving]    = useState(false);
+  const [aiSaved,     setAiSaved]     = useState(false);
+  const aiSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pan,         setPan]         = useState({ x: 40, y: 40 });
   const [zoom,        setZoom]        = useState(1);
   const [ctxMenu,     setCtxMenu]     = useState<{ x: number; y: number; stepKey: string } | null>(null);
@@ -1252,6 +1303,20 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { flowRef.current = flow; }, [flow]);
   useEffect(() => { savedRef.current = saved; }, [saved]);
+
+  useEffect(() => {
+    if (!showSet || aiLoaded) return;
+    fetch("/api/admin/ai-settings")
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) { setAiSettings(j.data); if (j.data.ai_kb_use_prompt) setKbTab("prompt"); } })
+      .catch(() => {})
+      .finally(() => setAiLoaded(true));
+  }, [showSet, aiLoaded]);
+
+  useEffect(() => {
+    document.body.style.overflow = showSet ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showSet]);
 
   function upFlow(patch: Partial<Flow>) {
     setFlow((f) => {
@@ -1768,67 +1833,358 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
           upFlow({ triggerKeywords: merged.join(", ") });
         }
         function removeTag(t: string) { upFlow({ triggerKeywords: tags.filter((k) => k !== t).join(", ") }); }
+
+        async function saveAi() {
+          setAiSaving(true); setAiSaved(false);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { openai_configured, ...payload } = {
+            ...aiSettings,
+            ai_kb_use_prompt: kbTab === "prompt",
+          };
+          await fetch("/api/admin/ai-settings", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }).catch(() => {});
+          setAiSaving(false); setAiSaved(true);
+          if (aiSaveTimer.current) clearTimeout(aiSaveTimer.current);
+          aiSaveTimer.current = setTimeout(() => setAiSaved(false), 2500);
+        }
+
+        const KB_FIELDS: { key: keyof AiSettings; label: string; placeholder: string; multiline?: boolean }[] = [
+          { key: "ai_kb_business_name", label: "Business Name",        placeholder: "e.g. Matilda Cake" },
+          { key: "ai_kb_hours",         label: "Opening Hours",        placeholder: "e.g. Mon–Sat 9am–9pm, Friday closed" },
+          { key: "ai_kb_location",      label: "Location / Address",   placeholder: "e.g. Dubai, UAE" },
+          { key: "ai_kb_sizes",         label: "Products / Services",  placeholder: "e.g. Custom cakes, cupcakes, dessert boxes — or list your services" },
+          { key: "ai_kb_flavours",      label: "Pricing Info",         placeholder: "e.g. Cakes start from AED 150, cupcakes AED 10 each" },
+          { key: "ai_kb_delivery",      label: "Delivery / Shipping",  placeholder: "e.g. Deliver within Dubai, min order AED 100, 2-day notice" },
+          { key: "ai_kb_custom_orders", label: "Special Requests",     placeholder: "e.g. Yes, contact us 48 hrs in advance for custom designs" },
+          { key: "ai_kb_extra",         label: "Anything Else",        placeholder: "Payment methods, social media, allergies policy, FAQs…", multiline: true },
+        ];
+        const INTENTS: { key: keyof AiSettings; label: string; desc: string }[] = [
+          { key: "ai_intent_catalog", label: "Menu / Catalog",  desc: "Customer asks to see your menu or product list" },
+          { key: "ai_intent_search",  label: "Product Search",  desc: "Customer searches for a specific product or cake" },
+          { key: "ai_intent_agent",   label: "Agent Handoff",   desc: "Customer wants to talk to a human" },
+          { key: "ai_intent_info",    label: "Business Info",   desc: "Customer asks about hours, location, sizes, delivery" },
+        ];
+
+        const INP2 = "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] text-gray-800 focus:outline-none focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-100 placeholder:text-gray-300 transition";
+
         return (
           <>
             {/* Backdrop */}
-            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" onClick={() => setShowSet(false)} />
-            {/* Modal */}
-            <div className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <div className="flex items-center gap-2">
-                  <IcGear size={16} className="text-gray-500" />
-                  <h2 className="text-sm font-bold text-gray-800">Flow settings</h2>
-                  {totalIssues > 0 && <span className="h-5 min-w-[20px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">{totalIssues}</span>}
-                </div>
+            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setShowSet(false)} />
+
+            {/* Right drawer */}
+            <div className="fixed inset-y-0 right-0 z-50 flex w-[820px] flex-col bg-white shadow-2xl border-l border-gray-200">
+
+              {/* ── Header ── */}
+              <div className="flex items-center justify-between px-8 pt-7 pb-5 border-b border-gray-100 shrink-0">
+                <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
                 <button type="button" onClick={() => setShowSet(false)}
-                  className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition">
-                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition">
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               </div>
-              {/* Body */}
-              <div className="px-5 py-5 flex flex-col gap-5">
-                {/* Description */}
-                <div>
-                  <label className={LBL}>Description</label>
-                  <input value={flow.description} onChange={(e) => upFlow({ description: e.target.value })}
-                    placeholder="What does this flow do?" className={INP} />
-                </div>
-                {/* Keywords */}
-                <div>
-                  <label className={LBL}>Trigger keywords <span className="normal-case font-normal text-gray-300 ml-1">— customer types any of these to start this flow</span></label>
-                  <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-2 min-h-[44px] focus-within:ring-2 focus-within:ring-blue-100">
-                    {tags.map((t) => (
-                      <span key={t} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg px-2 py-0.5 text-xs font-medium">
-                        {t}
-                        <button type="button" onClick={() => removeTag(t)} className="text-blue-400 hover:text-red-400 transition leading-none">×</button>
-                      </span>
-                    ))}
-                    {!flow.isFallback && (
-                      <input
-                        placeholder={tags.length === 0 ? "Type keyword + Enter  (e.g. order, menu, hi)" : "Add more…"}
-                        className="flex-1 min-w-[120px] text-sm bg-transparent focus:outline-none text-gray-700 placeholder:text-gray-300"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(e.currentTarget.value); e.currentTarget.value = ""; }
-                          if (e.key === "Backspace" && !e.currentTarget.value && tags.length) removeTag(tags[tags.length - 1]);
-                        }}
-                        onPaste={(e) => {
-                          e.preventDefault();
-                          addTagsBulk(e.clipboardData.getData("text"));
-                        }}
-                        onBlur={(e) => { if (e.currentTarget.value) { addTag(e.currentTarget.value); e.currentTarget.value = ""; } }}
-                      />
+
+              {/* ── Tab bar ── */}
+              <div className="flex border-b border-gray-100 px-8 shrink-0">
+                {([
+                  { id: "flow", label: "Flow" },
+                  { id: "ai",   label: "AI Instructions" },
+                ] as const).map((t) => (
+                  <button key={t.id} type="button" onClick={() => setSettingsTab(t.id)}
+                    className={["py-4 mr-7 text-sm font-medium border-b-2 -mb-px transition-colors",
+                      settingsTab === t.id
+                        ? "border-slate-700 text-slate-800"
+                        : "border-transparent text-gray-400 hover:text-gray-600",
+                    ].join(" ")}>
+                    {t.label}
+                    {t.id === "ai" && aiSettings.openai_configured && (
+                      <span className="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 -translate-y-0.5" />
                     )}
-                    {flow.isFallback && <span className="text-xs text-gray-400 italic self-center">Not needed — this is the fallback flow</span>}
-                  </div>
-                </div>
+                    {totalIssues > 0 && t.id === "flow" && (
+                      <span className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">{totalIssues}</span>
+                    )}
+                  </button>
+                ))}
               </div>
-              {/* Footer */}
-              <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
-                <button type="button" onClick={() => setShowSet(false)}
-                  className="rounded-xl bg-gray-800 text-white text-sm font-semibold px-5 py-2 hover:bg-gray-700 transition">
-                  Done
-                </button>
+
+              {/* ── Scrollable body ── */}
+              <div className="flex-1 overflow-y-auto">
+
+                {/* ── Flow tab ── */}
+                {settingsTab === "flow" && (
+                  <div className="px-8 py-8 flex flex-col gap-8">
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium text-gray-700">Description</label>
+                      <input value={flow.description} onChange={(e) => upFlow({ description: e.target.value })}
+                        placeholder="What does this flow do? e.g. Helps customers place cake orders"
+                        className={INP2} />
+                      <p className="text-xs text-gray-400">Internal note — not shown to customers.</p>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-medium text-gray-700">
+                        Trigger Keywords
+                        <span className="font-normal text-gray-400 ml-1.5">— any of these start this flow</span>
+                      </label>
+                      <div className={[
+                        "flex flex-wrap gap-2 rounded-xl border bg-gray-50 px-3.5 py-3 min-h-[52px] transition",
+                        "focus-within:bg-white focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-100 border-gray-200",
+                      ].join(" ")}>
+                        {tags.map((t) => (
+                          <span key={t} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                            {t}
+                            <button type="button" onClick={() => removeTag(t)} className="text-slate-400 hover:text-red-400 transition leading-none">×</button>
+                          </span>
+                        ))}
+                        {!flow.isFallback && (
+                          <input
+                            placeholder={tags.length === 0 ? "Type keyword + Enter  (e.g. order, menu, hi)" : "Add more…"}
+                            className="flex-1 min-w-[200px] text-sm bg-transparent focus:outline-none text-gray-700 placeholder:text-gray-300 py-0.5"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(e.currentTarget.value); e.currentTarget.value = ""; }
+                              if (e.key === "Backspace" && !e.currentTarget.value && tags.length) removeTag(tags[tags.length - 1]);
+                            }}
+                            onPaste={(e) => { e.preventDefault(); addTagsBulk(e.clipboardData.getData("text")); }}
+                            onBlur={(e) => { if (e.currentTarget.value) { addTag(e.currentTarget.value); e.currentTarget.value = ""; } }}
+                          />
+                        )}
+                        {flow.isFallback && (
+                          <span className="text-sm text-gray-400 italic self-center">Not needed — this is the fallback flow</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">Paste a comma-separated list to add many at once.</p>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* ── AI Instructions tab ── */}
+                {settingsTab === "ai" && (
+                  <div className="px-8 py-8 flex flex-col gap-8">
+
+                    {!aiLoaded ? (
+                      <div className="animate-pulse space-y-5">
+                        <div className="h-11 rounded-xl bg-gray-100" />
+                        <div className="flex gap-2"><div className="h-16 flex-1 rounded-xl bg-gray-100" /><div className="h-16 flex-1 rounded-xl bg-gray-100" /></div>
+                        {[...Array(4)].map((_, i) => (
+                          <div key={i} className="space-y-2">
+                            <div className="h-3 w-28 rounded-md bg-gray-100" />
+                            <div className="h-12 rounded-xl bg-gray-100" />
+                          </div>
+                        ))}
+                      </div>
+
+                    ) : !aiSettings.openai_configured ? (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 flex items-start gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-amber-600">
+                            <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-base font-semibold text-amber-900 mb-1">OpenAI not configured</p>
+                          <p className="text-sm text-amber-700 leading-relaxed mb-4">Add your OpenAI API key in Integrations to enable AI Instructions.</p>
+                          <a href="/admin/integrations/openai"
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700 transition">
+                            Integrations → OpenAI
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                          </a>
+                        </div>
+                      </div>
+
+                    ) : (
+                      <>
+                        {/* ── Usage & Limits ── */}
+                        {(() => {
+                          const tokenColor = aiSettings.ai_max_tokens <= 100 ? "text-emerald-600" : aiSettings.ai_max_tokens <= 250 ? "text-slate-700" : aiSettings.ai_max_tokens <= 400 ? "text-amber-500" : "text-red-500";
+                          const limitColor = aiSettings.ai_daily_limit <= 100 ? "text-amber-500" : aiSettings.ai_daily_limit <= 300 ? "text-slate-700" : "text-emerald-600";
+                          return (
+                            <div>
+                              <p className="text-sm font-semibold text-gray-700 mb-3">Usage &amp; Limits</p>
+                              <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+
+                                {/* Max tokens */}
+                                <div className="px-5 py-4">
+                                  <div className="flex items-center justify-between gap-4 mb-3">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-800">Max tokens per reply</p>
+                                      <p className="text-xs text-gray-400 mt-0.5">Shorter = cheaper &amp; faster. Longer = more detail.</p>
+                                    </div>
+                                    <div className="flex items-baseline gap-1.5 shrink-0">
+                                      <span className={["text-2xl font-bold tabular-nums leading-none transition-colors", tokenColor].join(" ")}>{aiSettings.ai_max_tokens}</span>
+                                      <span className="text-xs text-gray-400">tokens</span>
+                                    </div>
+                                  </div>
+                                  <input type="range" min={50} max={500} step={10}
+                                    value={aiSettings.ai_max_tokens}
+                                    onChange={(e) => setAiSettings((s) => ({ ...s, ai_max_tokens: Number(e.target.value) }))}
+                                    className="w-full h-1.5 rounded-full cursor-pointer accent-slate-700 transition-all" />
+                                  <div className="flex justify-between text-xs mt-2">
+                                    <span className="text-emerald-500 font-medium">50 — brief</span>
+                                    <span className="text-slate-500 font-semibold">150 recommended</span>
+                                    <span className="text-red-400 font-medium">500 — detailed</span>
+                                  </div>
+                                </div>
+
+                                {/* Daily limit */}
+                                <div className="px-5 py-4">
+                                  <div className="flex items-center justify-between gap-4 mb-3">
+                                    <div>
+                                      <p className="text-sm font-semibold text-gray-800">Daily request limit</p>
+                                      <p className="text-xs text-gray-400 mt-0.5">AI stops replying after this many calls. Resets at midnight.</p>
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5 uppercase tracking-wide shrink-0">
+                                      200 recommended
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <input type="range" min={50} max={1000} step={50}
+                                      value={Math.min(aiSettings.ai_daily_limit, 1000)}
+                                      onChange={(e) => setAiSettings((s) => ({ ...s, ai_daily_limit: Number(e.target.value) }))}
+                                      className="flex-1 h-1.5 rounded-full cursor-pointer accent-slate-700" />
+                                    <div className="flex items-baseline gap-1 shrink-0">
+                                      <span className={["text-2xl font-bold tabular-nums leading-none transition-colors", limitColor].join(" ")}>{aiSettings.ai_daily_limit}</span>
+                                      <span className="text-xs text-gray-400">/day</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-between text-xs mt-2">
+                                    <span className="text-amber-500 font-medium">50 — low</span>
+                                    <span className="text-slate-500 font-semibold">200 recommended</span>
+                                    <span className="text-emerald-500 font-medium">1000 — high</span>
+                                  </div>
+                                </div>
+
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── Knowledge sub-tabs ── */}
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 mb-3">Knowledge &amp; Behaviour</p>
+                          <div className="flex gap-1 rounded-xl bg-gray-100 p-1 mb-6">
+                            {([
+                              { id: "fields", label: "Guided Fields",  desc: "Fill in simple fields" },
+                              { id: "prompt", label: "Custom Prompt",  desc: "Write your own prompt" },
+                            ] as const).map((t) => (
+                              <button key={t.id} type="button" onClick={() => setKbTab(t.id)}
+                                className={["flex-1 flex flex-col items-center rounded-lg py-2.5 transition-all",
+                                  kbTab === t.id ? "bg-white shadow-sm" : "hover:bg-gray-50",
+                                ].join(" ")}>
+                                <span className={["text-sm font-medium", kbTab === t.id ? "text-gray-900" : "text-gray-400"].join(" ")}>{t.label}</span>
+                                <span className="text-xs text-gray-400 mt-0.5">{t.desc}</span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Guided Fields */}
+                          {kbTab === "fields" && (
+                            <div className="flex flex-col gap-8">
+                              <div className="grid grid-cols-2 gap-x-5 gap-y-5">
+                                {KB_FIELDS.map((f) => f.multiline ? (
+                                  <div key={f.key} className="col-span-2 flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">{f.label}</label>
+                                    <textarea rows={3} value={aiSettings[f.key] as string}
+                                      onChange={(e) => setAiSettings((s) => ({ ...s, [f.key]: e.target.value }))}
+                                      placeholder={f.placeholder} className={INP2 + " resize-none"} />
+                                  </div>
+                                ) : (
+                                  <div key={f.key} className="flex flex-col gap-1.5">
+                                    <label className="text-sm font-medium text-gray-700">{f.label}</label>
+                                    <input type="text" value={aiSettings[f.key] as string}
+                                      onChange={(e) => setAiSettings((s) => ({ ...s, [f.key]: e.target.value }))}
+                                      placeholder={f.placeholder} className={INP2} />
+                                  </div>
+                                ))}
+                              </div>
+
+                            </div>
+                          )}
+
+                          {/* Custom Prompt */}
+                          {kbTab === "prompt" && (
+                            <div className="flex flex-col gap-4">
+                              <div className="flex flex-col gap-1.5">
+                                <label className="text-sm font-medium text-gray-700">System Prompt</label>
+                                <textarea
+                                  rows={10}
+                                  value={aiSettings.ai_kb_prompt}
+                                  onChange={(e) => setAiSettings((s) => ({ ...s, ai_kb_prompt: e.target.value }))}
+                                  placeholder={buildCompiledPrompt(aiSettings)}
+                                  className={INP2 + " resize-none font-mono text-sm leading-relaxed"}
+                                />
+                                <p className="text-xs text-gray-400">Leave empty to auto-generate from Guided Fields. A saved prompt always takes priority.</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ── Intent toggles — always visible ── */}
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Handle AI Response by Type</p>
+                              <p className="text-xs text-gray-400 mt-0.5">AI detects intent and responds with the right type of reply.</p>
+                            </div>
+                            <button type="button"
+                              onClick={() => setAiSettings((s) => ({ ...s, ai_intent_catalog: true, ai_intent_search: true, ai_intent_agent: true, ai_intent_info: true }))}
+                              className="shrink-0 ml-4 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg px-3 py-1.5 transition">
+                              Enable all
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {INTENTS.map((intent) => {
+                              const on = !!aiSettings[intent.key];
+                              return (
+                                <button key={intent.key} type="button" role="switch" aria-checked={on}
+                                  onClick={() => setAiSettings((s) => ({ ...s, [intent.key]: !s[intent.key] }))}
+                                  className={["relative flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
+                                    on ? "border-slate-300 bg-slate-50" : "border-gray-200 bg-gray-50 hover:bg-gray-100",
+                                  ].join(" ")}>
+                                  <span className="absolute top-3 right-3 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                                    Recommended
+                                  </span>
+                                  <div className={["mt-0.5 relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors",
+                                    on ? "bg-[#34c759]" : "bg-gray-300",
+                                  ].join(" ")}>
+                                    <span className={["inline-block h-4 w-4 transform rounded-full bg-white transition",
+                                      on ? "translate-x-4" : "translate-x-0",
+                                    ].join(" ")} />
+                                  </div>
+                                  <div className="min-w-0 pr-14">
+                                    <p className={["text-sm font-semibold leading-tight", on ? "text-slate-800" : "text-gray-700"].join(" ")}>{intent.label}</p>
+                                    <p className="text-xs text-gray-400 mt-0.5 leading-snug">{intent.desc}</p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Footer ── */}
+              <div className="shrink-0 border-t border-gray-100 px-8 py-5 flex items-center justify-between bg-white">
+                <div>
+                  {settingsTab === "ai" && aiSettings.openai_configured && (
+                    <button type="button" onClick={saveAi} disabled={aiSaving}
+                      className="flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold px-5 py-2.5 hover:bg-brand-dark disabled:opacity-40 transition">
+                      {aiSaving && (
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
+                          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                        </svg>
+                      )}
+                      {aiSaving ? "Saving…" : aiSaved ? "✓ Saved" : "Save AI Instructions"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </>
