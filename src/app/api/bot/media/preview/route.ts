@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
     if (!token) return jsonError("WhatsApp not configured", 500);
 
     const handle = req.nextUrl.searchParams.get("handle");
-    // Validate handle format: must start with "h:", max 512 chars, alphanumeric + safe symbols only
-    if (!handle || !handle.startsWith("h:") || handle.length > 512 || !/^h:[A-Za-z0-9+/=_\-:]+$/.test(handle)) {
+    // Meta returns handles in multiple formats: "h:xxx" (resumable upload) or "4:xxx" / "3:xxx" (template API)
+    if (!handle || handle.length > 1024 || !/^[A-Za-z0-9][A-Za-z0-9+/=_\-:]*$/.test(handle)) {
       return jsonError("Invalid handle", 400);
     }
 
