@@ -317,10 +317,12 @@ function GoogleSheetsConfig() {
 // ── Generic credentials form ──────────────────────────────────────────────
 
 function CredentialsForm({ fields }: { fields: Field[] }) {
-  const [values,      setValues]      = useState<Record<string, string>>({});
-  const [saveState,   setSaveState]   = useState<SaveState>("idle");
-  const [loaded,      setLoaded]      = useState(false);
-  const [isConfigured, setIsConfigured] = useState(false);
+  const [values,        setValues]        = useState<Record<string, string>>({});
+  const [saveState,     setSaveState]     = useState<SaveState>("idle");
+  const [loaded,        setLoaded]        = useState(false);
+  const [isConfigured,  setIsConfigured]  = useState(false);
+  const [showDisconnect, setShowDisconnect] = useState(false);
+  const [disconnecting,  setDisconnecting]  = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -357,6 +359,26 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
     } catch {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
+    }
+  }
+
+  async function disconnect() {
+    setDisconnecting(true);
+    try {
+      for (const f of fields) {
+        await fetch("/api/admin/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: f.key, value: "" }),
+        });
+      }
+      setValues({});
+      setIsConfigured(false);
+      setShowDisconnect(false);
+    } catch {
+      // ignore
+    } finally {
+      setDisconnecting(false);
     }
   }
 
@@ -423,10 +445,47 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
           {saveState === "saving" && <Spinner />}
           {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : isConfigured ? "Update credentials" : "Save credentials"}
         </button>
+        {isConfigured && (
+          <button onClick={() => setShowDisconnect(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+              <path d="M18.36 6.64A9 9 0 0 1 20.77 15M5.63 5.63A9 9 0 1 0 15 20.77M8.71 2.71A9 9 0 0 1 18.36 6.64"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+            Disconnect
+          </button>
+        )}
         {saveState === "error" && (
           <span className="text-xs text-red-500">Something went wrong. Check values and try again.</span>
         )}
       </div>
+
+      {/* Disconnect confirmation modal */}
+      {showDisconnect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => !disconnecting && setShowDisconnect(false)}>
+          <div onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-2xl border border-rule bg-white p-6 shadow-xl mx-4">
+            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mx-auto mb-4">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-red-600">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-gray-900 text-center mb-1">Disconnect integration?</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">This will clear all saved credentials. Any features relying on this integration will stop working.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDisconnect(false)} disabled={disconnecting}
+                className="flex-1 rounded-xl border border-rule py-2.5 text-sm font-semibold text-ink hover:bg-canvas transition disabled:opacity-40">
+                Cancel
+              </button>
+              <button onClick={disconnect} disabled={disconnecting}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 py-2.5 text-sm font-semibold text-white transition disabled:opacity-40">
+                {disconnecting ? <><Spinner /> Disconnecting…</> : "Yes, disconnect"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
