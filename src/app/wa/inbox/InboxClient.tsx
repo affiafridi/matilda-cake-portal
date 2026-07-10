@@ -1023,15 +1023,16 @@ export default function InboxClient({
                                   const type = meta.type as string | undefined;
 
                                   if (type === "list") {
-                                    const header = (meta.header as { text?: string } | undefined)?.text;
-                                    const body   = (meta.body   as { text?: string } | undefined)?.text;
-                                    const footer = (meta.footer as { text?: string } | undefined)?.text;
-                                    const action = meta.action  as { button?: string; sections?: { title?: string; rows?: { id: string; title: string; description?: string }[] }[] } | undefined;
+                                    // Bot sends: header/footer as string|null, button & sections flat (no action wrapper)
+                                    const header   = meta.header as string | null | undefined;
+                                    const footer   = meta.footer as string | null | undefined;
+                                    const button   = meta.button as string | undefined;
+                                    const sections = meta.sections as { title?: string; rows?: { id: string; title: string; description?: string }[] }[] | undefined;
                                     return (
                                       <div className="min-w-[200px]">
                                         {header && <p className="font-semibold text-[13px] mb-1">{header}</p>}
-                                        {body   && <p className="text-[13px] whitespace-pre-wrap mb-2">{body}</p>}
-                                        {action?.sections?.map((s, si) => (
+                                        {m.body && <p className="text-[13px] whitespace-pre-wrap mb-2">{m.body}</p>}
+                                        {sections?.map((s, si) => (
                                           <div key={si} className="mb-2">
                                             {s.title && <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1">{s.title}</p>}
                                             <div className="flex flex-col gap-1">
@@ -1045,9 +1046,9 @@ export default function InboxClient({
                                           </div>
                                         ))}
                                         {footer && <p className="text-[11px] opacity-50 mt-1">{footer}</p>}
-                                        {action?.button && (
+                                        {button && (
                                           <div className={["mt-2 text-center text-[12px] font-semibold py-1.5 rounded-lg border", isOut ? "border-[#25d366]/50 text-[#111b21]" : "border-[#25d366]/50 text-[#25d366]"].join(" ")}>
-                                            ☰ {action.button}
+                                            ☰ {button}
                                           </div>
                                         )}
                                       </div>
@@ -1055,19 +1056,21 @@ export default function InboxClient({
                                   }
 
                                   if (type === "button") {
-                                    const body    = (meta.body    as { text?: string } | undefined)?.text;
-                                    const header  = (meta.header  as { text?: string } | undefined)?.text;
-                                    const footer  = (meta.footer  as { text?: string } | undefined)?.text;
-                                    const buttons = (meta.action  as { buttons?: { reply?: { id: string; title: string } }[] } | undefined)?.buttons;
+                                    // Bot sends: buttons flat as [{ id, title }], no reply wrapper, no action wrapper
+                                    const buttons = meta.buttons as { id: string; title: string }[] | undefined;
                                     return (
                                       <div className="min-w-[180px]">
-                                        {header && <p className="font-semibold text-[13px] mb-1">{header}</p>}
-                                        {body   && <p className="text-[13px] whitespace-pre-wrap mb-2">{body}</p>}
-                                        {footer && <p className="text-[11px] opacity-50 mb-2">{footer}</p>}
+                                        {m.mediaUrl && m.mediaType === "image" && (
+                                          <a href={m.mediaUrl} target="_blank" rel="noreferrer">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover mb-2" />
+                                          </a>
+                                        )}
+                                        {m.body && <p className="text-[13px] whitespace-pre-wrap mb-2">{m.body}</p>}
                                         <div className="flex flex-col gap-1">
-                                          {buttons?.map((b) => b.reply && (
-                                            <div key={b.reply.id} className={["text-center text-[12px] font-semibold py-1.5 rounded-lg border border-[#25d366]/50 text-[#25d366]"].join(" ")}>
-                                              {b.reply.title}
+                                          {buttons?.map((b) => (
+                                            <div key={b.id} className="text-center text-[12px] font-semibold py-1.5 rounded-lg border border-[#25d366]/50 text-[#25d366]">
+                                              {b.title}
                                             </div>
                                           ))}
                                         </div>
