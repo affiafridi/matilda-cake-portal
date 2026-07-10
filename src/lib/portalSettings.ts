@@ -78,8 +78,6 @@ export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accen
   if (!hsl) return {};
   const [h, s, l] = hsl;
   const dk  = Math.max(0, l - 12);
-  const ink = Math.max(0, l - 22);
-  const mut = Math.min(90, l + 20);
   const crm = Math.min(97, l + 43);
   const car = Math.min(90, l + 16);
 
@@ -88,8 +86,8 @@ export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accen
   const sidebarL   = sidebarHsl ? sidebarHsl[2] : 100;
   const isDark     = sidebarL < 45;
 
-  const sidebarFg      = isDark ? "rgba(255,255,255,0.88)" : `hsl(${h} ${s}% ${ink}%)`;
-  const sidebarMuted   = isDark ? "rgba(255,255,255,0.45)" : `hsl(${h} ${Math.max(0, s - 12)}% ${mut}%)`;
+  const sidebarFg      = isDark ? "rgba(255,255,255,0.88)" : "#1a1a1a";
+  const sidebarMuted   = isDark ? "rgba(255,255,255,0.45)" : "#6b7280";
   // Use var(--color-brand) so sidebar active color auto-follows primary color live changes
   const sidebarActiveBg  = isDark ? "rgba(255,255,255,0.13)" : "var(--color-brand)";
   const sidebarActiveFg  = "#ffffff";
@@ -102,8 +100,8 @@ export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accen
     "--color-brand":      primaryHex,
     "--color-gold":       accentHex ?? "#c9a535",
     "--color-brand-dark": `hsl(${h} ${s}% ${dk}%)`,
-    "--color-ink":        `hsl(${h} ${s}% ${ink}%)`,
-    "--color-ink-muted":  `hsl(${h} ${Math.max(0, s - 12)}% ${mut}%)`,
+    "--color-ink":        "#1a1a1a",
+    "--color-ink-muted":  "#6b7280",
     "--color-cream":      `hsl(${h} ${Math.max(0, s - 18)}% ${crm}%)`,
     "--color-caramel":    `hsl(${h} ${Math.max(0, s - 8)}% ${car}%)`,
     "--color-focus":      `hsl(${h} ${Math.max(0, s - 8)}% ${car}%)`,
