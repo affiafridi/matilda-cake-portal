@@ -757,7 +757,7 @@ export default function InboxClient({
         ) : (
           <>
             {/* ── Header ── */}
-            <div className="shrink-0 border-b border-gray-200 bg-white px-6 py-4">
+            <div className="shrink-0 border-b border-[#e9edef] bg-[#f0f2f5] px-5 py-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <Avatar name={selected?.customerName ?? "?"} size="md" />
@@ -910,7 +910,8 @@ export default function InboxClient({
             {/* ── Chat messages ── */}
             <>
               {/* Merged message + event feed */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-1">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+                style={{ background: "#efeae2", backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")` }}>
                 {loadingMsgs && messages.length === 0 && (
                   <div className="flex items-center justify-center py-16">
                     <svg className="h-5 w-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -944,14 +945,12 @@ export default function InboxClient({
                       return (
                         <Fragment key={`evt-${ev.id}`}>
                           {showSep && (
-                            <div className="flex items-center gap-3 py-3">
-                              <div className="h-px flex-1 bg-gray-200" />
-                              <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">{dayLabel(ev.createdAt)}</span>
-                              <div className="h-px flex-1 bg-gray-200" />
+                            <div className="flex justify-center py-2">
+                              <span className="rounded-lg bg-[#d1f4cc]/80 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-[#54656f] shadow-sm">{dayLabel(ev.createdAt)}</span>
                             </div>
                           )}
-                          <div className="flex items-center justify-center py-1.5">
-                            <span className="rounded-full bg-amber-50 border border-amber-100 px-4 py-1 text-[11px] text-amber-700 font-medium">
+                          <div className="flex items-center justify-center py-1">
+                            <span className="rounded-lg bg-[#fffde7]/90 px-3 py-1 text-[11px] text-[#54656f] shadow-sm">
                               {label} · {fmtTime(ev.createdAt)}
                             </span>
                           </div>
@@ -966,10 +965,8 @@ export default function InboxClient({
                       return (
                         <Fragment key={`msg-${m.id}`}>
                           {showSep && (
-                            <div className="flex items-center gap-3 py-3">
-                              <div className="h-px flex-1 bg-gray-200" />
-                              <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">{dayLabel(m.createdAt)}</span>
-                              <div className="h-px flex-1 bg-gray-200" />
+                            <div className="flex justify-center py-2">
+                              <span className="rounded-lg bg-[#d1f4cc]/80 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-[#54656f] shadow-sm">{dayLabel(m.createdAt)}</span>
                             </div>
                           )}
                           <div className="flex justify-center py-1">
@@ -994,28 +991,24 @@ export default function InboxClient({
                     return (
                       <Fragment key={`msg-${m.id}`}>
                         {showSep && (
-                          <div className="flex items-center gap-3 py-3">
-                            <div className="h-px flex-1 bg-gray-200" />
-                            <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-medium text-gray-500">
-                              {dayLabel(m.createdAt)}
-                            </span>
-                            <div className="h-px flex-1 bg-gray-200" />
+                          <div className="flex justify-center py-2">
+                            <span className="rounded-lg bg-[#d1f4cc]/80 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-[#54656f] shadow-sm">{dayLabel(m.createdAt)}</span>
                           </div>
                         )}
-                        <div className={["flex items-end gap-2 mb-0.5", isOut ? "justify-end" : "justify-start"].join(" ")}>
+                        <div className={["flex items-end gap-1.5 mb-0.5", isOut ? "justify-end" : "justify-start"].join(" ")}>
                           {!isOut && (
-                            <div className="w-8 shrink-0">
+                            <div className="w-7 shrink-0 self-end mb-1">
                               {showAvatar && <Avatar name={selected?.customerName ?? "?"} size="sm" />}
                             </div>
                           )}
-                          <div className={["max-w-[65%] flex flex-col gap-0.5", isOut ? "items-end" : "items-start"].join(" ")}>
+                          <div className={["max-w-[70%] flex flex-col gap-0.5", isOut ? "items-end" : "items-start"].join(" ")}>
                             {isOut && m.sentBy && (
-                              <span className="text-[10px] text-gray-400 mr-1">{m.sentBy.name}</span>
+                              <span className="text-[10px] text-[#54656f] mr-1">{m.sentBy.name}</span>
                             )}
-                            <div className={["rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
+                            <div className={["relative px-3 py-2 text-[13.5px] leading-relaxed shadow-sm",
                               isOut
-                                ? "rounded-br-md bg-brand text-white"
-                                : "rounded-bl-md bg-white text-gray-800 border border-gray-100",
+                                ? "rounded-[18px] rounded-br-[4px] bg-[#d9fdd3] text-[#111b21]"
+                                : "rounded-[18px] rounded-bl-[4px] bg-white text-[#111b21]",
                             ].join(" ")}>
                               {(() => {
                                 // Interactive message (list / buttons) from metadata
@@ -1038,7 +1031,7 @@ export default function InboxClient({
                                             {s.title && <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1">{s.title}</p>}
                                             <div className="flex flex-col gap-1">
                                               {s.rows?.map((r) => (
-                                                <div key={r.id} className={["rounded-lg px-3 py-1.5 text-[12px] border", isOut ? "border-white/30 bg-white/10" : "border-gray-200 bg-gray-50"].join(" ")}>
+                                                <div key={r.id} className={["rounded-lg px-3 py-1.5 text-[12px] border", isOut ? "border-[#25d366]/30 bg-white/20" : "border-gray-200 bg-gray-50"].join(" ")}>
                                                   <p className="font-medium">{r.title}</p>
                                                   {r.description && <p className="opacity-60 text-[11px]">{r.description}</p>}
                                                 </div>
@@ -1048,7 +1041,7 @@ export default function InboxClient({
                                         ))}
                                         {footer && <p className="text-[11px] opacity-50 mt-1">{footer}</p>}
                                         {action?.button && (
-                                          <div className={["mt-2 text-center text-[12px] font-semibold py-1.5 rounded-lg border", isOut ? "border-white/40 text-white" : "border-brand/40 text-brand"].join(" ")}>
+                                          <div className={["mt-2 text-center text-[12px] font-semibold py-1.5 rounded-lg border", isOut ? "border-[#25d366]/50 text-[#111b21]" : "border-[#25d366]/50 text-[#25d366]"].join(" ")}>
                                             ☰ {action.button}
                                           </div>
                                         )}
@@ -1068,7 +1061,7 @@ export default function InboxClient({
                                         {footer && <p className="text-[11px] opacity-50 mb-2">{footer}</p>}
                                         <div className="flex flex-col gap-1">
                                           {buttons?.map((b) => b.reply && (
-                                            <div key={b.reply.id} className={["text-center text-[12px] font-semibold py-1.5 rounded-lg border", isOut ? "border-white/40" : "border-brand/40 text-brand"].join(" ")}>
+                                            <div key={b.reply.id} className={["text-center text-[12px] font-semibold py-1.5 rounded-lg border border-[#25d366]/50 text-[#25d366]"].join(" ")}>
                                               {b.reply.title}
                                             </div>
                                           ))}
@@ -1101,8 +1094,8 @@ export default function InboxClient({
                                 return <p className="whitespace-pre-wrap">{m.body}</p>;
                               })()}
                             </div>
-                            <div className={["flex items-center gap-1.5 px-1", isOut ? "flex-row-reverse" : ""].join(" ")}>
-                              <span className="text-[10px] text-gray-400">{fmtTime(m.createdAt)}</span>
+                            <div className={["flex items-center gap-1 mt-0.5 px-1", isOut ? "justify-end" : "justify-start"].join(" ")}>
+                              <span className="text-[11px] text-[#667781]">{fmtTime(m.createdAt)}</span>
                               {isOut && <DeliveryTick status={m.messageStatus} />}
                             </div>
                           </div>
@@ -1115,7 +1108,7 @@ export default function InboxClient({
               </div>
 
               {/* ── Reply / Note box ── */}
-              <div className="shrink-0 border-t border-gray-200 bg-white">
+              <div className="shrink-0 border-t border-[#e9edef] bg-[#f0f2f5]">
                 {/* Assigned-to banner */}
                 {selected?.assignedTo && (
                   <div className="flex items-center justify-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-2">
@@ -1127,7 +1120,7 @@ export default function InboxClient({
                 )}
 
                 {/* Tabs */}
-                <div className="flex items-center gap-0 border-b border-gray-100 px-5">
+                <div className="flex items-center gap-0 border-b border-[#e9edef] px-5">
                   {(["reply", "note"] as const).map((tab) => (
                     <button key={tab} onClick={() => setReplyTab(tab)}
                       className={["py-3 px-1 mr-5 text-sm font-semibold border-b-2 -mb-px transition-colors",
@@ -1140,7 +1133,7 @@ export default function InboxClient({
                   ))}
                 </div>
 
-                <div className="px-5 py-4">
+                <div className="px-3 py-3">
                   {sendError && (
                     <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{sendError}</p>
                   )}
@@ -1172,14 +1165,13 @@ export default function InboxClient({
 
                       {/* Attach button */}
                       <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-gray-400 transition hover:bg-gray-50 hover:text-gray-600 disabled:opacity-40"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
                         title="Attach images or files">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                       </button>
 
-                      {/* Unified compose box */}
-                      <div className={["flex-1 rounded-2xl border bg-gray-50 transition focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/20",
-                        pendingMedia.length > 0 ? "border-brand/30" : "border-gray-200 focus-within:border-brand/40"].join(" ")}>
+                      {/* Unified compose box — WhatsApp white pill */}
+                      <div className="flex-1 rounded-[24px] bg-white shadow-sm overflow-hidden">
 
                         {/* File thumbnails row */}
                         {pendingMedia.length > 0 && (
@@ -1204,19 +1196,20 @@ export default function InboxClient({
                           </div>
                         )}
 
-                        <textarea ref={textareaRef} rows={2} value={replyText}
+                        <textarea ref={textareaRef} rows={1} value={replyText}
                           onChange={(e) => handleReplyChange(e.target.value)}
                           onKeyDown={handleReplyKeyDown}
-                          placeholder={pendingMedia.length > 0 ? "Add a caption… (optional)" : "Type a message… Use / for quick replies"}
-                          className="w-full resize-none bg-transparent px-4 py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none"
+                          placeholder={pendingMedia.length > 0 ? "Add a caption… (optional)" : "Type a message"}
+                          className="w-full resize-none bg-transparent px-4 py-2.5 text-sm text-[#111b21] placeholder:text-[#8696a0] focus:outline-none max-h-32"
+                          style={{ lineHeight: "1.5" }}
                         />
                       </div>
 
-                      {/* Single send button — handles both text and media */}
+                      {/* Send button — WhatsApp green */}
                       <button type="button"
                         onClick={() => pendingMedia.length > 0 ? void sendMedia() : void sendReply()}
                         disabled={(uploadingMedia || sending) || (pendingMedia.length === 0 && !replyText.trim())}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition hover:bg-[#00916e] disabled:cursor-not-allowed disabled:opacity-40">
                         {(sending || uploadingMedia) ? (
                           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                         ) : (
