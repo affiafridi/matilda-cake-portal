@@ -578,10 +578,13 @@ function SchedulePicker({
 // ── WhatsApp preview ───────────────────────────────────────────────────────
 
 function useWaProfile() {
-  const [profile, setProfile] = useState<{ name: string; picture: string | null }>({ name: "", picture: null });
+  const [profile, setProfile] = useState<{ name: string; picture: string | null }>({ name: "Business account", picture: null });
   useEffect(() => {
     fetch("/api/wa/profile").then(r => r.json()).then(j => {
-      if (j.ok) setProfile({ name: j.name, picture: j.picture });
+      if (j.ok && j.data) setProfile({
+        name:    j.data.verified_name       || "Business account",
+        picture: j.data.profile_picture_url ?? null,
+      });
     }).catch(() => {});
   }, []);
   return profile;

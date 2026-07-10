@@ -52,10 +52,13 @@ function StatusBadge({ status }: { status: string }) {
 // ── WhatsApp bubble preview ────────────────────────────────────────────────
 
 function useWaProfile() {
-  const [profile, setProfile] = useState<{ name: string; picture: string | null }>({ name: "", picture: null });
+  const [profile, setProfile] = useState<{ name: string; picture: string | null }>({ name: "Business account", picture: null });
   useEffect(() => {
     fetch("/api/wa/profile").then(r => r.json()).then(j => {
-      if (j.ok) setProfile({ name: j.name, picture: j.picture });
+      if (j.ok && j.data) setProfile({
+        name:    j.data.verified_name      || "Business account",
+        picture: j.data.profile_picture_url ?? null,
+      });
     }).catch(() => {});
   }, []);
   return profile;
@@ -1009,20 +1012,53 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
                 {/* Phone shell */}
                 <div className="relative rounded-[2rem] border-[6px] border-ink/80 bg-[#ECE5DD] shadow-xl overflow-hidden">
                   {/* Status bar */}
-                  <div className="flex items-center justify-between bg-[#075E54] px-3 py-1.5">
-                    <span className="text-[9px] font-semibold text-white/90">9:41</span>
+                  <div className="flex items-center justify-between bg-[#075E54] px-3 pt-2 pb-1">
+                    <span className="text-[9px] font-bold text-white">9:41</span>
                     <div className="flex items-center gap-1">
-                      <svg viewBox="0 0 24 24" fill="white" className="h-2.5 w-2.5 opacity-80"><path d="M1 6l5 5 5-5H1zm6 7l5 5 5-5H7z"/></svg>
-                      <svg viewBox="0 0 24 24" fill="white" className="h-2.5 w-2.5 opacity-80"><rect x="2" y="7" width="3" height="10" rx="1"/><rect x="7" y="4" width="3" height="13" rx="1"/><rect x="12" y="1" width="3" height="16" rx="1"/><rect x="17" y="3" width="3" height="14" rx="1"/></svg>
+                      {/* Signal */}
+                      <svg viewBox="0 0 24 24" fill="white" className="h-3 w-3 opacity-90">
+                        <rect x="2" y="15" width="3" height="6" rx="0.5"/>
+                        <rect x="7" y="11" width="3" height="10" rx="0.5"/>
+                        <rect x="12" y="7" width="3" height="14" rx="0.5"/>
+                        <rect x="17" y="3" width="3" height="18" rx="0.5"/>
+                      </svg>
+                      {/* WiFi */}
+                      <svg viewBox="0 0 24 24" fill="white" className="h-3 w-3 opacity-90">
+                        <path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01" stroke="white" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                      </svg>
+                      {/* Battery */}
+                      <svg viewBox="0 0 24 10" fill="white" className="h-2.5 w-4 opacity-90">
+                        <rect x="0.5" y="0.5" width="20" height="9" rx="2" stroke="white" strokeWidth="1" fill="none"/>
+                        <rect x="1.5" y="1.5" width="16" height="7" rx="1.5" fill="white"/>
+                        <rect x="21" y="3" width="2.5" height="4" rx="1" fill="white" opacity="0.6"/>
+                      </svg>
                     </div>
                   </div>
-                  {/* WA header bar */}
-                  <div className="flex items-center gap-2 bg-[#075E54] px-3 pb-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={profile.picture ?? "/uploads/logo.png"} alt={profile.name} className="h-7 w-7 rounded-full object-cover bg-white ring-2 ring-white/40" />
-                    <div>
-                      <p className="text-[10px] font-semibold text-white leading-tight">{profile.name}</p>
-                      <p className="text-[8px] text-white/60">Business account</p>
+                  {/* WA chat header */}
+                  <div className="flex items-center gap-2 bg-[#075E54] px-2 py-2">
+                    {/* Back arrow */}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 opacity-90">
+                      <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    {/* Avatar */}
+                    <div className="relative shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={profile.picture ?? "/uploads/logo.png"}
+                        alt={profile.name}
+                        className="h-8 w-8 rounded-full object-cover bg-white"
+                        onError={(e) => { (e.target as HTMLImageElement).src = "/uploads/logo.png"; }}
+                      />
+                    </div>
+                    {/* Name + status */}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[11px] font-semibold text-white leading-tight">{profile.name}</p>
+                      <p className="text-[9px] text-white/70 leading-tight">Business account</p>
+                    </div>
+                    {/* Action icons */}
+                    <div className="flex items-center gap-3 shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-80"><path d="M22 16.92v3a2 2 0 01-2.18 2A19.79 19.79 0 0110 13a19.5 19.5 0 01-3-9 2 2 0 012-2.18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L13.09 9.91A16 16 0 0019 15.91l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 opacity-80"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
                     </div>
                   </div>
                   {/* Chat area */}
