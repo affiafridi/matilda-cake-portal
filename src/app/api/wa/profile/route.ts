@@ -70,16 +70,19 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
 
-  // Username is updated on the phone number endpoint, not the profile endpoint
+  // Username uses its own endpoint: POST /{phone-number-id}/username
   if (body.username !== undefined) {
     try {
-      const res = await fetch(`${GQL}/${id}?access_token=${token}`, {
+      const res = await fetch(`${GQL}/${id}/username?access_token=${token}`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ username: body.username }),
       });
       const data = await res.json();
-      if (!res.ok) return NextResponse.json({ ok: false, error: data?.error?.message ?? "Username update failed" }, { status: 502 });
+      if (!res.ok) {
+        console.error("[wa/profile username POST]", JSON.stringify(data));
+        return NextResponse.json({ ok: false, error: data?.error?.message ?? "Username update failed" }, { status: 502 });
+      }
       return NextResponse.json({ ok: true });
     } catch (e) {
       console.error("[wa/profile username POST]", e);
