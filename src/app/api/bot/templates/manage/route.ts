@@ -88,6 +88,7 @@ const createSchema = z.object({
   headerText: z.string().optional(),
   headerImageUrl: z.string().optional(), // public URL — backend will upload to Meta
   headerHandle: z.string().optional(),   // already-uploaded h:xxx handle from MediaInput
+  headerFormat: z.enum(["IMAGE", "VIDEO", "DOCUMENT"]).optional(), // format of the uploaded handle
   headerLocation: z.object({
     name: z.string().optional(),
     address: z.string().optional(),
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid request", 400);
 
-    const { name, category, language, headerText, headerImageUrl, headerHandle, headerLocation, body: bodyText, bodyExamples, footerText, buttons } = parsed.data;
+    const { name, category, language, headerText, headerImageUrl, headerHandle, headerFormat, headerLocation, body: bodyText, bodyExamples, footerText, buttons } = parsed.data;
 
     const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) ?? [];
     const varCount = new Set(varMatches.map((m) => m.replace(/\{|\}/g, ""))).size;
@@ -119,8 +120,9 @@ export async function POST(req: NextRequest) {
     const rawUrl = headerImageUrl?.trim();
 
     if (rawHandle?.startsWith("h:")) {
-      // Already uploaded via MediaInput drag-drop — use handle directly
-      components.push({ type: "HEADER", format: "IMAGE", example: { header_handle: [rawHandle] } });
+      // Already uploaded via MediaInput drag-drop — use the declared format (VIDEO/DOCUMENT/IMAGE)
+      const fmt = headerFormat ?? "IMAGE";
+      components.push({ type: "HEADER", format: fmt, example: { header_handle: [rawHandle] } });
     } else if (rawUrl) {
       const lc = rawUrl.toLowerCase();
       const isVideo = lc.includes(".mp4");
@@ -204,7 +206,7 @@ export async function PATCH(req: NextRequest) {
     const parsed = patchSchema.safeParse(body);
     if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid request", 400);
 
-    const { templateId, category, headerText, headerImageUrl, headerHandle, headerLocation, body: bodyText, bodyExamples, footerText, buttons } = parsed.data;
+    const { templateId, category, headerText, headerImageUrl, headerHandle, headerFormat, headerLocation, body: bodyText, bodyExamples, footerText, buttons } = parsed.data;
 
     const varMatches = bodyText.match(/\{\{(\d+)\}\}/g) ?? [];
     const varCount = new Set(varMatches.map((m) => m.replace(/\{|\}/g, ""))).size;
@@ -215,7 +217,8 @@ export async function PATCH(req: NextRequest) {
     const rawHandle = headerHandle?.trim();
     const rawUrl = headerImageUrl?.trim();
     if (rawHandle?.startsWith("h:")) {
-      components.push({ type: "HEADER", format: "IMAGE", example: { header_handle: [rawHandle] } });
+      const fmt = headerFormat ?? "IMAGE";
+      components.push({ type: "HEADER", format: fmt, example: { header_handle: [rawHandle] } });
     } else if (rawUrl) {
       const lc = rawUrl.toLowerCase();
       const isVideo = lc.includes(".mp4");

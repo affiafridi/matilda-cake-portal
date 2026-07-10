@@ -259,7 +259,7 @@ function CategorySelector({ value, onChange }: { value: string; onChange: (v: st
 
 // ── File/URL media input ───────────────────────────────────────────────────
 
-type MediaValue = { handle?: string; url?: string; previewUrl?: string };
+type MediaValue = { handle?: string; url?: string; previewUrl?: string; mimeType?: string };
 
 function MediaInput({ label, accept, value, onChange, hint }: {
   label: string; accept: string;
@@ -277,13 +277,13 @@ function MediaInput({ label, accept, value, onChange, hint }: {
     try {
       const form = new FormData();
       form.append("file", file);
-      // Upload to Meta — get permanent handle + preview URL
       const res = await fetch("/api/bot/media/upload", { method: "POST", body: form });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Upload failed");
       onChange({
         handle: json.data.handle as string,
-        previewUrl: json.data.previewUrl ? `/api/bot/media/preview?handle=${encodeURIComponent(json.data.handle as string)}` : undefined,
+        previewUrl: `/api/bot/media/preview?handle=${encodeURIComponent(json.data.handle as string)}`,
+        mimeType: file.type,
         url: undefined,
       });
     } catch (e: unknown) {
@@ -292,32 +292,92 @@ function MediaInput({ label, accept, value, onChange, hint }: {
   }
 
   const previewSrc = value.previewUrl ?? value.url;
+  const hasFile  = !!(value.handle || previewSrc);
+  const isVideo  = value.mimeType?.startsWith("video/") || value.url?.toLowerCase().endsWith(".mp4");
+  const isPdf    = value.mimeType === "application/pdf" || value.url?.toLowerCase().endsWith(".pdf");
 
   return (
     <div className="space-y-3">
-      {/* Preview — shown once uploaded */}
-      {previewSrc && (
-        <div className="relative overflow-hidden rounded-xl border border-rule">
-          <img src={previewSrc} alt="header preview" className="w-full max-h-48 object-cover" /> {/* eslint-disable-line @next/next/no-img-element */}
-          <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/40 to-transparent p-3">
-            <div className="flex items-center gap-2">
-              {value.handle && (
-                <span className="flex items-center gap-1.5 rounded-full bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M20 6L9 17l-5-5"/></svg>
-                  Stored on Meta
-                </span>
-              )}
+      {/* Preview — shown once file is uploaded or URL pasted */}
+      {hasFile && (
+        <div className="overflow-hidden rounded-xl border border-rule">
+          {isPdf ? (
+            /* PDF — show a card, don't try to render the binary */
+            <div className="flex items-center justify-between gap-3 bg-gray-50 px-4 py-3.5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-ink">PDF uploaded</p>
+                  <p className="text-xs text-ink-muted">{value.handle ? "Stored on Meta — ready to use" : "URL set"}</p>
+                </div>
+              </div>
               <button type="button" onClick={() => { onChange({}); if (fileRef.current) fileRef.current.value = ""; }}
-                className="rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-black/70">
+                className="shrink-0 rounded-lg border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-red-50 hover:text-red-500 transition">
                 Remove
               </button>
             </div>
-          </div>
+          ) : isVideo && previewSrc ? (
+            /* Video — render player */
+            <div className="relative bg-black">
+              <video src={previewSrc} className="w-full max-h-48 object-contain" controls muted playsInline />
+              <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
+                {value.handle && (
+                  <span className="flex items-center gap-1.5 rounded-full bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white shadow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M20 6L9 17l-5-5"/></svg>
+                    Stored on Meta
+                  </span>
+                )}
+                <button type="button" onClick={() => { onChange({}); if (fileRef.current) fileRef.current.value = ""; }}
+                  className="rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-black/80">
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : isVideo ? (
+            /* Video uploaded but no previewable URL yet */
+            <div className="flex items-center justify-between gap-3 bg-gray-900 px-4 py-3.5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                  <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5 opacity-80"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Video uploaded</p>
+                  <p className="text-xs text-white/60">{value.handle ? "Stored on Meta — ready to use" : "URL set"}</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => { onChange({}); if (fileRef.current) fileRef.current.value = ""; }}
+                className="shrink-0 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/20 transition">
+                Remove
+              </button>
+            </div>
+          ) : previewSrc ? (
+            /* Image */
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewSrc} alt="header preview" className="w-full max-h-48 object-cover" />
+              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/40 to-transparent p-3">
+                <div className="flex items-center gap-2">
+                  {value.handle && (
+                    <span className="flex items-center gap-1.5 rounded-full bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M20 6L9 17l-5-5"/></svg>
+                      Stored on Meta
+                    </span>
+                  )}
+                  <button type="button" onClick={() => { onChange({}); if (fileRef.current) fileRef.current.value = ""; }}
+                    className="rounded-full bg-black/50 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-black/70">
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
       {/* Drop zone — hidden once file uploaded */}
-      {!previewSrc && (
+      {!hasFile && (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -361,7 +421,7 @@ function MediaInput({ label, accept, value, onChange, hint }: {
             <div className="h-px flex-1 bg-rule" />
           </div>
           <input type="url" value={value.url ?? ""} onChange={(e) => onChange({ url: e.target.value })}
-            placeholder="https://example.com/image.jpg"
+            placeholder="https://example.com/file"
             className="w-full rounded-lg border border-rule bg-canvas px-3 py-2 text-sm focus:border-[#25D366] focus:outline-none focus:ring-2 focus:ring-[#25D366]/20" />
         </>
       )}
@@ -608,7 +668,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
   async function saveDraft() {
     setSavingDraft(true); setError(null);
     try {
-      const payload = { name, category, language, headerType, headerText, headerMedia, body, footerText, buttons, examples };
+      const payload = { name, category, language, headerType, headerText, headerMedia, locationName, locationAddress, locationLat, locationLng, body, footerText, buttons, examples };
       const method  = initialDraft ? "PUT" : "POST";
       const body2   = initialDraft ? JSON.stringify({ ...payload, id: initialDraft.id }) : JSON.stringify(payload);
       const res = await fetch("/api/bot/template-drafts", { method, headers: { "Content-Type": "application/json" }, body: body2 });
@@ -629,6 +689,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
       const payload: Record<string, unknown> = { name, category, language, body, bodyExamples: examples, footerText, buttons };
       if (headerType === "TEXT" && headerText.trim()) payload.headerText = headerText.trim();
       if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+        payload.headerFormat = headerType;
         if (headerMedia.handle) payload.headerHandle = headerMedia.handle;
         else if (headerMedia.url?.trim()) payload.headerImageUrl = headerMedia.url.trim();
       }
