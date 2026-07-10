@@ -19,8 +19,8 @@ const DEFAULTS: PortalSettings = {
   wa_visible_to_admin:     true,
   portal_visible_to_admin: true,
   app_name:      "Order Portal",
-  primary_color: "#6b2e1a",
-  accent_color:  "#c9a535",
+  primary_color: "#2563eb",
+  accent_color:  "#0891b2",
   sidebar_color: "#ffffff",
   logo_url:      "/uploads/logo.png",
 };
@@ -73,7 +73,7 @@ export function hexToHslParts(hex: string): [number, number, number] | null {
 
 /** Returns brand CSS variables as a style object for the <html> element.
  *  Inline styles on <html> have the highest specificity — always override @theme. */
-export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accentHex = "#c9a535"): Record<string, string> {
+export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accentHex = "#0891b2"): Record<string, string> {
   const hsl = hexToHslParts(primaryHex);
   if (!hsl) return {};
   const [h, s, l] = hsl;
@@ -98,7 +98,7 @@ export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accen
 
   return {
     "--color-brand":      primaryHex,
-    "--color-gold":       accentHex ?? "#c9a535",
+    "--color-gold":       accentHex ?? "#0891b2",
     "--color-brand-dark": `hsl(${h} ${s}% ${dk}%)`,
     "--color-ink":        "#1a1a1a",
     "--color-ink-muted":  "#6b7280",

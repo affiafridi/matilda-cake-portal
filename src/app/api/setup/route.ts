@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     // Save brand settings
     const settings = [
       ["app_name",      body.app_name?.trim()     || body.name.trim() + " Portal"],
-      ["primary_color", body.primary_color?.trim() || "#6b2e1a"],
+      ["primary_color", body.primary_color?.trim() || "#2563eb"],
       ["sidebar_color", "#ffffff"],
       ["logo_url",      "/uploads/logo.png"],
       ["woo_visible_to_admin", "false"],
