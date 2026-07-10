@@ -245,9 +245,8 @@ export async function POST(req: NextRequest) {
       if (wc_url && wc_consumer_key) {
         const products = await searchWooCommerce(query ?? message, wc_url, wc_consumer_key, wc_consumer_secret);
         if (products.length > 0) {
-          // Only count usage when we actually call generateInfoReply
           const withinLimit = await checkAndIncrementUsage(dailyLimit);
-          if (!withinLimit) return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
+          if (!withinLimit) return NextResponse.json({ ok: false, error: "daily_limit_reached" }, { status: 429 });
           const list = products.map((p) => `• ${p.name} — ${p.price}\n  ${p.permalink}`).join("\n");
           const aiText = await generateInfoReply(
             `Customer asked: "${message}". Here are matching products:\n${list}\n\nMention them naturally with price and link.`,
@@ -263,10 +262,14 @@ export async function POST(req: NextRequest) {
         response = { type: "product_search", query: query ?? message };
       }
 
+    } else if (intent === "unknown") {
+      // Greetings / off-topic — don't burn daily limit, let bot use its own response
+      response = { type: "text", reply: "" };
+
     } else {
-      // info, unknown, disabled intents — generate AI text reply
+      // info or disabled intents — generate AI text reply
       const withinLimit = await checkAndIncrementUsage(dailyLimit);
-      if (!withinLimit) return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
+      if (!withinLimit) return NextResponse.json({ ok: false, error: "daily_limit_reached" }, { status: 429 });
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
       response = { type: "text", reply: reply || "" };
     }
