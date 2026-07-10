@@ -468,6 +468,7 @@ function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        dir="ltr"
         className="w-full max-w-md rounded-2xl border border-rule bg-white p-5 shadow-xl sm:p-6"
       >
         <div className="mb-4 flex items-start justify-between">
