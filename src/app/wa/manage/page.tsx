@@ -82,7 +82,16 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
         )}
         {headerType === "VIDEO" && (
           headerMediaUrl
-            ? <video src={headerMediaUrl} className="w-full max-h-36 object-cover" controls={false} />
+            ? (
+              <div className="relative bg-gray-900">
+                <video src={headerMediaUrl} className="w-full max-h-36 object-cover" preload="metadata" muted playsInline />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                    <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5 translate-x-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  </div>
+                </div>
+              </div>
+            )
             : <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-900">
                 <svg viewBox="0 0 24 24" fill="white" className="h-8 w-8 opacity-60"><polygon points="5 3 19 12 5 21 5 3" /></svg>
                 <p className="text-[10px] text-gray-400">Video preview</p>
@@ -94,7 +103,7 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
               <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" /></svg>
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-800">{headerMediaUrl ? headerMediaUrl.split("/").pop() : "document.pdf"}</p>
+              <p className="text-xs font-semibold text-gray-800">document.pdf</p>
               <p className="text-[10px] text-gray-400">PDF • Tap to open</p>
             </div>
           </div>
