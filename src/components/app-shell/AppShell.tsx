@@ -25,6 +25,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",  parentHref: "/dashboard" },
   "/wa/woocommerce":      { title: "WooCommerce",        parent: "Integrations", parentHref: "/admin/integrations" },
   "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/leads":            { title: "WA Leads",           parent: "WhatsApp",  parentHref: "/wa/inbox" },
 };
 
 function getPageMeta(pathname: string) {
@@ -67,6 +68,7 @@ const WA_NAV: { href: string; label: string; icon: (p: SVGProps<SVGSVGElement>) 
   { href: "/wa/manage",            label: "Manage Templates", icon: IcTemplate,   roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/settings",          label: "Channel Settings", icon: IcSettings,   roles: ["SUPER_ADMIN", "ADMIN"] },
   { href: "/wa/flows",             label: "Flow Builder",     icon: IcFlow,        roles: ["SUPER_ADMIN", "ADMIN"] },
+  { href: "/wa/leads",             label: "WA Leads",         icon: IcLeads,       roles: ["SUPER_ADMIN", "ADMIN"] },
 ];
 
 const WOO_NAV = [
@@ -573,6 +575,9 @@ function IcInbox(p: SVGProps<SVGSVGElement>) {
 }
 function IcFlow(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><rect x="3" y="3" width="6" height="4" rx="1"/><rect x="15" y="9" width="6" height="4" rx="1"/><rect x="3" y="17" width="6" height="4" rx="1"/><path d="M9 5h3a3 3 0 013 3v1M9 19h3a3 3 0 003-3v-1"/></svg>;
+}
+function IcLeads(p: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>;
 }
 function IcIntegrations(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;

@@ -452,6 +452,23 @@ model BroadcastRecipient {
   @@index([waId])
 }
 
+/// A WhatsApp lead captured when a customer goes through the bot's order-intent flow.
+model WhatsappLead {
+  id           String   @id @default(cuid())
+  waId         String
+  customerName String
+  phone        String
+  orderDetails String   @db.Text
+  source       String   @default("whatsapp")
+  status       String   @default("NEW") // NEW | CONTACTED | CONVERTED | LOST
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([waId])
+  @@index([status])
+  @@index([createdAt])
+}
+
 /// A button or list item within a flow step.
 model BotFlowOption {
   id          Int         @id @default(autoincrement())
