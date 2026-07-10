@@ -494,7 +494,6 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
 
 export default function IntegrationDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [tab,          setTab]          = useState<"overview" | "configure">("overview");
   const [isConfigured, setIsConfigured] = useState(false);
   const [statusLoaded, setStatusLoaded] = useState(false);
 
@@ -530,9 +529,10 @@ export default function IntegrationDetailPage() {
   }
 
   const fields = FIELDS[slug];
+  const hasConfig = fields || slug === "google-sheets";
 
   return (
-    <div className="px-6 py-6 lg:px-8">
+    <div className="px-6 py-6 lg:px-8 max-w-5xl">
 
       {/* Breadcrumb */}
       <Link href="/admin/integrations" className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition mb-5">
@@ -542,92 +542,63 @@ export default function IntegrationDetailPage() {
         <span className="text-ink">{meta.name}</span>
       </Link>
 
-      {/* Header card */}
-      <div className="rounded-2xl border border-rule bg-surface p-6 mb-6">
-        <div className="flex items-start gap-4">
-          <div className={`h-14 w-14 rounded-2xl ${meta.iconBg} flex items-center justify-center shrink-0`}>
-            {meta.icon}
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className={`h-14 w-14 rounded-2xl ${meta.iconBg} flex items-center justify-center shrink-0`}>
+          {meta.icon}
+        </div>
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-ink">{meta.name}</h1>
+            {statusLoaded && (
+              isConfigured
+                ? <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Connected</span>
+                : <span className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-gray-500"><span className="h-1.5 w-1.5 rounded-full bg-gray-300" />Not connected</span>
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <p className="text-lg font-bold text-ink">{meta.name}</p>
-                  {isConfigured && (
-                    <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Configured
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs font-medium text-brand/70 mt-0.5">{meta.category}</p>
-              </div>
-              {(fields || slug === "google-sheets") && (
-                <button onClick={() => setTab("configure")}
-                  className={["flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition shrink-0",
-                    isConfigured ? "bg-gray-700 hover:bg-gray-800" : "bg-brand hover:bg-brand-dark",
-                  ].join(" ")}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
-                  {isConfigured ? "Update" : "Configure"}
-                </button>
-              )}
-            </div>
-            <p className="mt-3 text-sm text-ink-muted leading-relaxed">{meta.desc}</p>
-          </div>
+          <p className="text-xs font-medium text-ink-muted mt-0.5">{meta.category}</p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-0 border-b border-rule mb-6">
-        {(["overview", "configure"] as const).filter((t) => t === "overview" || fields || slug === "google-sheets").map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={["py-3 px-1 mr-6 text-sm font-semibold border-b-2 -mb-px transition-colors capitalize",
-              tab === t ? "border-brand text-brand" : "border-transparent text-ink-muted hover:text-ink",
-            ].join(" ")}>
-            {t === "configure" ? "Configuration" : "Overview"}
-          </button>
-        ))}
-      </div>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-      {/* Tab content */}
-      {tab === "overview" && (
-        <div className="space-y-6">
-          <div>
-            <p className="text-sm font-bold text-ink mb-4">What can this integration do?</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Left — About */}
+        <div className="lg:col-span-2 space-y-5">
+          <div className="rounded-2xl border border-rule bg-white p-5">
+            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1">About</p>
+            <p className="text-sm text-ink leading-relaxed">{meta.desc}</p>
+          </div>
+
+          <div className="rounded-2xl border border-rule bg-white p-5">
+            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-3">What&apos;s included</p>
+            <ul className="space-y-2.5">
               {meta.features.map((feat, i) => (
-                <div key={i} className="flex items-start gap-3 rounded-xl border border-rule bg-canvas px-4 py-3">
-                  <div className="mt-0.5 h-5 w-5 shrink-0 rounded-lg bg-brand/10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-brand"><polyline points="20 6 9 17 4 12"/></svg>
+                <li key={i} className="flex items-start gap-2.5">
+                  <div className="mt-0.5 h-4 w-4 shrink-0 rounded-md bg-brand/10 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5 text-brand"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
                   <p className="text-xs text-ink leading-relaxed">{feat}</p>
-                </div>
+                </li>
               ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* Right — Credentials */}
+        {hasConfig && (
+          <div className="lg:col-span-3">
+            <div className="rounded-2xl border border-rule bg-white p-6">
+              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-5">Credentials</p>
+              {slug === "google-sheets" ? (
+                <GoogleSheetsConfig />
+              ) : fields ? (
+                <CredentialsForm fields={fields} />
+              ) : null}
             </div>
           </div>
-
-          {fields && statusLoaded && !isConfigured && (
-            <div className="rounded-2xl border border-brand/20 bg-brand/5 px-5 py-4 flex items-center justify-between gap-4">
-              <p className="text-sm text-ink">Ready to connect? Add your credentials in the configuration tab.</p>
-              <button onClick={() => setTab("configure")}
-                className="shrink-0 rounded-xl px-4 py-2 text-sm font-semibold text-white bg-brand hover:bg-brand-dark transition">
-                Go to Configuration →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === "configure" && (
-        <div className="rounded-2xl border border-rule bg-surface p-6">
-          {slug === "google-sheets" ? (
-            <GoogleSheetsConfig />
-          ) : fields ? (
-            <CredentialsForm fields={fields} />
-          ) : (
-            <p className="text-sm text-ink-muted">No configuration available for this integration yet.</p>
-          )}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
