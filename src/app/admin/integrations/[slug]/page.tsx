@@ -417,7 +417,7 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
           </div>
           <div>
             <p className="text-sm font-semibold text-emerald-800">Credentials configured</p>
-            <p className="text-xs text-emerald-600">This integration is active. Update the fields below if anything changes.</p>
+            <p className="text-xs text-emerald-600">This integration is active and connected.</p>
           </div>
         </div>
       )}
@@ -561,10 +561,10 @@ export default function IntegrationDetailPage() {
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
 
         {/* Left — About */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="space-y-5">
           <div className="rounded-2xl border border-rule bg-white p-5">
             <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1">About</p>
             <p className="text-sm text-ink leading-relaxed">{meta.desc}</p>
@@ -587,7 +587,7 @@ export default function IntegrationDetailPage() {
 
         {/* Right — Credentials */}
         {hasConfig && (
-          <div className="lg:col-span-3">
+          <div>
             <div className="rounded-2xl border border-rule bg-white p-6">
               <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-5">Credentials</p>
               {slug === "google-sheets" ? (
