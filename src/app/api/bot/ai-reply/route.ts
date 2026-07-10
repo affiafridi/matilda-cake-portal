@@ -110,7 +110,7 @@ async function classifyIntent(
 ): Promise<{ intent: Intent; query?: string }> {
   const available: string[] = [];
   if (enabledIntents.search)  available.push('"product_search" — customer is looking for, searching for, or asking about a specific type of product or cake (e.g. "looking for a birthday cake", "do you have chocolate cake", "anniversary cake", "I need a cake for my daughter", "what cakes do you have for weddings"). Use this whenever a specific cake type, occasion, or product is mentioned.');
-  if (enabledIntents.catalog) available.push('"catalog" — customer wants to see the full menu, product list, or catalogue without mentioning a specific item (e.g. "show me your menu", "what do you sell", "see all cakes")');
+  if (enabledIntents.catalog) available.push('"catalog" — customer wants to browse the menu, categories, or product list without asking about a specific item (e.g. "show me your menu", "what do you sell", "see all cakes", "which categories do you have", "what kind of menu do you have", "what categories do you have", "what options do you have", "what types of cakes do you make", "show me what you have").');
   available.push('"order" — customer explicitly says they want to place or confirm an order right now (e.g. "I want to order", "I would like to buy", "can I place an order", "I want to purchase")');
   if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human or get support (e.g. "talk to agent", "speak to someone", "customer service")');
   if (enabledIntents.info)    available.push('"info" — customer is asking a factual question about the business: hours, location, delivery, pricing, payment, or policies — with no mention of a specific product');
@@ -121,10 +121,11 @@ async function classifyIntent(
     "Respond with JSON only. No explanation.",
     "",
     "Rules:",
-    "- If the customer mentions ANY specific cake type, occasion, or product — always use product_search",
+    "- If the customer asks about categories, menu, options, or types of products in general — always use catalog",
+    "- If the customer mentions a SPECIFIC cake type, occasion, or product — use product_search instead of catalog",
     "- product_search includes browsing/looking/wanting/needing a specific cake, even if they haven't said 'order' yet",
-    "- Only use 'order' if they explicitly say they want to place or confirm an order with no product mentioned",
-    "- Only use 'info' for pure business questions (hours, location, delivery) with no product mentioned",
+    "- Only use 'order' if they explicitly say they want to place or confirm an order",
+    "- Only use 'info' for pure business questions (hours, location, delivery) with no product or menu mention",
     "",
     "Available intents:",
     ...available.map((a) => `- ${a}`),
