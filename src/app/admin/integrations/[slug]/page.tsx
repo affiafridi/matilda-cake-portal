@@ -409,18 +409,6 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
 
   return (
     <div className="space-y-5">
-      {/* Configured status banner */}
-      {isConfigured && (
-        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-emerald-600"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-emerald-800">Credentials configured</p>
-            <p className="text-xs text-emerald-600">This integration is active and connected.</p>
-          </div>
-        </div>
-      )}
 
       {fields.map((f) => (
         <div key={f.key}>
@@ -437,7 +425,7 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
         </div>
       ))}
 
-      <div className="flex items-center gap-3 pt-1 border-t border-rule">
+      <div className="flex items-center gap-3 pt-4 border-t border-rule">
         {!isConfigured && (
           <button onClick={save} disabled={saveState === "saving"}
             className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 bg-brand hover:bg-brand-dark">
