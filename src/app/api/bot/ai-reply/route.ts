@@ -107,30 +107,30 @@ async function classifyIntent(
   message: string,
   apiKey: string,
   enabledIntents: Record<string, boolean>,
+  systemPrompt: string,
 ): Promise<{ intent: Intent; query?: string }> {
   const available: string[] = [];
-  if (enabledIntents.search)  available.push('"product_search" — customer is looking for, searching for, or asking about a specific type of product or cake (e.g. "looking for a birthday cake", "do you have chocolate cake", "anniversary cake", "I need a cake for my daughter", "what cakes do you have for weddings"). Use this whenever a specific cake type, occasion, or product is mentioned.');
-  if (enabledIntents.catalog) available.push('"catalog" — customer wants to browse the menu, categories, or product list without asking about a specific item (e.g. "show me your menu", "what do you sell", "see all cakes", "which categories do you have", "what kind of menu do you have", "what categories do you have", "what options do you have", "what types of cakes do you make", "show me what you have").');
-  available.push('"order" — customer explicitly says they want to place or confirm an order right now (e.g. "I want to order", "I would like to buy", "can I place an order", "I want to purchase")');
-  if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human or get support (e.g. "talk to agent", "speak to someone", "customer service")');
-  if (enabledIntents.info)    available.push('"info" — customer is asking a factual question about the business: hours, location, delivery, pricing, payment, or policies — with no mention of a specific product');
-  available.push('"unknown" — greeting only, thank you, or completely off-topic message that does not fit any of the above');
+  if (enabledIntents.search)  available.push('"product_search" — customer is looking for or asking about a specific product or item');
+  if (enabledIntents.catalog) available.push('"catalog" — customer wants to browse the menu, categories, or full product list');
+  available.push('"order" — customer explicitly wants to place or confirm an order right now');
+  if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human or get support');
+  if (enabledIntents.info)    available.push('"info" — customer is asking a factual question about the business with no product or menu mention');
+  available.push('"unknown" — greeting, thank you, or off-topic');
 
   const prompt = [
-    "Classify the following customer WhatsApp message into exactly one intent.",
+    "Using the business context in the system prompt, classify the customer message into exactly one intent.",
     "Respond with JSON only. No explanation.",
     "",
     "Rules:",
-    "- If the customer asks about categories, menu, options, or types of products in general — always use catalog",
-    "- If the customer mentions a SPECIFIC cake type, occasion, or product — use product_search instead of catalog",
-    "- product_search includes browsing/looking/wanting/needing a specific cake, even if they haven't said 'order' yet",
-    "- Only use 'order' if they explicitly say they want to place or confirm an order",
-    "- Only use 'info' for pure business questions (hours, location, delivery) with no product or menu mention",
+    "- Use catalog when the customer asks about categories, menu, or products in general",
+    "- Use product_search when a specific product, type, or occasion is mentioned",
+    "- Use order only when the customer explicitly says they want to place an order",
+    "- Use info for business questions (hours, location, delivery) with no product mention",
     "",
     "Available intents:",
     ...available.map((a) => `- ${a}`),
     "",
-    `If intent is "product_search", include a "query" field with the clean product search term (e.g. "birthday cake", "chocolate cake", "wedding cake").`,
+    `If intent is "product_search", include a "query" field with the clean search term extracted from the message.`,
     "",
     `Customer message: "${message}"`,
     "",
@@ -142,7 +142,10 @@ async function classifyIntent(
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: MODEL,
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: prompt },
+      ],
       max_tokens: 80,
       temperature: 0,
       response_format: { type: "json_object" },
@@ -230,8 +233,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
     }
 
-    // Step 1 — classify intent
-    const { intent, query } = await classifyIntent(message, openai_api_key, intents);
+    // Step 1 — classify intent (system prompt gives GPT the business context)
+    const { intent, query } = await classifyIntent(message, openai_api_key, intents, systemPrompt);
 
     let response: AiReplyResponse;
 
