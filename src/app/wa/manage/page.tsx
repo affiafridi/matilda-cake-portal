@@ -599,16 +599,29 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
     const h = initialTemplate?.components.find((c) => c.type === "HEADER");
     return h?.format === "TEXT" ? (h.text ?? "") : "";
   });
-  const [headerMedia, setHeaderMedia] = useState<MediaValue>(() => {
-    if (initialDraft) return initialDraft.header_media ?? {};
-    const h = initialTemplate?.components.find((c) => c.type === "HEADER");
-    if (!h || h.format === "TEXT" || h.format === "LOCATION" || h.format === "NONE") return {};
-    const url = h.example?.header_url?.[0];
-    const handle = h.example?.header_handle?.[0];
-    if (url) return { url };
-    if (handle) return { url: handle.startsWith("https://") ? handle : undefined, handle: handle.startsWith("h:") ? handle : undefined };
-    return {};
+  // Store media per header type so switching types doesn't lose uploads
+  const [headerMediaMap, setHeaderMediaMap] = useState<Record<string, MediaValue>>(() => {
+    const initial: MediaValue = (() => {
+      if (initialDraft) return initialDraft.header_media ?? {};
+      const h = initialTemplate?.components.find((c) => c.type === "HEADER");
+      if (!h || h.format === "TEXT" || h.format === "LOCATION" || h.format === "NONE") return {};
+      const url = h.example?.header_url?.[0];
+      const handle = h.example?.header_handle?.[0];
+      if (url) return { url };
+      if (handle) return { previewUrl: `/api/bot/media/preview?handle=${encodeURIComponent(handle)}`, handle: handle.startsWith("h:") || /^\d:/.test(handle) ? handle : undefined };
+      return {};
+    })();
+    const initialType = (() => {
+      if (initialDraft) return initialDraft.header_type;
+      const h = initialTemplate?.components.find((c) => c.type === "HEADER");
+      return (h?.format as HeaderType) ?? "NONE";
+    })();
+    return { [initialType]: initial };
   });
+  const headerMedia = headerMediaMap[headerType] ?? {};
+  function setHeaderMedia(v: MediaValue) {
+    setHeaderMediaMap((prev) => ({ ...prev, [headerType]: v }));
+  }
   const [locationName, setLocationName] = useState("");
   const [locationAddress, setLocationAddress] = useState("");
   const [locationLat, setLocationLat] = useState("");
@@ -649,9 +662,6 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
     setExamples(varIndices.map((_, i) => examples[i] ?? ""));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [varIndices.length]);
-
-  // Reset media when header type changes
-  useEffect(() => { setHeaderMedia({}); setHeaderText(""); }, [headerType]);
 
   const btnMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
