@@ -238,40 +238,39 @@ function GoogleSheetsConfig() {
   return (
     <div className="space-y-5">
       {/* Connection status */}
-      <div className="flex items-center justify-between rounded-2xl border border-rule bg-canvas px-5 py-4">
-        <div>
-          <p className="text-sm font-semibold text-ink">Google Account</p>
-          <p className="text-xs text-ink-muted mt-0.5">
-            {connected ? "Your Google account is connected and syncing." : oauthReady ? "OAuth credentials saved — ready to connect." : "Save Google OAuth credentials first, then connect."}
-          </p>
-        </div>
-        {loading ? <Spinner /> : connected ? (
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Connected
-            </span>
-            <button onClick={handleDisconnect} disabled={disconnecting}
-              className="text-xs text-ink-muted hover:text-red-500 transition border border-rule rounded-xl px-3 py-1.5">
-              {disconnecting ? "…" : "Disconnect"}
-            </button>
+      <div className="rounded-2xl border border-rule bg-canvas px-5 py-4 space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-ink">Google Account</p>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {connected ? "Your Google account is connected and syncing." : oauthReady ? "OAuth credentials saved — ready to connect." : "Configure Google OAuth integration first, then connect."}
+            </p>
           </div>
-        ) : oauthReady ? (
-          <a href="/api/admin/integrations/google/connect"
-            className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition">
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-              <path d="M12 0C5.372 0 0 5.373 0 12s5.372 12 12 12c6.627 0 12-5.373 12-12S18.627 0 12 0zm.14 19.018c-3.868 0-7-3.14-7-7.018 0-3.878 3.132-7.018 7-7.018 1.89 0 3.47.697 4.682 1.829l-1.974 1.978v-.004c-.735-.702-1.667-1.062-2.708-1.062-2.31 0-4.187 1.956-4.187 4.273 0 2.315 1.877 4.277 4.187 4.277 2.096 0 3.522-1.202 3.816-2.852H12.14v-2.737h6.585c.088.47.135.96.135 1.474 0 4.01-2.677 6.86-6.72 6.86z"/>
-            </svg>
-            Connect Google
-          </a>
-        ) : (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+          {loading ? <Spinner /> : connected ? (
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Connected
+              </span>
+              <button onClick={handleDisconnect} disabled={disconnecting}
+                className="text-xs text-ink-muted hover:text-red-500 transition border border-rule rounded-xl px-3 py-1.5">
+                {disconnecting ? "…" : "Disconnect"}
+              </button>
+            </div>
+          ) : oauthReady ? (
+            <a href="/api/admin/integrations/google/connect" className="shrink-0 flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                <path d="M12 0C5.372 0 0 5.373 0 12s5.372 12 12 12c6.627 0 12-5.373 12-12S18.627 0 12 0zm.14 19.018c-3.868 0-7-3.14-7-7.018 0-3.878 3.132-7.018 7-7.018 1.89 0 3.47.697 4.682 1.829l-1.974 1.978v-.004c-.735-.702-1.667-1.062-2.708-1.062-2.31 0-4.187 1.956-4.187 4.273 0 2.315 1.877 4.277 4.187 4.277 2.096 0 3.522-1.202 3.816-2.852H12.14v-2.737h6.585c.088.47.135.96.135 1.474 0 4.01-2.677 6.86-6.72 6.86z"/>
+              </svg>
+              Connect Google
+            </a>
+          ) : null}
+        </div>
+        {!loading && !connected && !oauthReady && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-amber-500 shrink-0">
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
-            <div>
-              <p className="text-xs font-semibold text-amber-700">OAuth credentials required</p>
-              <p className="text-[11px] text-amber-600">Configure Google OAuth integration first</p>
-            </div>
+            <p className="text-xs font-medium text-amber-700">Go to <span className="font-semibold">Integrations → Google OAuth</span> and save your credentials first</p>
           </div>
         )}
       </div>
