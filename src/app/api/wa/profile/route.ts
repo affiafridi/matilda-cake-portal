@@ -9,12 +9,10 @@ const PROFILE_FIELDS = "about,address,description,email,profile_picture_url,webs
 const GQL = "https://graph.facebook.com/v20.0";
 
 export async function GET() {
-  const { wa_phone_number_id: id, wa_access_token: token } = await getIntegrations();
+  const { wa_phone_number_id: id, wa_access_token: token, wa_business_account_id: wabaId } = await getIntegrations();
   if (!id || !token) return NextResponse.json({ ok: false, error: "WA not configured" }, { status: 503 });
 
   try {
-    const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
-    console.log("[wa/profile] using phone_number_id:", id, "wabaId:", wabaId);
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
       fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,throughput,username&access_token=${token}`, { cache: "no-store" }),
