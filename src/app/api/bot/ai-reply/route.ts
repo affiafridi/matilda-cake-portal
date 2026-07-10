@@ -225,7 +225,8 @@ export async function POST(req: NextRequest) {
 
     const withinLimit = await checkAndIncrementUsage(dailyLimit);
     if (!withinLimit) {
-      return NextResponse.json({ ok: true, type: "text", reply: "Our AI assistant is temporarily unavailable. Please type 'agent' to speak with our team.", waId }, { status: 200 });
+      // Daily limit hit — return empty so bot uses its own fallback
+      return NextResponse.json({ ok: true, type: "text", reply: "", waId }, { status: 200 });
     }
 
     // Step 1 — classify intent
@@ -240,11 +241,10 @@ export async function POST(req: NextRequest) {
       response = { type: "catalog" };
 
     } else if (intent === "product_search" && intents.search) {
-      // Optional: search WooCommerce now if bot can't do it
       if (wc_url && wc_consumer_key) {
         const products = await searchWooCommerce(query ?? message, wc_url, wc_consumer_key, wc_consumer_secret);
         if (products.length > 0) {
-          const list = products.map((p) => `• ${p.name} — £${p.price}\n  ${p.permalink}`).join("\n");
+          const list = products.map((p) => `• ${p.name} — ${p.price}\n  ${p.permalink}`).join("\n");
           const aiText = await generateInfoReply(
             `Customer asked: "${message}". Here are matching products:\n${list}\n\nMention them naturally with price and link.`,
             systemPrompt,
@@ -262,12 +262,8 @@ export async function POST(req: NextRequest) {
     } else if (intent === "agent" && intents.agent) {
       response = { type: "agent" };
 
-    } else if (intent === "info" && intents.info) {
-      const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
-      response = { type: "text", reply };
-
     } else {
-      // unknown / greeting / disabled intent — always go through AI using whatever prompt is set
+      // info, unknown, disabled intents — all fall through to AI text reply
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
       response = { type: "text", reply: reply || "" };
     }
