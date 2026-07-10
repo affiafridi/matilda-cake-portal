@@ -16,10 +16,10 @@ export async function GET() {
     const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
-      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,code_verification_status,quality_rating,messaging_limit_tier,status,account_mode,throughput,username&access_token=${token}`, { cache: "no-store" }),
+      fetch(`${GQL}/${id}?fields=verified_name,name,display_phone_number,phone_number,code_verification_status,quality_rating,messaging_limit_tier,status,account_mode,throughput,username&access_token=${token}`, { cache: "no-store" }),
       fetch(`${GQL}/${id}/whatsapp_business_profile?fields=${PROFILE_FIELDS}&access_token=${token}`, { cache: "no-store" }),
       wabaId
-        ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name,phone_numbers&access_token=${token}`, { cache: "no-store" })
+        ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name,phone_numbers{verified_name,display_phone_number}&access_token=${token}`, { cache: "no-store" })
         : Promise.resolve(null),
     ]);
 
@@ -32,11 +32,22 @@ export async function GET() {
     if (phone.error)   console.error("[wa/profile phone]", JSON.stringify(phone.error));
     if (profile.error) console.error("[wa/profile profile]", JSON.stringify(profile.error));
     if (waba?.error)   console.error("[wa/profile waba]", JSON.stringify(waba.error));
+    // Debug: log what Meta returned for name/phone fields
+    console.log("[wa/profile] phone fields:", JSON.stringify({
+      verified_name: phone.verified_name, name: phone.name,
+      display_phone_number: phone.display_phone_number, phone_number: phone.phone_number,
+      status: phone.status, account_mode: phone.account_mode,
+    }));
 
-    // WABA may return name as fallback when phone verified_name is missing
-    const verifiedName = phone.verified_name || waba?.name || "";
-    // Phone number can also be inside WABA phone_numbers list
+    // verified_name is the primary; some accounts return it as "name" instead
+    const verifiedName = phone.verified_name
+      || phone.name
+      || waba?.phone_numbers?.data?.[0]?.verified_name
+      || waba?.name
+      || "";
+    // display_phone_number; some API versions return it as "phone_number"
     const displayPhone = phone.display_phone_number
+      || phone.phone_number
       || waba?.phone_numbers?.data?.[0]?.display_phone_number
       || "";
 
