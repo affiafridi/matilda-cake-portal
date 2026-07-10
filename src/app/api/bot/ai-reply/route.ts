@@ -261,9 +261,9 @@ export async function POST(req: NextRequest) {
       response = { type: "text", reply };
 
     } else {
-      // unknown / greeting / disabled intent — try AI then hard fallback
+      // unknown / greeting / disabled intent — always go through AI using whatever prompt is set
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
-      response = { type: "text", reply: reply || "I didn't quite understand that. Could you please rephrase?" };
+      response = { type: "text", reply: reply || "" };
     }
 
     return NextResponse.json({ ok: true, waId, ...response });
