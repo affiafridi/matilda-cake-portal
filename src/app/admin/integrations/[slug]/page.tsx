@@ -532,7 +532,7 @@ export default function IntegrationDetailPage() {
   const hasConfig = fields || slug === "google-sheets";
 
   return (
-    <div className="px-6 py-6 lg:px-8 max-w-5xl">
+    <div className="px-6 py-6 lg:px-8">
 
       {/* Breadcrumb */}
       <Link href="/admin/integrations" className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition mb-5">
