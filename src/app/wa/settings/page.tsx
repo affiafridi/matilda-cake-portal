@@ -343,7 +343,7 @@ export default function WaSettingsPage() {
                             onChange={(e) => setUsername(e.target.value.replace(/[^a-z0-9_.]/gi, "").toLowerCase())}
                             maxLength={25}
                             className="w-full rounded-xl border border-rule bg-canvas pl-8 pr-3.5 py-2.5 text-sm text-ink focus:border-caramel focus:outline-none focus:ring-2 focus:ring-caramel/20"
-                            placeholder="matildacake" />
+                            placeholder="username" />
                         </div>
                         <button type="button" onClick={saveUsername} disabled={usernameSaving || !username.trim()}
                           className="shrink-0 flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition disabled:opacity-40">
