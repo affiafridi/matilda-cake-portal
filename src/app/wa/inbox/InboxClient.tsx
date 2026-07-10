@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -234,10 +235,12 @@ export default function InboxClient({
   currentUserId:        string;
   templateConfigured:   boolean;
 }) {
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
-  const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("unassigned");
+  const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("all");
   const [search,        setSearch]        = useState("");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
+  const openWaId = searchParams.get("waId");
   const [messages,      setMessages]      = useState<Message[]>([]);
   const [events,        setEvents]        = useState<ConversationEvent[]>([]);
   const [notes,         setNotes]         = useState<Note[]>([]);
@@ -283,6 +286,15 @@ export default function InboxClient({
   const isFirstFetchRef = useRef(true);
 
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+
+  // ── Auto-select conversation from ?waId= URL param ────────────────────────
+  useEffect(() => {
+    if (!openWaId || conversations.length === 0 || selectedId) return;
+    const norm = openWaId.replace(/^\+/, "");
+    const match = conversations.find((c) => c.waId === norm || c.waId === openWaId);
+    if (match) setSelectedId(match.id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openWaId, conversations]);
 
   // ── Toasts ────────────────────────────────────────────────────────────────
   function addToast(msg: string) {
