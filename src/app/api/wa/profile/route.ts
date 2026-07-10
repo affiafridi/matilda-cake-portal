@@ -14,6 +14,7 @@ export async function GET() {
 
   try {
     const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
+    console.log("[wa/profile] using phone_number_id:", id, "wabaId:", wabaId);
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
       fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,throughput,username&access_token=${token}`, { cache: "no-store" }),
