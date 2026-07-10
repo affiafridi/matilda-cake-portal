@@ -79,9 +79,10 @@ function applyBrandVarsLive(hex: string) {
 }
 
 type Settings = {
-  woo_visible_to_admin:    boolean;
-  wa_visible_to_admin:     boolean;
-  portal_visible_to_admin: boolean;
+  woo_visible_to_admin:          boolean;
+  wa_visible_to_admin:           boolean;
+  portal_visible_to_admin:       boolean;
+  integrations_visible_to_admin: boolean;
   app_name:      string;
   primary_color: string;
   accent_color:  string;
@@ -147,9 +148,10 @@ export default function AdminSettingsPage() {
     const get = (name: string, fallback: string) =>
       v?.getPropertyValue(name).trim() || fallback;
     return {
-      woo_visible_to_admin:    false,
-      wa_visible_to_admin:     true,
-      portal_visible_to_admin: true,
+      woo_visible_to_admin:          false,
+      wa_visible_to_admin:           true,
+      portal_visible_to_admin:       true,
+      integrations_visible_to_admin: false,
       app_name:      "Order Portal",
       primary_color: get("--color-brand",   "#2563eb"),
       accent_color:  get("--color-gold",    "#6366f1"),
@@ -262,16 +264,17 @@ export default function AdminSettingsPage() {
     if (file) uploadLogo(file);
   }
 
-  function toggle(key: "woo_visible_to_admin" | "wa_visible_to_admin" | "portal_visible_to_admin") {
+  function toggle(key: "woo_visible_to_admin" | "wa_visible_to_admin" | "portal_visible_to_admin" | "integrations_visible_to_admin") {
     const newValue = !settings[key];
     setSettings((prev) => ({ ...prev, [key]: newValue }));
     save(key, newValue);
   }
 
   const toggleRows = [
-    { key: "wa_visible_to_admin"     as const, label: "WhatsApp Section", description: "Allow Admin role to see Team Inbox, Customers, Campaigns and WA settings" },
-    { key: "portal_visible_to_admin" as const, label: "Portal Section",   description: "Allow Admin role to see Orders, Branches, Users and New Order" },
-    { key: "woo_visible_to_admin"    as const, label: "WooCommerce Section", description: "Allow Admin role to see and manage Woo Categories" },
+    { key: "wa_visible_to_admin"           as const, label: "WhatsApp Section",    description: "Allow Admin role to see Team Inbox, Customers, Campaigns and WA settings" },
+    { key: "portal_visible_to_admin"       as const, label: "Portal Section",      description: "Allow Admin role to see Orders, Branches, Users and New Order" },
+    { key: "woo_visible_to_admin"          as const, label: "WooCommerce Section", description: "Allow Admin role to see and manage Woo Categories" },
+    { key: "integrations_visible_to_admin" as const, label: "Integrations",        description: "Allow Admin role to view and configure integrations (WhatsApp, WooCommerce, Google, OpenAI etc.)" },
   ];
 
   return (

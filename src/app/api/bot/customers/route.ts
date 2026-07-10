@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Count real messages from portal DB — one query for all customers
-    const waIds = rows.map((r: { wa_id: string }) => r.wa_id);
+    const waIds = (rows as { wa_id: string }[]).map((r) => r.wa_id);
     let msgCountMap: Record<string, number> = {};
     if (waIds.length > 0) {
       const convs = await prisma.conversation.findMany({

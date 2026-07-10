@@ -13,10 +13,18 @@ const INTEGRATION_KEYS = [
   "openai_api_key",
 ];
 
+async function canAccessIntegrations(user: { role: string } | null): Promise<boolean> {
+  if (!user) return false;
+  if (user.role === "SUPER_ADMIN") return true;
+  if (user.role !== "ADMIN") return false;
+  const rows = await prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'integrations_visible_to_admin'`;
+  return (rows[0]?.value ?? "false") === "true";
+}
+
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "SUPER_ADMIN") return jsonError("Forbidden", 403);
+    if (!await canAccessIntegrations(user)) return jsonError("Forbidden", 403);
 
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM portal_settings
