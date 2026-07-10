@@ -560,9 +560,9 @@ export default function InboxClient({
   const windowClosed  = is24hWindowClosed(selected?.lastInboundAt ?? null);
 
   const counts = {
-    unassigned: conversations.filter((c) => !c.assignedTo && (c.botPaused || c.agentRequested)).length,
+    unassigned: conversations.filter((c) => !c.assignedTo).length,
     mine:       conversations.filter((c) => c.assignedTo?.id === currentUserId).length,
-    all:        conversations.filter((c) => c.botPaused || c.agentRequested).length,
+    all:        conversations.length,
     open:       conversations.filter((c) => c.status === "OPEN").length,
     resolved:   conversations.filter((c) => c.status === "RESOLVED").length,
     paused:     conversations.filter((c) => c.botPaused).length,
@@ -570,9 +570,9 @@ export default function InboxClient({
 
   const filtered = conversations.filter((c) => {
     let pass = true;
-    if (view === "unassigned") pass = !c.assignedTo && (c.botPaused || c.agentRequested);
+    if (view === "unassigned") pass = !c.assignedTo;
     else if (view === "mine")  pass = c.assignedTo?.id === currentUserId;
-    else if (view === "all")   pass = c.botPaused || c.agentRequested;
+    else if (view === "all")   pass = true;
     else if (view === "open")  pass = c.status === "OPEN";
     else if (view === "resolved") pass = c.status === "RESOLVED";
     else if (view === "paused")   pass = c.botPaused;
