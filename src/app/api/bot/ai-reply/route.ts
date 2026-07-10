@@ -10,12 +10,13 @@ const MODEL      = "gpt-4o-mini";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type Intent = "catalog" | "product_search" | "agent" | "info" | "unknown";
+type Intent = "catalog" | "product_search" | "agent" | "info" | "order" | "unknown";
 
 export type AiReplyResponse =
   | { type: "catalog" }
   | { type: "product_search"; query: string }
   | { type: "agent" }
+  | { type: "order" }
   | { type: "text"; reply: string };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -106,11 +107,12 @@ async function classifyIntent(
   enabledIntents: Record<string, boolean>,
 ): Promise<{ intent: Intent; query?: string }> {
   const available: string[] = [];
+  available.push('"order" — customer wants to place an order, buy a cake, make a purchase, or mentions ordering something (e.g. "I want to order", "I want a birthday cake", "anniversary cake", "can I get a cake")');
   if (enabledIntents.catalog) available.push('"catalog" — customer wants to see the menu, product list, or catalogue');
-  if (enabledIntents.search)  available.push('"product_search" — customer is searching for a specific product, cake, or item');
+  if (enabledIntents.search)  available.push('"product_search" — customer is searching or asking about a specific product, cake, or item without clear intent to order yet');
   if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human, get help, or speak to support');
-  if (enabledIntents.info)    available.push('"info" — customer is asking about hours, location, sizes, flavours, delivery, or other business info');
-  available.push('"unknown" — does not match any of the above');
+  if (enabledIntents.info)    available.push('"info" — customer is asking about hours, location, sizes, flavours, delivery, pricing, or other business info');
+  available.push('"unknown" — a greeting, thank you, or something that does not match any of the above');
 
   const prompt = [
     "Classify the following customer WhatsApp message into exactly one intent.",
@@ -223,7 +225,10 @@ export async function POST(req: NextRequest) {
 
     let response: AiReplyResponse;
 
-    if (intent === "catalog" && intents.catalog) {
+    if (intent === "order") {
+      response = { type: "order" };
+
+    } else if (intent === "catalog" && intents.catalog) {
       response = { type: "catalog" };
 
     } else if (intent === "product_search" && intents.search) {
@@ -254,9 +259,12 @@ export async function POST(req: NextRequest) {
       response = { type: "text", reply };
 
     } else {
-      // unknown or disabled intent — send a polite fallback
+      // unknown / greeting / disabled intent — try AI then hard fallback
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
-      response = { type: "text", reply: reply || "I'm not sure about that. You can ask about our products, opening hours, or type 'menu' to see our catalog." };
+      response = {
+        type: "text",
+        reply: reply || "Hi! I'm here to help. You can type *menu* to see our cakes, ask about pricing or delivery, or type *order* to place an order. Type *agent* anytime to speak with our team. 😊",
+      };
     }
 
     return NextResponse.json({ ok: true, waId, ...response });
