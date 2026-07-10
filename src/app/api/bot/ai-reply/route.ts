@@ -86,7 +86,9 @@ async function checkAndIncrementUsage(dailyLimit: number): Promise<boolean> {
 }
 
 function buildSystemPrompt(kb: Record<string, string>): string {
-  const lines = ["You are a helpful WhatsApp assistant for a business. Use only the info below to answer."];
+  const lines = [
+    `You are a helpful WhatsApp customer assistant${kb.business_name ? ` for ${kb.business_name}` : ""}. Answer using only the information provided below.`,
+  ];
   if (kb.business_name)  lines.push(`Business: ${kb.business_name}`);
   if (kb.hours)          lines.push(`Opening hours: ${kb.hours}`);
   if (kb.location)       lines.push(`Location: ${kb.location}`);
@@ -97,7 +99,7 @@ function buildSystemPrompt(kb: Record<string, string>): string {
   if (kb.extra)          lines.push(`Additional info: ${kb.extra}`);
   lines.push("");
   lines.push("Reply in 1–3 short sentences. Plain text only — no markdown, no asterisks, no bullet points.");
-  lines.push("If you do not know the answer from the info above, say so honestly.");
+  lines.push("If you do not know the answer from the information above, say so honestly and suggest the customer contact the team directly.");
   return lines.join("\n");
 }
 
@@ -261,10 +263,7 @@ export async function POST(req: NextRequest) {
     } else {
       // unknown / greeting / disabled intent — try AI then hard fallback
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
-      response = {
-        type: "text",
-        reply: reply || "Hi! I'm here to help. You can type *menu* to see our cakes, ask about pricing or delivery, or type *order* to place an order. Type *agent* anytime to speak with our team. 😊",
-      };
+      response = { type: "text", reply: reply || "I didn't quite understand that. Could you please rephrase?" };
     }
 
     return NextResponse.json({ ok: true, waId, ...response });
