@@ -423,6 +423,8 @@ export default function InboxClient({
     setReplyText(val);
     const m = val.match(/(?:^|\s)\/(\S*)$/);
     setQrQuery(m ? m[1] : null);
+    const el = textareaRef.current;
+    if (el) { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 128) + "px"; }
   }
 
   function insertQuickReply(qr: QuickReply) {
@@ -453,6 +455,7 @@ export default function InboxClient({
       const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
       if (!json?.ok) { setSendError(json?.error ?? "Failed to send"); return; }
       setReplyText("");
+      if (textareaRef.current) textareaRef.current.style.height = "38px";
       const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
       const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
       if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
@@ -493,6 +496,7 @@ export default function InboxClient({
       }
       setPendingMedia([]);
       setReplyText("");
+      if (textareaRef.current) textareaRef.current.style.height = "38px";
       const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
       const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
       if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
@@ -553,6 +557,7 @@ export default function InboxClient({
     setMessages([]); setEvents([]); setNotes([]); setConvDetail(null);
     setCustomer(null); setCustomerOrders([]);
     setReplyText(""); setQrQuery(null); setSendError(null);
+    if (textareaRef.current) textareaRef.current.style.height = "38px";
     setShowTagPicker(false); setReplyTab("reply");
   }
 
@@ -1200,8 +1205,8 @@ export default function InboxClient({
                           onChange={(e) => handleReplyChange(e.target.value)}
                           onKeyDown={handleReplyKeyDown}
                           placeholder={pendingMedia.length > 0 ? "Add a caption… (optional)" : "Type a message"}
-                          className="w-full resize-none bg-transparent px-4 py-2.5 text-sm text-[#111b21] placeholder:text-[#8696a0] focus:outline-none max-h-32"
-                          style={{ lineHeight: "1.5" }}
+                          className="w-full resize-none bg-transparent px-4 py-2.5 text-sm text-[#111b21] placeholder:text-[#8696a0] focus:outline-none overflow-y-auto"
+                          style={{ lineHeight: "1.5", height: "38px" }}
                         />
                       </div>
 
