@@ -2,10 +2,11 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 
 export type PortalSettings = {
-  woo_visible_to_admin:    boolean;
-  ai_visible_to_admin:     boolean;
-  wa_visible_to_admin:     boolean;
-  portal_visible_to_admin: boolean;
+  woo_visible_to_admin:          boolean;
+  ai_visible_to_admin:           boolean;
+  wa_visible_to_admin:           boolean;
+  portal_visible_to_admin:       boolean;
+  integrations_visible_to_admin: boolean;
   app_name:      string;
   primary_color: string;
   accent_color:  string;
@@ -14,10 +15,11 @@ export type PortalSettings = {
 };
 
 const DEFAULTS: PortalSettings = {
-  woo_visible_to_admin:    false,
-  ai_visible_to_admin:     false,
-  wa_visible_to_admin:     true,
-  portal_visible_to_admin: true,
+  woo_visible_to_admin:          false,
+  ai_visible_to_admin:           false,
+  wa_visible_to_admin:           true,
+  portal_visible_to_admin:       true,
+  integrations_visible_to_admin: false,
   app_name:      "Order Portal",
   primary_color: "#2563eb",
   accent_color:  "#0891b2",
@@ -30,16 +32,17 @@ export async function getPortalSettings(): Promise<PortalSettings> {
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM portal_settings
       WHERE key IN (
-        'woo_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin',
+        'woo_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
         'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url'
       )
     `;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return {
-      woo_visible_to_admin:    (map["woo_visible_to_admin"]    ?? "false") === "true",
-      ai_visible_to_admin:     (map["ai_visible_to_admin"]     ?? "false") === "true",
-      wa_visible_to_admin:     (map["wa_visible_to_admin"]     ?? "true")  === "true",
-      portal_visible_to_admin: (map["portal_visible_to_admin"] ?? "true")  === "true",
+      woo_visible_to_admin:          (map["woo_visible_to_admin"]          ?? "false") === "true",
+      ai_visible_to_admin:           (map["ai_visible_to_admin"]           ?? "false") === "true",
+      wa_visible_to_admin:           (map["wa_visible_to_admin"]           ?? "true")  === "true",
+      portal_visible_to_admin:       (map["portal_visible_to_admin"]       ?? "true")  === "true",
+      integrations_visible_to_admin: (map["integrations_visible_to_admin"] ?? "false") === "true",
       app_name:      map["app_name"]      ?? DEFAULTS.app_name,
       primary_color: map["primary_color"] ?? DEFAULTS.primary_color,
       accent_color:  map["accent_color"]  ?? DEFAULTS.accent_color,

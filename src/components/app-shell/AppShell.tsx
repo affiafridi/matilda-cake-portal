@@ -83,9 +83,10 @@ const ROLE_LABEL: Record<Role, string> = {
 // ── AppShell ───────────────────────────────────────────────────────────────
 
 type Settings = {
-  woo_visible_to_admin:    boolean;
-  wa_visible_to_admin:     boolean;
-  portal_visible_to_admin: boolean;
+  woo_visible_to_admin:          boolean;
+  wa_visible_to_admin:           boolean;
+  portal_visible_to_admin:       boolean;
+  integrations_visible_to_admin: boolean;
   app_name?:  string;
   logo_url?:  string;
 };
@@ -185,12 +186,15 @@ export default function AppShell({
   const waNavItems    = WA_NAV.filter((i) => i.roles.includes(user.role));
   const isWaUser      = waNavItems.length > 0;
   const isSuperAdmin  = user.role === "SUPER_ADMIN";
-  const showWoo    = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin    ?? false));
-  const showWA     = isSuperAdmin || user.role === "AGENT" || (user.role === "ADMIN" && (settings?.wa_visible_to_admin     ?? true));
-  const showPortal = isSuperAdmin || user.role === "AGENT" || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin ?? true));
+  const showWoo          = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin          ?? false));
+  const showWA           = isSuperAdmin || user.role === "AGENT" || (user.role === "ADMIN" && (settings?.wa_visible_to_admin           ?? true));
+  const showPortal       = isSuperAdmin || user.role === "AGENT" || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin       ?? true));
+  const showIntegrations = isSuperAdmin || (user.role === "ADMIN" && (settings?.integrations_visible_to_admin ?? false));
   const items         = MAIN_NAV.filter((i) => i.roles.includes(user.role));
   const portalItems   = PORTAL_NAV.filter((i) => i.roles.includes(user.role));
-  const settingsItems = SETTINGS_NAV.filter((i) => i.roles.includes(user.role));
+  const settingsItems = SETTINGS_NAV.filter((i) =>
+    i.href === "/admin/integrations" ? showIntegrations : i.roles.includes(user.role)
+  );
   const meta     = getPageMeta(pathname);
 
   const initials = user.name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
