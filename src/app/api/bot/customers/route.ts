@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       msgCountMap = Object.fromEntries(convs.map((c) => [c.waId, c._count.messages]));
     }
 
-    const customers = rows.map((r: { wa_id: string }) => ({
+    const customers = (rows as { wa_id: string }[]).map((r) => ({
       ...r,
       total_messages: msgCountMap[r.wa_id] ?? 0,
     }));

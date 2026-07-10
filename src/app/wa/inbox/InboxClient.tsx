@@ -1100,6 +1100,36 @@ export default function InboxClient({
                                   </a>
                                 );
 
+                                // Sticker
+                                if (m.mediaUrl && m.mediaType === "sticker") return (
+                                  <img src={m.mediaUrl} alt="sticker" className="max-w-[120px]" />
+                                );
+
+                                // Video
+                                if (m.mediaUrl && m.mediaType === "video") return (
+                                  <div>
+                                    <video src={m.mediaUrl} controls className="max-w-[260px] rounded-xl" preload="metadata" />
+                                    {m.body && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                  </div>
+                                );
+
+                                // Audio / voice
+                                if (m.mediaUrl && (m.mediaType === "audio")) return (
+                                  <div>
+                                    <audio src={m.mediaUrl} controls className="max-w-[260px]" />
+                                    {m.body && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                  </div>
+                                );
+
+                                // Document
+                                if (m.mediaUrl && m.mediaType === "document") return (
+                                  <a href={m.mediaUrl} target="_blank" rel="noreferrer"
+                                    className="flex items-center gap-2.5 rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 hover:bg-black/20 transition">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-5 w-5 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                                    <span className="text-sm font-medium">{m.body || "Document"}</span>
+                                  </a>
+                                );
+
                                 // Other media
                                 if (m.mediaUrl) return (
                                   <a href={m.mediaUrl} target="_blank" rel="noreferrer"
