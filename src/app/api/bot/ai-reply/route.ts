@@ -137,7 +137,7 @@ async function classifyIntent(
     "",
     `If intent is "product_search", include a "query" field with the clean search term extracted from the message and/or image.`,
     "",
-    `Customer message: "${message}"`,
+    message ? `Customer message: "${message}"` : `Customer sent an image with no text.`,
     "",
     `Respond with exactly: { "intent": "<intent>", "query": "<search term if product_search>" }`,
   ].filter(Boolean).join("\n");
@@ -242,8 +242,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { message, waId, image } = body as { message?: string; waId?: string; image?: ImageInput };
-    if (!message) return NextResponse.json({ ok: false, error: "message is required" }, { status: 400 });
+    const { message: rawMessage, waId, image } = body as { message?: string; waId?: string; image?: ImageInput };
+    const message = rawMessage ?? "";
+    if (!message && !image) return NextResponse.json({ ok: false, error: "message or image is required" }, { status: 400 });
 
     const { kb, intents, customPrompt, maxTokens, dailyLimit } = await loadAiSettings();
     const systemPrompt = customPrompt ?? buildSystemPrompt(kb);
