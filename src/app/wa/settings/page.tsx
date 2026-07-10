@@ -141,6 +141,7 @@ export default function WaSettingsPage() {
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error ?? "Failed");
+      setProfile((p) => p ? { ...p, username: username.trim() } : p);
       setUsernameSaved(true);
       setTimeout(() => setUsernameSaved(false), 3000);
     } catch (e) {
