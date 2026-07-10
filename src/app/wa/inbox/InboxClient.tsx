@@ -34,6 +34,7 @@ type Message = {
   body:          string | null;
   mediaUrl:      string | null;
   mediaType:     string | null;
+  metadata:      string | null;
   createdAt:     string;
   sentBy:        { id: string; name: string } | null;
 };
@@ -1016,22 +1017,89 @@ export default function InboxClient({
                                 ? "rounded-br-md bg-brand text-white"
                                 : "rounded-bl-md bg-white text-gray-800 border border-gray-100",
                             ].join(" ")}>
-                              {m.mediaUrl && m.mediaType === "image" ? (
-                                <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="block">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover" />
-                                  {m.body && m.body !== "[image]" && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
-                                </a>
-                              ) : m.mediaUrl ? (
-                                <a href={m.mediaUrl} target="_blank" rel="noreferrer"
-                                  className="flex items-center gap-2 underline underline-offset-2">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                                  {m.mediaType ?? "Attachment"}
-                                  {m.body && <span className="ml-1 opacity-80">{m.body}</span>}
-                                </a>
-                              ) : (
-                                <p className="whitespace-pre-wrap">{m.body}</p>
-                              )}
+                              {(() => {
+                                // Interactive message (list / buttons) from metadata
+                                if (m.metadata) {
+                                  let meta: Record<string, unknown> = {};
+                                  try { meta = JSON.parse(m.metadata); } catch { /* ignore */ }
+                                  const type = meta.type as string | undefined;
+
+                                  if (type === "list") {
+                                    const header = (meta.header as { text?: string } | undefined)?.text;
+                                    const body   = (meta.body   as { text?: string } | undefined)?.text;
+                                    const footer = (meta.footer as { text?: string } | undefined)?.text;
+                                    const action = meta.action  as { button?: string; sections?: { title?: string; rows?: { id: string; title: string; description?: string }[] }[] } | undefined;
+                                    return (
+                                      <div className="min-w-[200px]">
+                                        {header && <p className="font-semibold text-[13px] mb-1">{header}</p>}
+                                        {body   && <p className="text-[13px] whitespace-pre-wrap mb-2">{body}</p>}
+                                        {action?.sections?.map((s, si) => (
+                                          <div key={si} className="mb-2">
+                                            {s.title && <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1">{s.title}</p>}
+                                            <div className="flex flex-col gap-1">
+                                              {s.rows?.map((r) => (
+                                                <div key={r.id} className={["rounded-lg px-3 py-1.5 text-[12px] border", isOut ? "border-white/30 bg-white/10" : "border-gray-200 bg-gray-50"].join(" ")}>
+                                                  <p className="font-medium">{r.title}</p>
+                                                  {r.description && <p className="opacity-60 text-[11px]">{r.description}</p>}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                        {footer && <p className="text-[11px] opacity-50 mt-1">{footer}</p>}
+                                        {action?.button && (
+                                          <div className={["mt-2 text-center text-[12px] font-semibold py-1.5 rounded-lg border", isOut ? "border-white/40 text-white" : "border-brand/40 text-brand"].join(" ")}>
+                                            ☰ {action.button}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+
+                                  if (type === "button") {
+                                    const body    = (meta.body    as { text?: string } | undefined)?.text;
+                                    const header  = (meta.header  as { text?: string } | undefined)?.text;
+                                    const footer  = (meta.footer  as { text?: string } | undefined)?.text;
+                                    const buttons = (meta.action  as { buttons?: { reply?: { id: string; title: string } }[] } | undefined)?.buttons;
+                                    return (
+                                      <div className="min-w-[180px]">
+                                        {header && <p className="font-semibold text-[13px] mb-1">{header}</p>}
+                                        {body   && <p className="text-[13px] whitespace-pre-wrap mb-2">{body}</p>}
+                                        {footer && <p className="text-[11px] opacity-50 mb-2">{footer}</p>}
+                                        <div className="flex flex-col gap-1">
+                                          {buttons?.map((b) => b.reply && (
+                                            <div key={b.reply.id} className={["text-center text-[12px] font-semibold py-1.5 rounded-lg border", isOut ? "border-white/40" : "border-brand/40 text-brand"].join(" ")}>
+                                              {b.reply.title}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                }
+
+                                // Image
+                                if (m.mediaUrl && m.mediaType === "image") return (
+                                  <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="block">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover" />
+                                    {m.body && m.body !== "[image]" && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                  </a>
+                                );
+
+                                // Other media
+                                if (m.mediaUrl) return (
+                                  <a href={m.mediaUrl} target="_blank" rel="noreferrer"
+                                    className="flex items-center gap-2 underline underline-offset-2">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                    {m.mediaType ?? "Attachment"}
+                                    {m.body && <span className="ml-1 opacity-80">{m.body}</span>}
+                                  </a>
+                                );
+
+                                // Plain text
+                                return <p className="whitespace-pre-wrap">{m.body}</p>;
+                              })()}
                             </div>
                             <div className={["flex items-center gap-1.5 px-1", isOut ? "flex-row-reverse" : ""].join(" ")}>
                               <span className="text-[10px] text-gray-400">{fmtTime(m.createdAt)}</span>

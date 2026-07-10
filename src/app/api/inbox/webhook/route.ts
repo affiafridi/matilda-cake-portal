@@ -93,6 +93,49 @@ export async function POST(req: NextRequest) {
       return jsonOk({ ok: true });
     }
 
+    // ── Outbound bot message ───────────────────────────────────────────────
+    if (body.type === "outbound") {
+      const { waId, messageId, body: text, mediaUrl, mediaType, metadata, timestamp } = body as {
+        waId:      string;
+        messageId: string;
+        body:      string | null;
+        mediaUrl:  string | null;
+        mediaType: string | null;
+        metadata:  unknown;
+        timestamp: number;
+      };
+      if (!waId) return jsonError("waId is required", 400);
+      const msgTime = timestamp ? new Date(timestamp * 1000) : new Date();
+
+      const conv = await prisma.conversation.findUnique({ where: { waId }, select: { id: true } });
+      if (!conv) return jsonOk({ skipped: true }); // no conversation yet
+
+      const existing = messageId
+        ? await prisma.message.findUnique({ where: { waMessageId: messageId }, select: { id: true } })
+        : null;
+
+      if (!existing) {
+        await prisma.message.create({
+          data: {
+            id:             crypto.randomUUID(),
+            conversationId: conv.id,
+            waMessageId:    messageId ?? null,
+            direction:      "OUTBOUND",
+            body:           text ?? null,
+            mediaUrl:       mediaUrl ?? null,
+            mediaType:      mediaType ?? null,
+            metadata:       metadata ? JSON.stringify(metadata) : null,
+            createdAt:      msgTime,
+          },
+        });
+        await prisma.conversation.update({
+          where: { waId },
+          data:  { lastMessageAt: msgTime, lastMessageBody: text ?? mediaType ?? "Bot message" },
+        });
+      }
+      return jsonOk({ ok: true });
+    }
+
     // ── Inbound message ────────────────────────────────────────────────────
     const { waId, name, messageId, body: text, mediaUrl, mediaType, timestamp } = body as {
       waId:      string;

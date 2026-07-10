@@ -35,7 +35,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         select: {
           id: true, direction: true, body: true,
           mediaUrl: true, mediaType: true, messageStatus: true,
-          waMessageId: true, createdAt: true,
+          metadata: true, waMessageId: true, createdAt: true,
           sentBy: { select: { id: true, name: true } },
         },
       }),

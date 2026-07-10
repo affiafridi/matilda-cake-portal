@@ -324,6 +324,7 @@ model Message {
   body           String?
   mediaUrl       String?
   mediaType      String?
+  metadata       String?
   sentById       String?
   sentBy         User?            @relation("MessageSentBy", fields: [sentById], references: [id])
   createdAt      DateTime         @default(now())
