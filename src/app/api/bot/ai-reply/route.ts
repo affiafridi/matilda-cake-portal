@@ -5,8 +5,9 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL      = "gpt-4o-mini";
+const OPENAI_URL    = "https://api.openai.com/v1/chat/completions";
+const MODEL         = "gpt-4o-mini";
+const VISION_MODEL  = "gpt-4o";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -103,11 +104,14 @@ function buildSystemPrompt(kb: Record<string, string>): string {
   return lines.join("\n");
 }
 
+type ImageInput = { base64: string; mimeType: string };
+
 async function classifyIntent(
   message: string,
   apiKey: string,
   enabledIntents: Record<string, boolean>,
   systemPrompt: string,
+  image?: ImageInput,
 ): Promise<{ intent: Intent; query?: string }> {
   const available: string[] = [];
   if (enabledIntents.search)  available.push('"product_search" — customer is looking for or asking about a specific product or item');
@@ -117,37 +121,46 @@ async function classifyIntent(
   if (enabledIntents.info)    available.push('"info" — customer is asking a factual question about the business with no product or menu mention');
   available.push('"unknown" — greeting, thank you, or off-topic');
 
-  const prompt = [
+  const promptText = [
     "Using the business context in the system prompt, classify the customer message into exactly one intent.",
     "Respond with JSON only. No explanation.",
+    image ? "The customer has also sent an image — use its contents to help classify." : "",
     "",
     "Rules:",
     "- Use catalog when the customer asks about categories, menu, or products in general",
-    "- Use product_search when a specific product, type, or occasion is mentioned",
+    "- Use product_search when a specific product, type, or occasion is mentioned (or when the image shows a product/design they want)",
     "- Use order only when the customer explicitly says they want to place an order",
     "- Use info for business questions (hours, location, delivery) with no product mention",
     "",
     "Available intents:",
     ...available.map((a) => `- ${a}`),
     "",
-    `If intent is "product_search", include a "query" field with the clean search term extracted from the message.`,
+    `If intent is "product_search", include a "query" field with the clean search term extracted from the message and/or image.`,
     "",
     `Customer message: "${message}"`,
     "",
     `Respond with exactly: { "intent": "<intent>", "query": "<search term if product_search>" }`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
+
+  // Build user content — include image as data URI when provided
+  const userContent = image
+    ? [
+        { type: "text",      text: promptText },
+        { type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: "low" } },
+      ]
+    : promptText;
 
   const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: MODEL,
+      model:           image ? VISION_MODEL : MODEL,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user",   content: prompt },
+        { role: "user",   content: userContent },
       ],
-      max_tokens: 80,
-      temperature: 0,
+      max_tokens:      80,
+      temperature:     0,
       response_format: { type: "json_object" },
     }),
   });
@@ -184,17 +197,25 @@ async function generateInfoReply(
   systemPrompt: string,
   apiKey: string,
   maxTokens = 150,
+  image?: ImageInput,
 ): Promise<string> {
+  const userContent = image
+    ? [
+        { type: "text",      text: message },
+        { type: "image_url", image_url: { url: `data:${image.mimeType};base64,${image.base64}`, detail: "low" } },
+      ]
+    : message;
+
   const res = await fetch(OPENAI_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: MODEL,
+      model:       image ? VISION_MODEL : MODEL,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user",   content: message },
+        { role: "user",   content: userContent },
       ],
-      max_tokens: maxTokens,
+      max_tokens:  maxTokens,
       temperature: 0.4,
     }),
   });
@@ -221,14 +242,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { message, waId } = body as { message?: string; waId?: string };
+    const { message, waId, image } = body as { message?: string; waId?: string; image?: ImageInput };
     if (!message) return NextResponse.json({ ok: false, error: "message is required" }, { status: 400 });
 
     const { kb, intents, customPrompt, maxTokens, dailyLimit } = await loadAiSettings();
     const systemPrompt = customPrompt ?? buildSystemPrompt(kb);
 
     // Classify intent first — no usage cost for routing-only intents
-    const { intent, query } = await classifyIntent(message, openai_api_key, intents, systemPrompt);
+    const { intent, query } = await classifyIntent(message, openai_api_key, intents, systemPrompt, image);
 
     let response: AiReplyResponse;
 
@@ -253,6 +274,7 @@ export async function POST(req: NextRequest) {
             systemPrompt,
             openai_api_key,
             maxTokens,
+            image,
           );
           response = { type: "text", reply: aiText };
         } else {
@@ -270,7 +292,7 @@ export async function POST(req: NextRequest) {
       // info or disabled intents — generate AI text reply
       const withinLimit = await checkAndIncrementUsage(dailyLimit);
       if (!withinLimit) return NextResponse.json({ ok: false, error: "daily_limit_reached" }, { status: 429 });
-      const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens);
+      const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens, image);
       response = { type: "text", reply: reply || "" };
     }
 
