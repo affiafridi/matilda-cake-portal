@@ -109,25 +109,31 @@ async function classifyIntent(
   enabledIntents: Record<string, boolean>,
 ): Promise<{ intent: Intent; query?: string }> {
   const available: string[] = [];
-  available.push('"order" — customer wants to place an order, buy a cake, make a purchase, or mentions ordering something (e.g. "I want to order", "I want a birthday cake", "anniversary cake", "can I get a cake")');
-  if (enabledIntents.catalog) available.push('"catalog" — customer wants to see the menu, product list, or catalogue');
-  if (enabledIntents.search)  available.push('"product_search" — customer is searching or asking about a specific product, cake, or item without clear intent to order yet');
-  if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human, get help, or speak to support');
-  if (enabledIntents.info)    available.push('"info" — customer is asking about hours, location, sizes, flavours, delivery, pricing, or other business info');
-  available.push('"unknown" — a greeting, thank you, or something that does not match any of the above');
+  if (enabledIntents.search)  available.push('"product_search" — customer is looking for, searching for, or asking about a specific type of product or cake (e.g. "looking for a birthday cake", "do you have chocolate cake", "anniversary cake", "I need a cake for my daughter", "what cakes do you have for weddings"). Use this whenever a specific cake type, occasion, or product is mentioned.');
+  if (enabledIntents.catalog) available.push('"catalog" — customer wants to see the full menu, product list, or catalogue without mentioning a specific item (e.g. "show me your menu", "what do you sell", "see all cakes")');
+  available.push('"order" — customer explicitly says they want to place or confirm an order right now (e.g. "I want to order", "I would like to buy", "can I place an order", "I want to purchase")');
+  if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human or get support (e.g. "talk to agent", "speak to someone", "customer service")');
+  if (enabledIntents.info)    available.push('"info" — customer is asking a factual question about the business: hours, location, delivery, pricing, payment, or policies — with no mention of a specific product');
+  available.push('"unknown" — greeting only, thank you, or completely off-topic message that does not fit any of the above');
 
   const prompt = [
     "Classify the following customer WhatsApp message into exactly one intent.",
     "Respond with JSON only. No explanation.",
     "",
+    "Rules:",
+    "- If the customer mentions ANY specific cake type, occasion, or product — always use product_search",
+    "- product_search includes browsing/looking/wanting/needing a specific cake, even if they haven't said 'order' yet",
+    "- Only use 'order' if they explicitly say they want to place or confirm an order with no product mentioned",
+    "- Only use 'info' for pure business questions (hours, location, delivery) with no product mentioned",
+    "",
     "Available intents:",
     ...available.map((a) => `- ${a}`),
     "",
-    `If intent is "product_search", also include a "query" field with the clean search term.`,
+    `If intent is "product_search", include a "query" field with the clean product search term (e.g. "birthday cake", "chocolate cake", "wedding cake").`,
     "",
     `Customer message: "${message}"`,
     "",
-    `Respond with exactly this shape: { "intent": "<one of the above>", "query": "<only if product_search>" }`,
+    `Respond with exactly: { "intent": "<intent>", "query": "<search term if product_search>" }`,
   ].join("\n");
 
   const res = await fetch(OPENAI_URL, {
