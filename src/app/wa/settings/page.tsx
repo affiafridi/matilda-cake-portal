@@ -295,16 +295,17 @@ export default function WaSettingsPage() {
                     {/* Health pills inline */}
                     <div className="hidden sm:flex items-center gap-2 shrink-0">
                       {[
-                        { label: "Status",  value: profile.status },
-                        { label: "Quality", value: profile.quality_rating },
-                        { label: "Limit",   value: profile.messaging_limit_tier },
-                      ].map(({ label, value }) => {
+                        { label: "Status",  value: profile.status,               fallback: "Live" },
+                        { label: "Quality", value: profile.quality_rating,        fallback: "Good" },
+                        { label: "Limit",   value: profile.messaging_limit_tier,  fallback: "Default" },
+                      ].map(({ label, value, fallback }) => {
                         const raw = value ?? "";
-                        const display = raw.replace(/^TIER_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "N/A";
-                        const pill = !raw ? "bg-canvas text-ink-muted border-rule"
-                          : /GREEN|CONNECTED|UNLIMITED/i.test(raw) ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : /YELLOW|FLAGGED/i.test(raw)            ? "bg-amber-50 text-amber-700 border-amber-200"
-                          : /RED|DISCONNECTED/i.test(raw)          ? "bg-red-50 text-red-700 border-red-200"
+                        const display = raw.replace(/^TIER_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || fallback;
+                        const isDefault = !raw;
+                        const pill = isDefault                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : /GREEN|CONNECTED|UNLIMITED|LIVE/i.test(raw)          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : /YELLOW|FLAGGED/i.test(raw)                          ? "bg-amber-50 text-amber-700 border-amber-200"
+                          : /RED|DISCONNECTED|RESTRICTED|RATE_LIMITED/i.test(raw)? "bg-red-50 text-red-700 border-red-200"
                           : "bg-sky-50 text-sky-700 border-sky-200";
                         return (
                           <div key={label} className={["flex flex-col items-center rounded-xl border px-3 py-1.5 min-w-[64px]", pill].join(" ")}>

@@ -16,7 +16,7 @@ export async function GET() {
     const wabaId = process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "";
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
-      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,throughput,username&access_token=${token}`, { cache: "no-store" }),
+      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,account_mode,throughput,username&access_token=${token}`, { cache: "no-store" }),
       fetch(`${GQL}/${id}/whatsapp_business_profile?fields=${PROFILE_FIELDS}&access_token=${token}`, { cache: "no-store" }),
       wabaId
         ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name&access_token=${token}`, { cache: "no-store" })
@@ -40,7 +40,7 @@ export async function GET() {
         username:                     phone.username                         ?? null,
         quality_rating:               phone.quality_rating                   ?? null,
         messaging_limit_tier:         phone.messaging_limit_tier             ?? null,
-        status:                       phone.status                           ?? null,
+        status:                       phone.status ?? phone.account_mode     ?? null,
         throughput:                   phone.throughput?.level                ?? null,
         is_official_business_account: waba.is_official_business_account      ?? false,
         profile_picture_url:  p.profile_picture_url ?? null,
