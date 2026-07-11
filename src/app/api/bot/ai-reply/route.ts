@@ -175,22 +175,6 @@ async function classifyIntent(
   }
 }
 
-async function searchWooCommerce(
-  query: string,
-  wcUrl: string,
-  key: string,
-  secret: string,
-): Promise<{ name: string; price: string; permalink: string }[]> {
-  try {
-    const auth = Buffer.from(`${key}:${secret}`).toString("base64");
-    const url  = `${wcUrl.replace(/\/$/, "")}/wp-json/wc/v3/products?search=${encodeURIComponent(query)}&per_page=5&status=publish`;
-    const res  = await fetch(url, { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch {
-    return [];
-  }
-}
 
 async function generateInfoReply(
   message: string,
@@ -229,7 +213,6 @@ export async function POST(req: NextRequest) {
   try {
     const {
       inbox_webhook_secret, openai_api_key,
-      wc_url, wc_consumer_key, wc_consumer_secret,
     } = await getIntegrations();
 
     const secret = req.headers.get("x-inbox-secret");
@@ -264,26 +247,9 @@ export async function POST(req: NextRequest) {
       response = { type: "agent" };
 
     } else if (intent === "product_search" && intents.search) {
-      if (wc_url && wc_consumer_key) {
-        const products = await searchWooCommerce(query ?? message, wc_url, wc_consumer_key, wc_consumer_secret);
-        if (products.length > 0) {
-          const withinLimit = await checkAndIncrementUsage(dailyLimit);
-          if (!withinLimit) return NextResponse.json({ ok: false, error: "daily_limit_reached" }, { status: 429 });
-          const list = products.map((p) => `• ${p.name} — ${p.price}\n  ${p.permalink}`).join("\n");
-          const aiText = await generateInfoReply(
-            `Customer asked: "${message}". Here are matching products:\n${list}\n\nMention them naturally with price and link.`,
-            systemPrompt,
-            openai_api_key,
-            maxTokens,
-            image,
-          );
-          response = { type: "text", reply: aiText };
-        } else {
-          response = { type: "product_search", query: query ?? message };
-        }
-      } else {
-        response = { type: "product_search", query: query ?? message };
-      }
+      // Always return product_search so the bot renders its own product card UI.
+      // Never generate an AI text reply here — WhatsApp doesn't render markdown links.
+      response = { type: "product_search", query: query ?? message };
 
     } else if (intent === "unknown") {
       // Greetings / off-topic — don't burn daily limit, let bot use its own response
