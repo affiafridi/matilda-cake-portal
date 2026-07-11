@@ -56,7 +56,16 @@ export async function GET(req: NextRequest) {
 
     const total = countRows[0]?.total ?? 0;
     return jsonOk({ customers, total, page, pages: Math.ceil(total / limit), limit });
-  } catch (err) {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/BOT_DATABASE_URL|not set/i.test(msg)) {
+      const { jsonError } = await import("@/lib/api/http");
+      return jsonError("Bot database not configured. Set BOT_DATABASE_URL in your environment.", 503);
+    }
+    if (/relation.*does not exist|customers.*exist/i.test(msg)) {
+      const { jsonError } = await import("@/lib/api/http");
+      return jsonError("Customers table not found. Make sure the bot database is set up correctly.", 503);
+    }
     return handleApiError(err);
   }
 }

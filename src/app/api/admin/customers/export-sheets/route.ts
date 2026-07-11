@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/server";
-import { exportAllCustomers, isSheetsConfigured } from "@/lib/googlesheets";
+import { exportAllCustomers, getGoogleConnection } from "@/lib/googlesheets";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 
 export const runtime = "nodejs";
@@ -12,7 +12,9 @@ export async function POST(_req: NextRequest) {
     const user = await getCurrentUser();
     if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
-    if (!isSheetsConfigured()) return jsonError("Google Sheets not configured. Add GOOGLE_SHEETS_SPREADSHEET_ID, GOOGLE_SHEETS_CLIENT_EMAIL and GOOGLE_SHEETS_PRIVATE_KEY to your environment.", 400);
+    const conn = await getGoogleConnection();
+    if (!conn.connected) return jsonError("Google account not connected. Please connect your Google account in Integrations → Google Sheets.", 400);
+    if (!conn.sheetId)   return jsonError("No Google Sheet selected. Paste your sheet URL in Integrations → Google Sheets and click Connect.", 400);
 
     // Fetch all conversations (each unique waId = one contact)
     const conversations = await prisma.conversation.findMany({
@@ -34,7 +36,19 @@ export async function POST(_req: NextRequest) {
       status: c.status === "RESOLVED" ? "Resolved" : "Active",
     }));
 
-    const { sheetUrl } = await exportAllCustomers(customers);
+    let sheetUrl: string;
+    try {
+      ({ sheetUrl } = await exportAllCustomers(customers));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/invalid_grant|token|unauthorized|expired|revoked/i.test(msg)) {
+        return jsonError("Google token expired. Please disconnect and reconnect your Google account in Integrations → Google Sheets.", 401);
+      }
+      if (/forbidden|permission|403/i.test(msg)) {
+        return jsonError("Permission denied. Make sure your Google account has edit access to the sheet.", 403);
+      }
+      throw err;
+    }
 
     return jsonOk({ count: customers.length, sheetUrl });
   } catch (err) {
