@@ -18,6 +18,7 @@ export type IntegrationSettings = {
   ccavenue_merchant_id:     string;
   ccavenue_access_code:     string;
   ccavenue_working_key:     string;
+  ccavenue_website_url:     string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -34,6 +35,7 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "ccavenue_merchant_id",
   "ccavenue_access_code",
   "ccavenue_working_key",
+  "ccavenue_website_url",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. Cached for 2 min. */
@@ -48,7 +50,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
           'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
           'bot_url', 'sync_secret', 'inbox_webhook_secret',
           'openai_api_key',
-          'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key'
+          'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url'
         )
       `;
       map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -68,6 +70,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
       ccavenue_merchant_id:   map["ccavenue_merchant_id"]   || process.env.CCAVENUE_MERCHANT_ID          || "",
       ccavenue_access_code:   map["ccavenue_access_code"]   || process.env.CCAVENUE_ACCESS_CODE          || "",
       ccavenue_working_key:   map["ccavenue_working_key"]   || process.env.CCAVENUE_WORKING_KEY          || "",
+      ccavenue_website_url:   map["ccavenue_website_url"]   || process.env.CCAVENUE_WEBSITE_URL          || "",
     };
   });
 }

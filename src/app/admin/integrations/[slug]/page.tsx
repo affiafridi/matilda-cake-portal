@@ -184,6 +184,7 @@ const FIELDS: Record<string, Field[]> = {
     { key: "ccavenue_merchant_id",  label: "Merchant ID",   hint: "CCAvenue dashboard → Profile → Merchant ID" },
     { key: "ccavenue_access_code",  label: "Access Code",   hint: "CCAvenue dashboard → Payment Gateway → Access Code" },
     { key: "ccavenue_working_key",  label: "Working Key",   type: "password", hint: "CCAvenue dashboard → Payment Gateway → Working Key — keep this secret" },
+    { key: "ccavenue_website_url",  label: "Website URL",   type: "url", hint: "Your website URL as registered with CCAvenue, e.g. https://yourstore.com" },
   ],
 };
 
