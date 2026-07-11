@@ -73,12 +73,12 @@ function ProgressBar({ active }: { active: boolean }) {
           className="absolute inset-y-0 left-0 bg-[#7f54b3] rounded-full transition-all duration-200 ease-out"
           style={{ width: `${pct}%` }}
         />
+        {visible && (
+          <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-center pointer-events-none" style={{ top: "-14px" }}>
+            <span className="text-[10px] font-semibold text-[#7f54b3] tabular-nums leading-none">{pct}%</span>
+          </div>
+        )}
       </div>
-      {visible && (
-        <div className="absolute right-2 -top-5 text-[10px] font-semibold text-[#7f54b3] tabular-nums">
-          {pct}%
-        </div>
-      )}
     </div>
   );
 }
