@@ -31,10 +31,6 @@ type AiSettings = {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-// In-memory usage counter — avoids a DB read on every AI call.
-// Synced to DB on increment. Resets automatically when date changes.
-let usageCache = { date: "", count: 0 };
-
 async function loadAiSettings(): Promise<AiSettings> {
   return cacheOr<AiSettings>("ai_settings", TTL.AI_SETTINGS, async () => {
     try {
@@ -81,31 +77,24 @@ async function loadAiSettings(): Promise<AiSettings> {
 async function checkAndIncrementUsage(dailyLimit: number): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Reset in-memory counter if date changed
-  if (usageCache.date !== today) {
-    // Load from DB once at start of day
-    try {
-      const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
-        SELECT key, value FROM portal_settings WHERE key IN ('ai_usage_date','ai_usage_count')
-      `;
-      const map   = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-      const dbDate = map["ai_usage_date"] ?? "";
-      usageCache = { date: today, count: dbDate === today ? Number(map["ai_usage_count"] ?? "0") : 0 };
-    } catch {
-      usageCache = { date: today, count: 0 };
-    }
-  }
+  // Always read from DB — safe across multiple Cloud Run container instances
+  let currentCount = 0;
+  try {
+    const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+      SELECT key, value FROM portal_settings WHERE key IN ('ai_usage_date','ai_usage_count')
+    `;
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    currentCount = map["ai_usage_date"] === today ? Number(map["ai_usage_count"] ?? "0") : 0;
+  } catch { /* treat as 0 on DB error */ }
 
-  if (usageCache.count >= dailyLimit) return false;
+  if (currentCount >= dailyLimit) return false;
 
-  // Increment in-memory first (fast path), then persist to DB async
-  usageCache.count++;
-  const newCount = String(usageCache.count);
-  // Fire-and-forget — don't await, saves ~20ms per request
-  void Promise.all([
+  // Persist incremented count to DB
+  const newCount = String(currentCount + 1);
+  await Promise.all([
     prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_date',${today}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
     prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_count',${newCount}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
-  ]).catch(() => { /* non-critical */ });
+  ]).catch(() => { /* non-critical — allow reply even if count fails to save */ });
 
   return true;
 }
@@ -303,7 +292,6 @@ export async function POST(req: NextRequest) {
       response = { type: "text", reply: "" };
 
     } else {
-      // info — checkAndIncrementUsage uses in-memory counter, only writes DB async
       const withinLimit = await checkAndIncrementUsage(dailyLimit);
       if (!withinLimit) return NextResponse.json({ ok: false, error: "daily_limit_reached" }, { status: 429 });
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens, image);

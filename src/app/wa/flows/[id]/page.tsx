@@ -19,6 +19,7 @@ type Step = {
   imageUrl: string; sortOrder: number; options: Option[];
   _x?: number; _y?: number; disabled?: boolean; _imgH?: number;
   captureVar?: string; label?: string; isFallback?: boolean;
+  orderButtonLabel?: string; variationListLabel?: string; useCCAvenue?: boolean;
 };
 type StepIssue = { severity: "error" | "warn"; label: string };
 function validateFlow(flow: Flow): Map<string, StepIssue[]> {
@@ -64,7 +65,7 @@ function normaliseFlow(d: any): Flow {
   return {
     ...d, description: d.description ?? "", triggerKeywords: d.triggerKeywords ?? "", isFallback: d.isFallback ?? false,
     steps: (d.steps ?? []).map((s: Step, i: number) => ({
-      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false,
+      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false, orderButtonLabel: s.orderButtonLabel ?? "Order Today", variationListLabel: s.variationListLabel ?? "Choose Options", useCCAvenue: s.useCCAvenue ?? false,
       label: s.label ?? undefined, captureVar: s.captureVar ?? undefined,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       _x: s._x ?? (s as any).positionX ?? 80 + i * 320, _y: s._y ?? (s as any).positionY ?? 120,
@@ -77,7 +78,7 @@ function normaliseFlow(d: any): Flow {
   };
 }
 function newOption(n = 0): Option { return { label: "", value: "", description: "", nextStepKey: "", dataSource: "static", sortOrder: n, customApiUrl: "", customApiPath: "", customApiLabel: "", customApiValue: "" }; }
-function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y }; }
+function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y, orderButtonLabel: "Order Today", variationListLabel: "Choose Options", useCCAvenue: false }; }
 function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu", nextStepKey: "step_1" }], _x: 80, _y: 340 }; }
 
 type IP = { size?: number; className?: string };
@@ -662,8 +663,8 @@ function ImageInput({ onUploaded }: { onUploaded: (url: string) => void }) {
 }
 
 
-function EditPanel({ step, allSteps, onChange, onClose }: {
-  step: Step; allSteps: Step[]; onChange: (s: Step) => void; onClose: () => void;
+function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
+  step: Step; allSteps: Step[]; onChange: (s: Step) => void; onClose: () => void; ccavenueConfigured: boolean;
 }) {
   const cfg      = CFG[step.inputType];
   const stepKeys = allSteps.filter((s) => !s.isFallback && s.stepKey !== step.stepKey).map((s) => s.stepKey).filter(Boolean);
@@ -863,12 +864,50 @@ function EditPanel({ step, allSteps, onChange, onClose }: {
           </div>
         )}
         {step.showProductCard && (
-          <div>
-            <label className={LBL}>After customer views card — goes to</label>
-            <select value={step.options[0]?.nextStepKey ?? ""} onChange={(e) => onChange({ ...step, options: [{ ...newOption(), nextStepKey: e.target.value }] })} className={INP}>
-              <option value="">End flow</option>
-              {stepKeys.map((k) => <option key={k} value={k}>{k}</option>)}
-            </select>
+          <div className="space-y-3">
+            <div>
+              <label className={LBL}>After customer views card — goes to</label>
+              <select value={step.options[0]?.nextStepKey ?? ""} onChange={(e) => onChange({ ...step, options: [{ ...newOption(), nextStepKey: e.target.value }] })} className={INP}>
+                <option value="">End flow</option>
+                {stepKeys.map((k) => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={LBL}>Order button label <span className="text-gray-300 font-normal normal-case tracking-normal">(simple products)</span></label>
+              <input type="text" value={step.orderButtonLabel ?? "Order Today"} onChange={(e) => onChange({ ...step, orderButtonLabel: e.target.value })} placeholder="Order Today" className={INP} />
+            </div>
+            <div>
+              <label className={LBL}>Variation list label <span className="text-gray-300 font-normal normal-case tracking-normal">(variable products)</span></label>
+              <input type="text" value={step.variationListLabel ?? "Choose Options"} onChange={(e) => onChange({ ...step, variationListLabel: e.target.value })} placeholder="Choose Options" className={INP} />
+            </div>
+            {/* CCAvenue toggle */}
+            <div>
+              <label className={LBL}>Payment</label>
+              <button
+                type="button"
+                disabled={!ccavenueConfigured}
+                onClick={() => ccavenueConfigured && onChange({ ...step, useCCAvenue: !step.useCCAvenue })}
+                title={!ccavenueConfigured ? "Configure CCAvenue in Integrations to enable this" : undefined}
+                className={"w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition " + (step.useCCAvenue && ccavenueConfigured ? "border-orange-400 bg-orange-50" : !ccavenueConfigured ? "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed" : "border-gray-200 hover:border-orange-200")}>
+                <div className={"shrink-0 h-5 w-9 rounded-full transition-colors " + (step.useCCAvenue && ccavenueConfigured ? "bg-orange-500" : "bg-gray-200")}>
+                  <span className={"block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform " + (step.useCCAvenue && ccavenueConfigured ? "translate-x-[18px]" : "translate-x-0.5")} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className={"text-sm font-semibold " + (step.useCCAvenue && ccavenueConfigured ? "text-orange-700" : "text-gray-700")}>CCAvenue Checkout</p>
+                    {!ccavenueConfigured && (
+                      <span className="text-[10px] text-gray-400 font-normal">Not configured</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    {step.useCCAvenue && ccavenueConfigured ? "Sends CCAvenue payment link" : "Sends website link with UTM tracking"}
+                  </p>
+                </div>
+                {!ccavenueConfigured && (
+                  <a href="/admin/integrations/ccavenue" onClick={(e) => e.stopPropagation()} className="shrink-0 text-[10px] text-blue-500 hover:underline font-medium">Set up</a>
+                )}
+              </button>
+            </div>
           </div>
         )}
         {/* Hand off to agent toggle — available on any step */}
@@ -926,23 +965,55 @@ function StepBubble({ step, onChoose, vars }: { step: Step; onChoose: (nextKey: 
   const now    = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   if (step.showProductCard) {
+    const orderLabel = step.orderButtonLabel || "Order Today";
+    const varLabel   = step.variationListLabel || "Choose Options";
     return (
-      <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden max-w-[92%] w-full">
-        <div className="bg-gray-100 h-28 flex items-center justify-center border-b border-gray-200">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" width={32} height={32}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <div className="space-y-2 w-full max-w-[92%]">
+        {/* Variable product — variation list */}
+        <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden w-full">
+          <div className="bg-gray-100 h-24 flex items-center justify-center border-b border-gray-200">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" width={28} height={28}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div className="px-3 pt-2 pb-1">
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-[10px] font-bold text-gray-800 leading-tight">Variable Product</p>
+              {step.useCCAvenue && <span className="text-[8px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1 py-0.5 shrink-0">CCAvenue</span>}
+            </div>
+            <p className="text-[9px] text-[#25d366] font-semibold mt-0.5">From AED 49.00</p>
+          </div>
+          <div className="px-3 pb-1">
+            <p className="text-[8px] font-bold text-gray-400 uppercase tracking-wider mb-1">{varLabel}</p>
+            {[{ name: "Small – 200g", price: "AED 49.00" }, { name: "Medium – 500g", price: "AED 89.00" }, { name: "Large – 1kg", price: "AED 149.00" }].map((v, i) => (
+              <div key={i} className={"flex items-center justify-between py-1 text-[9px] text-gray-700" + (i > 0 ? " border-t border-gray-100" : "")}>
+                <span>{v.name}</span>
+                <span className="text-[#25d366] font-semibold">{v.price}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end px-2.5 pb-1.5">
+            <span className="text-[8px] text-gray-300">{now} ✓✓</span>
+          </div>
         </div>
-        <div className="px-3 pt-2.5 pb-1">
-          <p className="text-[11px] font-bold text-gray-800 leading-tight">Product Name</p>
-          <p className="text-[10px] text-[#25d366] font-semibold mt-0.5">From AED 49.00</p>
-          <p className="text-[9px] text-gray-400 mt-0.5">Size: Small · Medium · Large</p>
-        </div>
-        <div className="px-3 pb-2.5">
-          <button type="button" className="w-full mt-1.5 rounded-lg bg-[#25d366] text-white text-[10px] font-bold py-1.5 tracking-wide">
-            Order Now
-          </button>
-        </div>
-        <div className="flex justify-end px-2.5 pb-1.5">
-          <span className="text-[8px] text-gray-300">{now} ✓✓</span>
+        {/* Simple product — order button */}
+        <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden w-full">
+          <div className="bg-gray-100 h-24 flex items-center justify-center border-b border-gray-200">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" width={28} height={28}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div className="px-3 pt-2 pb-1">
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-[10px] font-bold text-gray-800 leading-tight">Simple Product</p>
+              {step.useCCAvenue && <span className="text-[8px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded px-1 py-0.5 shrink-0">CCAvenue</span>}
+            </div>
+            <p className="text-[9px] text-[#25d366] font-semibold mt-0.5">AED 49.00</p>
+          </div>
+          <div className="px-3 pb-2.5">
+            <button type="button" className="w-full mt-1 rounded-lg bg-[#25d366] text-white text-[10px] font-bold py-1.5 tracking-wide">
+              {orderLabel}
+            </button>
+          </div>
+          <div className="flex justify-end px-2.5 pb-1.5">
+            <span className="text-[8px] text-gray-300">{now} ✓✓</span>
+          </div>
         </div>
       </div>
     );
@@ -1259,6 +1330,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   const [canUndo,     setCanUndo]     = useState(false);
   const [canRedo,     setCanRedo]     = useState(false);
   const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null);
+  const [ccavenueConfigured, setCcavenueConfigured] = useState(false);
   const draftKey = `flow_draft_${id}`;
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedRef = useRef(true);
@@ -1268,6 +1340,15 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   // Derived single-select key — drives the edit panel
   const selKey  = selKeys.length === 1 ? selKeys[0] : null;
   const setSelKey = (k: string | null) => setSelKeys(k ? [k] : []);
+
+  useEffect(() => {
+    fetch("/api/admin/integrations").then((r) => r.json()).then((j) => {
+      if (j.ok) {
+        const d = j.data;
+        setCcavenueConfigured(!!(d.ccavenue_merchant_id && d.ccavenue_access_code && d.ccavenue_working_key));
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/admin/flows/" + id).then((r) => r.json()).then((j) => {
@@ -2334,7 +2415,8 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
         {selStep && (
           <EditPanel step={selStep} allSteps={flow.steps}
             onChange={(s) => upStep(selStep.stepKey, s)}
-            onClose={() => setSelKey(null)} />
+            onClose={() => setSelKey(null)}
+            ccavenueConfigured={ccavenueConfigured} />
         )}
 
         {showPreview && (
