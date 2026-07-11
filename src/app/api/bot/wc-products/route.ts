@@ -154,7 +154,7 @@ export async function GET(req: NextRequest) {
         const res = await wcFetch(`${wcBase}/wp-json/wc/v3/products/${wcId}`, auth);
         if (!res.ok) throw new Error("Product not found");
         const p = await res.json() as WcProduct;
-        return { id: p.id, name: p.name, price: p.price, image: p.images?.[0]?.src ?? "", permalink: p.permalink, type: p.type ?? "simple" };
+        return { id: p.id, name: p.name, price: p.price, image: p.images?.[0]?.src ?? "", permalink: p.permalink, type: p.type ?? "simple", variations: [] };
       });
       return jsonOk({ product });
     }
