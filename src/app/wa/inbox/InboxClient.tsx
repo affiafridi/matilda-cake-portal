@@ -310,8 +310,7 @@ export default function InboxClient({
   useEffect(() => {
     async function fetchConvs() {
       try {
-        // Always fetch all so sidebar counts are correct
-        const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all`);
+        const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all`, { cache: "no-store" });
         const json = await res.json().catch(() => null) as { ok: boolean; data: ConvSummary[] } | null;
         if (!json?.ok) return;
         const newConvs = json.data;
@@ -332,19 +331,25 @@ export default function InboxClient({
     }
     fetchConvs();
     const t = setInterval(fetchConvs, 4000);
-    return () => clearInterval(t);
+
+    // Immediately re-fetch when the tab becomes visible again (browser throttles
+    // setInterval in background tabs, so the list can be stale when switching back)
+    function onVisible() { if (document.visibilityState === "visible") fetchConvs(); }
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load messages + notes ─────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedId) return;
-    async function load() {
+    async function loadMsgs() {
       setLoadingMsgs(true);
       try {
         const [mr, nr] = await Promise.all([
-          fetch(`/api/inbox/conversations/${selectedId}`),
-          fetch(`/api/inbox/conversations/${selectedId}/notes`),
+          fetch(`/api/inbox/conversations/${selectedId}`, { cache: "no-store" }),
+          fetch(`/api/inbox/conversations/${selectedId}/notes`, { cache: "no-store" }),
         ]);
         const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[]; events: ConversationEvent[] } } | null;
         const nj = await nr.json().catch(() => null) as { ok: boolean; data: Note[] } | null;
@@ -357,20 +362,26 @@ export default function InboxClient({
         if (nj?.ok) setNotes(nj.data);
       } finally { setLoadingMsgs(false); }
     }
-    load();
-    const t = setInterval(async () => {
+    async function pollMsgs() {
       try {
         const [mr, nr] = await Promise.all([
-          fetch(`/api/inbox/conversations/${selectedId}`),
-          fetch(`/api/inbox/conversations/${selectedId}/notes`),
+          fetch(`/api/inbox/conversations/${selectedId}`, { cache: "no-store" }),
+          fetch(`/api/inbox/conversations/${selectedId}/notes`, { cache: "no-store" }),
         ]);
         const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[]; events: ConversationEvent[] } } | null;
         const nj = await nr.json().catch(() => null) as { ok: boolean; data: Note[] } | null;
         if (mj?.ok) { setMessages(mj.data.messages); setEvents(mj.data.events ?? []); setConvDetail(mj.data.conversation); }
         if (nj?.ok) setNotes(nj.data);
       } catch { /* ignore */ }
-    }, 4000);
-    return () => clearInterval(t);
+    }
+    loadMsgs();
+    const t = setInterval(pollMsgs, 4000);
+
+    // Re-fetch messages immediately when tab regains focus
+    function onVisible() { if (document.visibilityState === "visible") pollMsgs(); }
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
   }, [selectedId]);
 
   // ── Customer profile ──────────────────────────────────────────────────────
