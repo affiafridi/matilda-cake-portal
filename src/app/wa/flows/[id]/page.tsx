@@ -666,10 +666,12 @@ function ImageInput({ onUploaded }: { onUploaded: (url: string) => void }) {
 function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
   step: Step; allSteps: Step[]; onChange: (s: Step) => void; onClose: () => void; ccavenueConfigured: boolean;
 }) {
-  const cfg      = CFG[step.inputType];
+  const cfg      = step.showProductCard
+    ? { label: "Product Card", color: "#059669", bg: "#ecfdf5", ic: (p: IP) => <Svg s={p.size} cls={p.className}><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="8" cy="9" r="1.5"/><path d="M13 7h5M13 10h5"/></Svg> }
+    : CFG[step.inputType];
   const stepKeys = allSteps.filter((s) => !s.isFallback && s.stepKey !== step.stepKey).map((s) => s.stepKey).filter(Boolean);
-  const isMsg    = step.inputType === "message";
-  const isSrch   = step.inputType === "search";
+  const isMsg    = step.inputType === "message" && !step.showProductCard;
+  const isSrch   = step.inputType === "search" && !step.showProductCard;
   const isInter  = !isMsg && !isSrch;
   const isBtn    = step.inputType === "button";
   const maxOpts  = isBtn ? 3 : 10;
@@ -883,30 +885,30 @@ function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
             {/* CCAvenue toggle */}
             <div>
               <label className={LBL}>Payment</label>
-              <button
-                type="button"
-                disabled={!ccavenueConfigured}
-                onClick={() => ccavenueConfigured && onChange({ ...step, useCCAvenue: !step.useCCAvenue })}
-                title={!ccavenueConfigured ? "Configure CCAvenue in Integrations to enable this" : undefined}
-                className={"w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition " + (step.useCCAvenue && ccavenueConfigured ? "border-orange-400 bg-orange-50" : !ccavenueConfigured ? "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed" : "border-gray-200 hover:border-orange-200")}>
-                <div className={"shrink-0 h-5 w-9 rounded-full transition-colors " + (step.useCCAvenue && ccavenueConfigured ? "bg-orange-500" : "bg-gray-200")}>
-                  <span className={"block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform " + (step.useCCAvenue && ccavenueConfigured ? "translate-x-[18px]" : "translate-x-0.5")} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className={"text-sm font-semibold " + (step.useCCAvenue && ccavenueConfigured ? "text-orange-700" : "text-gray-700")}>CCAvenue Checkout</p>
-                    {!ccavenueConfigured && (
-                      <span className="text-[10px] text-gray-400 font-normal">Not configured</span>
-                    )}
+              <div className={"w-full rounded-xl border-2 px-3.5 py-3 transition " + (step.useCCAvenue && ccavenueConfigured ? "border-orange-400 bg-orange-50" : !ccavenueConfigured ? "border-gray-100 bg-gray-50" : "border-gray-200")}>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={!ccavenueConfigured}
+                    onClick={() => ccavenueConfigured && onChange({ ...step, useCCAvenue: !step.useCCAvenue })}
+                    title={!ccavenueConfigured ? "Configure CCAvenue in Integrations to enable this" : undefined}
+                    className={"shrink-0 h-5 w-9 rounded-full transition-colors " + (!ccavenueConfigured ? "opacity-40 cursor-not-allowed " : "cursor-pointer ") + (step.useCCAvenue && ccavenueConfigured ? "bg-orange-500" : "bg-gray-200")}>
+                    <span className={"block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform " + (step.useCCAvenue && ccavenueConfigured ? "translate-x-[18px]" : "translate-x-0.5")} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className={"text-sm font-semibold leading-tight " + (step.useCCAvenue && ccavenueConfigured ? "text-orange-700" : "text-gray-700")}>CCAvenue Checkout</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {step.useCCAvenue && ccavenueConfigured ? "Sends CCAvenue payment link" : "Sends website link with UTM tracking"}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-gray-400">
-                    {step.useCCAvenue && ccavenueConfigured ? "Sends CCAvenue payment link" : "Sends website link with UTM tracking"}
-                  </p>
                 </div>
                 {!ccavenueConfigured && (
-                  <a href="/admin/integrations/ccavenue" onClick={(e) => e.stopPropagation()} className="shrink-0 text-[10px] text-blue-500 hover:underline font-medium">Set up</a>
+                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-200">
+                    <span className="text-[11px] text-gray-400">CCAvenue not configured yet</span>
+                    <a href="/admin/integrations/ccavenue" className="text-[11px] text-blue-500 hover:underline font-semibold">Set up →</a>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         )}
