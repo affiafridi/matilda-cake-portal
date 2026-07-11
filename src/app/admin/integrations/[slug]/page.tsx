@@ -117,21 +117,21 @@ const META: Record<string, IntegrationMeta> = {
       </svg>
     ),
   },
-  "stripe": {
-    name: "Stripe",
-    desc: "Accept card payments via WhatsApp. Generate Stripe Checkout links for your products and send payment confirmations automatically when customers pay.",
+  "ccavenue": {
+    name: "CCAvenue",
+    desc: "Generate CCAvenue payment links for WhatsApp customers. Accept cards, UPI, netbanking and wallets — confirm payments automatically via webhook.",
     category: "Payment",
-    iconBg: "bg-[#635bff]/10",
+    iconBg: "bg-[#e31837]/10",
     features: [
-      "Generate Stripe Checkout links directly from the bot",
-      "Customer pays via card, Apple Pay, Google Pay or link",
+      "Generate CCAvenue Checkout links directly from the bot",
+      "Supports cards, UPI, netbanking, EMI and wallets",
       "Webhook confirms payment and sends WhatsApp notification",
-      "Test mode supported — use test keys to try before going live",
-      "Secret key stored securely — never exposed to the browser",
+      "Test mode supported — use staging credentials to test first",
+      "Working key stored securely — never exposed to the browser",
     ],
     icon: (
-      <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#635bff]" fill="currentColor">
-        <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+      <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#e31837]" fill="currentColor">
+        <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
       </svg>
     ),
   },
@@ -180,10 +180,10 @@ const FIELDS: Record<string, Field[]> = {
   "openai": [
     { key: "openai_api_key", label: "API Key", type: "password", hint: "platform.openai.com → API keys → Create new secret key" },
   ],
-  "stripe": [
-    { key: "stripe_secret_key",      label: "Secret Key",        type: "password", hint: "dashboard.stripe.com → Developers → API keys — starts with sk_live_ or sk_test_" },
-    { key: "stripe_publishable_key", label: "Publishable Key",   hint: "dashboard.stripe.com → Developers → API keys — starts with pk_live_ or pk_test_" },
-    { key: "stripe_webhook_secret",  label: "Webhook Secret",    type: "password", hint: "dashboard.stripe.com → Developers → Webhooks → your endpoint → Signing secret (starts with whsec_)" },
+  "ccavenue": [
+    { key: "ccavenue_merchant_id",  label: "Merchant ID",   hint: "CCAvenue dashboard → Profile → Merchant ID" },
+    { key: "ccavenue_access_code",  label: "Access Code",   hint: "CCAvenue dashboard → Payment Gateway → Access Code" },
+    { key: "ccavenue_working_key",  label: "Working Key",   type: "password", hint: "CCAvenue dashboard → Payment Gateway → Working Key — keep this secret" },
   ],
 };
 

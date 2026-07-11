@@ -52,9 +52,9 @@ const INTEGRATION_KEYS = [
   "bot_url", "sync_secret", "inbox_webhook_secret",
   "google_oauth_client_id", "google_oauth_client_secret",
   "openai_api_key",
-  "stripe_secret_key",
-  "stripe_publishable_key",
-  "stripe_webhook_secret",
+  "ccavenue_merchant_id",
+  "ccavenue_access_code",
+  "ccavenue_working_key",
 ];
 
 export async function POST(req: NextRequest) {

@@ -15,9 +15,9 @@ export type IntegrationSettings = {
   sync_secret:              string;
   inbox_webhook_secret:     string;
   openai_api_key:           string;
-  stripe_secret_key:        string;
-  stripe_publishable_key:   string;
-  stripe_webhook_secret:    string;
+  ccavenue_merchant_id:     string;
+  ccavenue_access_code:     string;
+  ccavenue_working_key:     string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -31,9 +31,9 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "sync_secret",
   "inbox_webhook_secret",
   "openai_api_key",
-  "stripe_secret_key",
-  "stripe_publishable_key",
-  "stripe_webhook_secret",
+  "ccavenue_merchant_id",
+  "ccavenue_access_code",
+  "ccavenue_working_key",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. Cached for 2 min. */
@@ -48,7 +48,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
           'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
           'bot_url', 'sync_secret', 'inbox_webhook_secret',
           'openai_api_key',
-          'stripe_secret_key', 'stripe_publishable_key', 'stripe_webhook_secret'
+          'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key'
         )
       `;
       map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -65,9 +65,9 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
       sync_secret:            map["sync_secret"]            || process.env.SYNC_SECRET                   || "",
       inbox_webhook_secret:   map["inbox_webhook_secret"]   || process.env.INBOX_WEBHOOK_SECRET          || "",
       openai_api_key:         map["openai_api_key"]         || process.env.OPENAI_API_KEY                || "",
-      stripe_secret_key:      map["stripe_secret_key"]      || process.env.STRIPE_SECRET_KEY             || "",
-      stripe_publishable_key: map["stripe_publishable_key"] || process.env.STRIPE_PUBLISHABLE_KEY        || "",
-      stripe_webhook_secret:  map["stripe_webhook_secret"]  || process.env.STRIPE_WEBHOOK_SECRET         || "",
+      ccavenue_merchant_id:   map["ccavenue_merchant_id"]   || process.env.CCAVENUE_MERCHANT_ID          || "",
+      ccavenue_access_code:   map["ccavenue_access_code"]   || process.env.CCAVENUE_ACCESS_CODE          || "",
+      ccavenue_working_key:   map["ccavenue_working_key"]   || process.env.CCAVENUE_WORKING_KEY          || "",
     };
   });
 }

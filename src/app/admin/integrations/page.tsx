@@ -104,11 +104,24 @@ const INTEGRATIONS: IntegrationDef[] = [
   },
   // ── Coming soon ──────────────────────────────────────────────────────────
   {
+    slug: "ccavenue",
+    name: "CCAvenue",
+    desc: "Generate CCAvenue payment links for WhatsApp customers. Accept cards, UPI, netbanking and wallets — confirm payments automatically.",
+    category: "Payment",
+    status: "configure",
+    iconBg: "bg-[#e31837]/10",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#e31837]" fill="currentColor">
+        <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+      </svg>
+    ),
+  },
+  {
     slug: "stripe",
     name: "Stripe",
     desc: "Send payment links and receive payment notifications via WhatsApp.",
     category: "Payment",
-    status: "configure",
+    status: "coming_soon",
     iconBg: "bg-[#635bff]/10",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#635bff]" fill="currentColor">
@@ -167,7 +180,7 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "bot-server":   ["bot_url", "inbox_webhook_secret"],
   "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
   "openai":       ["openai_api_key"],
-  "stripe":       ["stripe_secret_key"],
+  "ccavenue":     ["ccavenue_merchant_id", "ccavenue_access_code"],
 };
 
 const STATUS_BADGE: Record<IntegrationStatus, { label: string; classes: string }> = {
