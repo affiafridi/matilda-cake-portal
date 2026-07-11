@@ -176,9 +176,9 @@ function GoogleSheetsConfig() {
   const [loading,       setLoading]       = useState(true);
   const [connected,     setConnected]     = useState(false);
   const [oauthReady,    setOauthReady]    = useState(false);
-  const [sheets,        setSheets]        = useState<{ id: string; name: string }[]>([]);
   const [sheetId,       setSheetId]       = useState<string | null>(null);
   const [sheetName,     setSheetName]     = useState<string | null>(null);
+  const [sheetInput,    setSheetInput]    = useState("");
   const [saving,        setSaving]        = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -191,7 +191,6 @@ function GoogleSheetsConfig() {
       if (r.ok) {
         setConnected(r.data.connected);
         setOauthReady(r.data.oauthConfigured ?? false);
-        setSheets(r.data.sheets ?? []);
         setSheetId(r.data.sheetId);
         setSheetName(r.data.sheetName);
       }
@@ -206,14 +205,24 @@ function GoogleSheetsConfig() {
     loadStatus();
   }, [loadStatus]);
 
-  async function handleSelectSheet(id: string, name: string) {
-    setSaving(true);
-    await fetch("/api/admin/integrations/google/sheets", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name }),
-    });
-    setSheetId(id); setSheetName(name); setSaving(false);
-    setMsg({ ok: true, text: `Sheet "${name}" selected` });
+  async function handleSaveSheet() {
+    if (!sheetInput.trim()) return;
+    setSaving(true); setMsg(null);
+    try {
+      const r = await fetch("/api/admin/integrations/google/sheets", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: sheetInput.trim() }),
+      }).then((r) => r.json());
+      if (!r.ok) throw new Error(r.error ?? "Failed");
+      setSheetId(r.data.id);
+      setSheetName(r.data.name);
+      setSheetInput("");
+      setMsg({ ok: true, text: `Sheet "${r.data.name}" connected` });
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "Failed to connect sheet" });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleExport() {
@@ -230,7 +239,7 @@ function GoogleSheetsConfig() {
     if (!confirm("Disconnect Google Sheets? Auto-sync will stop.")) return;
     setDisconnecting(true);
     await fetch("/api/admin/integrations/google/disconnect", { method: "POST" });
-    setConnected(false); setSheets([]); setSheetId(null); setSheetName(null);
+    setConnected(false); setSheetId(null); setSheetName(null);
     setMsg({ ok: true, text: "Google account disconnected" });
     setDisconnecting(false);
   }
@@ -275,26 +284,41 @@ function GoogleSheetsConfig() {
         )}
       </div>
 
-      {/* Sheet selector */}
+      {/* Sheet URL input */}
       {connected && (
         <div className="space-y-3">
-          <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wide">
-            Spreadsheet to sync contacts into
-          </label>
-          <div className="flex gap-2">
-            <select value={sheetId ?? ""}
-              onChange={(e) => { const s = sheets.find((s) => s.id === e.target.value); if (s) handleSelectSheet(s.id, s.name); }}
-              className="flex-1 rounded-xl border border-rule bg-canvas px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30">
-              <option value="">— Choose a spreadsheet —</option>
-              {sheets.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            {saving && <div className="flex items-center px-2"><Spinner /></div>}
-          </div>
-          {sheetName && (
-            <p className="text-xs text-emerald-600 flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
-              Syncing to <strong>{sheetName}</strong> — new contacts added automatically
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5">
+              Google Sheet URL or ID
+            </label>
+            <p className="text-xs text-ink-muted mb-2">
+              Open your Google Sheet, copy the URL from the browser, and paste it here.
             </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={sheetInput}
+                onChange={(e) => setSheetInput(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/…"
+                className="flex-1 rounded-xl border border-rule bg-canvas px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+              />
+              <button onClick={handleSaveSheet} disabled={saving || !sheetInput.trim()}
+                className="shrink-0 flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition disabled:opacity-40">
+                {saving ? <><Spinner /> Saving…</> : "Connect"}
+              </button>
+            </div>
+          </div>
+          {sheetName && sheetId && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <p className="text-xs text-emerald-700 flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+                Syncing to <strong>{sheetName}</strong> — new contacts added automatically
+              </p>
+              <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noopener noreferrer"
+                className="text-xs font-semibold text-emerald-700 underline underline-offset-2 shrink-0">
+                Open →
+              </a>
+            </div>
           )}
         </div>
       )}
