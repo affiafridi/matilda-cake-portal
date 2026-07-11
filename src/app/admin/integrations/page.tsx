@@ -111,7 +111,7 @@ const INTEGRATIONS: IntegrationDef[] = [
     status: "configure",
     iconBg: "bg-white",
     icon: (
-      <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-6 w-6 object-contain" />
+      <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-9 w-9 object-contain" />
     ),
   },
   {

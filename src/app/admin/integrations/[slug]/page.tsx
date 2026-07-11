@@ -130,7 +130,7 @@ const META: Record<string, IntegrationMeta> = {
       "Working key stored securely — never exposed to the browser",
     ],
     icon: (
-      <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-8 w-8 object-contain" />
+      <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-12 w-12 object-contain" />
     ),
   },
   "openai": {
