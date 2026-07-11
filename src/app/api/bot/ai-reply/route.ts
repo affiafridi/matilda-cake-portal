@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrations } from "@/lib/integrations";
 import { prisma } from "@/lib/prisma";
+import { cacheGet, cacheSet, cacheOr, TTL } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const OPENAI_URL    = "https://api.openai.com/v1/chat/completions";
-const MODEL         = "gpt-4o-mini";
-const VISION_MODEL  = "gpt-4o";
+const OPENAI_URL   = "https://api.openai.com/v1/chat/completions";
+const MODEL        = "gpt-4o-mini";
+const VISION_MODEL = "gpt-4o";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -20,69 +21,92 @@ export type AiReplyResponse =
   | { type: "order" }
   | { type: "text"; reply: string };
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-async function loadAiSettings(): Promise<{
+type AiSettings = {
   kb: Record<string, string>;
   intents: Record<string, boolean>;
   customPrompt: string | null;
   maxTokens: number;
   dailyLimit: number;
-}> {
-  try {
-    const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
-      SELECT key, value FROM portal_settings
-      WHERE key IN (
-        'ai_kb_business_name','ai_kb_hours','ai_kb_location',
-        'ai_kb_sizes','ai_kb_flavours','ai_kb_delivery',
-        'ai_kb_custom_orders','ai_kb_extra','ai_kb_use_prompt','ai_kb_prompt',
-        'ai_max_tokens','ai_daily_limit','ai_usage_date','ai_usage_count',
-        'ai_intent_catalog','ai_intent_search','ai_intent_agent','ai_intent_info'
-      )
-    `;
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    const usePrompt = (map["ai_kb_use_prompt"] ?? "false") === "true";
-    const rawPrompt = map["ai_kb_prompt"] ?? "";
-    return {
-      kb: {
-        business_name: map["ai_kb_business_name"] ?? "",
-        hours:         map["ai_kb_hours"]         ?? "",
-        location:      map["ai_kb_location"]      ?? "",
-        sizes:         map["ai_kb_sizes"]         ?? "",
-        flavours:      map["ai_kb_flavours"]      ?? "",
-        delivery:      map["ai_kb_delivery"]      ?? "",
-        custom_orders: map["ai_kb_custom_orders"] ?? "",
-        extra:         map["ai_kb_extra"]         ?? "",
-      },
-      intents: {
-        catalog: (map["ai_intent_catalog"] ?? "true") === "true",
-        search:  (map["ai_intent_search"]  ?? "true") === "true",
-        agent:   (map["ai_intent_agent"]   ?? "true") === "true",
-        info:    (map["ai_intent_info"]    ?? "true") === "true",
-      },
-      customPrompt: usePrompt && rawPrompt ? rawPrompt : null,
-      maxTokens:    Number(map["ai_max_tokens"]  ?? "150"),
-      dailyLimit:   Number(map["ai_daily_limit"] ?? "200"),
-    };
-  } catch {
-    return { kb: {}, intents: { catalog: true, search: true, agent: true, info: true }, customPrompt: null, maxTokens: 150, dailyLimit: 200 };
-  }
+};
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+// In-memory usage counter — avoids a DB read on every AI call.
+// Synced to DB on increment. Resets automatically when date changes.
+let usageCache = { date: "", count: 0 };
+
+async function loadAiSettings(): Promise<AiSettings> {
+  return cacheOr<AiSettings>("ai_settings", TTL.AI_SETTINGS, async () => {
+    try {
+      const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+        SELECT key, value FROM portal_settings
+        WHERE key IN (
+          'ai_kb_business_name','ai_kb_hours','ai_kb_location',
+          'ai_kb_sizes','ai_kb_flavours','ai_kb_delivery',
+          'ai_kb_custom_orders','ai_kb_extra','ai_kb_use_prompt','ai_kb_prompt',
+          'ai_max_tokens','ai_daily_limit',
+          'ai_intent_catalog','ai_intent_search','ai_intent_agent','ai_intent_info'
+        )
+      `;
+      const map        = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      const usePrompt  = (map["ai_kb_use_prompt"] ?? "false") === "true";
+      const rawPrompt  = map["ai_kb_prompt"] ?? "";
+      return {
+        kb: {
+          business_name: map["ai_kb_business_name"] ?? "",
+          hours:         map["ai_kb_hours"]         ?? "",
+          location:      map["ai_kb_location"]      ?? "",
+          sizes:         map["ai_kb_sizes"]         ?? "",
+          flavours:      map["ai_kb_flavours"]      ?? "",
+          delivery:      map["ai_kb_delivery"]      ?? "",
+          custom_orders: map["ai_kb_custom_orders"] ?? "",
+          extra:         map["ai_kb_extra"]         ?? "",
+        },
+        intents: {
+          catalog: (map["ai_intent_catalog"] ?? "true") === "true",
+          search:  (map["ai_intent_search"]  ?? "true") === "true",
+          agent:   (map["ai_intent_agent"]   ?? "true") === "true",
+          info:    (map["ai_intent_info"]    ?? "true") === "true",
+        },
+        customPrompt: usePrompt && rawPrompt ? rawPrompt : null,
+        maxTokens:    Number(map["ai_max_tokens"]  ?? "150"),
+        dailyLimit:   Number(map["ai_daily_limit"] ?? "200"),
+      };
+    } catch {
+      return { kb: { business_name: "", hours: "", location: "", sizes: "", flavours: "", delivery: "", custom_orders: "", extra: "" }, intents: { catalog: true, search: true, agent: true, info: true }, customPrompt: null, maxTokens: 150, dailyLimit: 200 };
+    }
+  });
 }
 
 async function checkAndIncrementUsage(dailyLimit: number): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
-  const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
-    SELECT key, value FROM portal_settings WHERE key IN ('ai_usage_date','ai_usage_count')
-  `;
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  const usageDate  = map["ai_usage_date"]  ?? "";
-  const usageCount = usageDate === today ? Number(map["ai_usage_count"] ?? "0") : 0;
 
-  if (usageCount >= dailyLimit) return false;
+  // Reset in-memory counter if date changed
+  if (usageCache.date !== today) {
+    // Load from DB once at start of day
+    try {
+      const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+        SELECT key, value FROM portal_settings WHERE key IN ('ai_usage_date','ai_usage_count')
+      `;
+      const map   = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+      const dbDate = map["ai_usage_date"] ?? "";
+      usageCache = { date: today, count: dbDate === today ? Number(map["ai_usage_count"] ?? "0") : 0 };
+    } catch {
+      usageCache = { date: today, count: 0 };
+    }
+  }
 
-  const newCount = String(usageCount + 1);
-  await prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_date',${today}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`;
-  await prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_count',${newCount}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`;
+  if (usageCache.count >= dailyLimit) return false;
+
+  // Increment in-memory first (fast path), then persist to DB async
+  usageCache.count++;
+  const newCount = String(usageCache.count);
+  // Fire-and-forget — don't await, saves ~20ms per request
+  void Promise.all([
+    prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_date',${today}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
+    prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_count',${newCount}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
+  ]).catch(() => { /* non-critical */ });
+
   return true;
 }
 
@@ -106,6 +130,11 @@ function buildSystemPrompt(kb: Record<string, string>): string {
 
 type ImageInput = { base64: string; mimeType: string };
 
+// Stable cache key for a message — images are not cached (too large + unique)
+function intentCacheKey(message: string): string {
+  return `intent:${message.toLowerCase().trim().slice(0, 200)}`;
+}
+
 async function classifyIntent(
   message: string,
   apiKey: string,
@@ -113,6 +142,12 @@ async function classifyIntent(
   systemPrompt: string,
   image?: ImageInput,
 ): Promise<{ intent: Intent; query?: string }> {
+  // Only cache text-only messages — image content is unique each time
+  if (!image) {
+    const cached = cacheGet<{ intent: Intent; query?: string }>(intentCacheKey(message));
+    if (cached) return cached;
+  }
+
   const available: string[] = [];
   if (enabledIntents.search)  available.push('"product_search" — customer is looking for or asking about a specific product or item');
   if (enabledIntents.catalog) available.push('"catalog" — customer wants to browse the menu, categories, or full product list');
@@ -142,7 +177,6 @@ async function classifyIntent(
     `Respond with exactly: { "intent": "<intent>", "query": "<search term if product_search>" }`,
   ].filter(Boolean).join("\n");
 
-  // Build user content — include image as data URI when provided
   const userContent = image
     ? [
         { type: "text",      text: promptText },
@@ -166,15 +200,20 @@ async function classifyIntent(
   });
 
   const data = await res.json();
-  const raw = data.choices?.[0]?.message?.content ?? "{}";
+  const raw  = data.choices?.[0]?.message?.content ?? "{}";
+  let result: { intent: Intent; query?: string };
   try {
     const parsed = JSON.parse(raw);
-    return { intent: parsed.intent ?? "unknown", query: parsed.query };
+    result = { intent: parsed.intent ?? "unknown", query: parsed.query };
   } catch {
-    return { intent: "unknown" };
+    result = { intent: "unknown" };
   }
-}
 
+  // Cache text-only classification results
+  if (!image) cacheSet(intentCacheKey(message), result, TTL.AI_INTENT);
+
+  return result;
+}
 
 async function generateInfoReply(
   message: string,
@@ -183,6 +222,13 @@ async function generateInfoReply(
   maxTokens = 150,
   image?: ImageInput,
 ): Promise<string> {
+  // Cache text-only info replies — same question gets same answer
+  const cacheKey = !image ? `info_reply:${message.toLowerCase().trim().slice(0, 200)}` : null;
+  if (cacheKey) {
+    const cached = cacheGet<string>(cacheKey);
+    if (cached) return cached;
+  }
+
   const userContent = image
     ? [
         { type: "text",      text: message },
@@ -203,17 +249,20 @@ async function generateInfoReply(
       temperature: 0.4,
     }),
   });
-  const data = await res.json();
-  return (data.choices?.[0]?.message?.content ?? "").trim();
+  const data  = await res.json();
+  const reply = (data.choices?.[0]?.message?.content ?? "").trim();
+
+  if (cacheKey && reply) cacheSet(cacheKey, reply, TTL.AI_INTENT);
+
+  return reply;
 }
 
 // ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
-    const {
-      inbox_webhook_secret, openai_api_key,
-    } = await getIntegrations();
+    // getIntegrations() is now cached — no DB hit on warm requests
+    const { inbox_webhook_secret, openai_api_key } = await getIntegrations();
 
     const secret = req.headers.get("x-inbox-secret");
     if (!secret || secret !== inbox_webhook_secret) {
@@ -229,10 +278,11 @@ export async function POST(req: NextRequest) {
     const message = rawMessage ?? "";
     if (!message && !image) return NextResponse.json({ ok: false, error: "message or image is required" }, { status: 400 });
 
+    // loadAiSettings() is now cached — no DB hit on warm requests
     const { kb, intents, customPrompt, maxTokens, dailyLimit } = await loadAiSettings();
     const systemPrompt = customPrompt ?? buildSystemPrompt(kb);
 
-    // Classify intent first — no usage cost for routing-only intents
+    // classifyIntent() is cached for text-only messages
     const { intent, query } = await classifyIntent(message, openai_api_key, intents, systemPrompt, image);
 
     let response: AiReplyResponse;
@@ -247,16 +297,13 @@ export async function POST(req: NextRequest) {
       response = { type: "agent" };
 
     } else if (intent === "product_search" && intents.search) {
-      // Always return product_search so the bot renders its own product card UI.
-      // Never generate an AI text reply here — WhatsApp doesn't render markdown links.
       response = { type: "product_search", query: query ?? message };
 
     } else if (intent === "unknown") {
-      // Greetings / off-topic — don't burn daily limit, let bot use its own response
       response = { type: "text", reply: "" };
 
     } else {
-      // info or disabled intents — generate AI text reply
+      // info — checkAndIncrementUsage uses in-memory counter, only writes DB async
       const withinLimit = await checkAndIncrementUsage(dailyLimit);
       if (!withinLimit) return NextResponse.json({ ok: false, error: "daily_limit_reached" }, { status: 429 });
       const reply = await generateInfoReply(message, systemPrompt, openai_api_key, maxTokens, image);

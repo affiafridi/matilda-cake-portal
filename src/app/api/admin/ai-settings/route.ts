@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getIntegrations } from "@/lib/integrations";
+import { cacheDel, cacheDel_prefix } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,6 +113,11 @@ export async function POST(req: NextRequest) {
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
       `;
     }
+
+    // Bust AI settings + reply caches so bot picks up changes immediately
+    cacheDel("ai_settings");
+    cacheDel_prefix("intent:");
+    cacheDel_prefix("info_reply:");
 
     return jsonOk({ saved: true });
   } catch (err) {

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { botQuery } from "@/lib/botdb";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getIntegrations } from "@/lib/integrations";
+import { cacheOr, TTL } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,89 +115,80 @@ export async function GET(req: NextRequest) {
 
     // ── SEARCH MODE ──────────────────────────────────────────────────────────
     if (search) {
-      // Try bot_products first
+      const cacheKey = `wc_search:${search.toLowerCase()}:${page}:${perPage}`;
+      const result = await cacheOr(cacheKey, TTL.WC_PRODUCTS, async () => {
+        const { rows: countRows } = await botQuery<{ count: string }>(
+          `SELECT COUNT(*) as count FROM bot_products WHERE enabled = true AND name ILIKE $1`,
+          [`%${search}%`],
+        );
+        const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
+
+        if (totalCount > 0) {
+          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
+            `SELECT wc_id, name, price, image, permalink FROM bot_products
+             WHERE enabled = true AND name ILIKE $1
+             ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
+            [`%${search}%`, perPage, offset],
+          );
+          const totalPages = Math.ceil(totalCount / perPage);
+          const enrichMap  = wcBase && auth ? await enrichFromWC(rows.map((r) => r.wc_id), wcBase, auth) : new Map();
+          const products   = rows.map((p) => {
+            const extra = enrichMap.get(p.wc_id) ?? {};
+            return { id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple", ...extra };
+          });
+          return { products, hasMore: page < totalPages, page, totalPages };
+        }
+
+        if (!wcBase || !auth) throw new Error("WooCommerce not configured");
+        const res = await fetch(
+          `${wcBase}/wp-json/wc/v3/products?search=${encodeURIComponent(search)}&page=${page}&per_page=${perPage}&status=publish`,
+          { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
+        );
+        if (!res.ok) throw new Error("WooCommerce search failed");
+        const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
+        const wcProducts = await res.json() as WcProduct[];
+        const products   = await enrichWcList(wcProducts, wcBase, auth);
+        return { products, hasMore: page < totalPages, page, totalPages };
+      });
+      return jsonOk(result);
+    }
+
+    // ── CATEGORY MODE ────────────────────────────────────────────────────────
+    const cacheKey = `wc_cat:${catId}:${page}:${perPage}`;
+    const result = await cacheOr(cacheKey, TTL.WC_PRODUCTS, async () => {
       const { rows: countRows } = await botQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM bot_products WHERE enabled = true AND name ILIKE $1`,
-        [`%${search}%`],
+        `SELECT COUNT(*) as count FROM bot_products WHERE category_id = $1 AND enabled = true`, [catId],
       );
       const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
 
       if (totalCount > 0) {
         const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
           `SELECT wc_id, name, price, image, permalink FROM bot_products
-           WHERE enabled = true AND name ILIKE $1
+           WHERE category_id = $1 AND enabled = true
            ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
-          [`%${search}%`, perPage, offset],
+          [catId, perPage, offset],
         );
         const totalPages = Math.ceil(totalCount / perPage);
-
-        // Enrich with type + variations from WooCommerce
-        const enrichMap = wcBase && auth
-          ? await enrichFromWC(rows.map((r) => r.wc_id), wcBase, auth)
-          : new Map();
-
-        const products = rows.map((p) => {
+        const enrichMap  = wcBase && auth ? await enrichFromWC(rows.map((r) => r.wc_id), wcBase, auth) : new Map();
+        const products   = rows.map((p) => {
           const extra = enrichMap.get(p.wc_id) ?? {};
           return { id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple", ...extra };
         });
-        return jsonOk({ products, hasMore: page < totalPages, page, totalPages });
+        return { products, hasMore: page < totalPages, page, totalPages };
       }
 
-      // Fallback to WooCommerce search
-      if (!wcBase || !auth) return jsonError("WooCommerce not configured", 500);
+      if (!wcBase || !auth) throw new Error("WooCommerce not configured");
       const res = await fetch(
-        `${wcBase}/wp-json/wc/v3/products?search=${encodeURIComponent(search)}&page=${page}&per_page=${perPage}&status=publish`,
+        `${wcBase}/wp-json/wc/v3/products?category=${catId}&page=${page}&per_page=${perPage}&status=publish&orderby=popularity`,
         { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
       );
-      if (!res.ok) return jsonError("Failed to search WooCommerce products", 502);
+      if (!res.ok) throw new Error("Failed to fetch from WooCommerce");
       const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
       const wcProducts = await res.json() as WcProduct[];
-      const products = await enrichWcList(wcProducts, wcBase, auth);
-      return jsonOk({ products, hasMore: page < totalPages, page, totalPages });
-    }
-
-    // ── CATEGORY MODE ────────────────────────────────────────────────────────
-    const { rows: countRows } = await botQuery<{ count: string }>(
-      `SELECT COUNT(*) as count FROM bot_products WHERE category_id = $1`, [catId],
-    );
-    const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
-
-    if (totalCount > 0) {
-      const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
-        `SELECT wc_id, name, price, image, permalink FROM bot_products
-         WHERE category_id = $1 AND enabled = true
-         ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
-        [catId, perPage, offset],
-      );
-      const { rows: totalRows } = await botQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM bot_products WHERE category_id = $1 AND enabled = true`, [catId],
-      );
-      const total      = parseInt(totalRows[0]?.count ?? "0", 10);
-      const totalPages = Math.ceil(total / perPage);
-
-      // Enrich with type + variations from WooCommerce
-      const enrichMap = wcBase && auth
-        ? await enrichFromWC(rows.map((r) => r.wc_id), wcBase, auth)
-        : new Map();
-
-      const products = rows.map((p) => {
-        const extra = enrichMap.get(p.wc_id) ?? {};
-        return { id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple", ...extra };
-      });
-      return jsonOk({ products, hasMore: page < totalPages, page, totalPages });
-    }
-
-    // Fallback — fetch directly from WooCommerce
-    if (!wcBase || !auth) return jsonError("WooCommerce not configured", 500);
-    const res = await fetch(
-      `${wcBase}/wp-json/wc/v3/products?category=${catId}&page=${page}&per_page=${perPage}&status=publish&orderby=popularity`,
-      { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
-    );
-    if (!res.ok) return jsonError("Failed to fetch products from WooCommerce", 502);
-    const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
-    const wcProducts = await res.json() as WcProduct[];
-    const products = await enrichWcList(wcProducts, wcBase, auth);
-    return jsonOk({ products, hasMore: page < totalPages, page, totalPages });
+      const products   = await enrichWcList(wcProducts, wcBase, auth);
+      return { products, hasMore: page < totalPages, page, totalPages };
+    });
+    return jsonOk(result);
 
   } catch (err) {
     return handleApiError(err);

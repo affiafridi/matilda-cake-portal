@@ -2,6 +2,8 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getCurrentUser } from "@/lib/auth/server";
+import { invalidateIntegrationsCache } from "@/lib/integrations";
+import { cacheDel } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,6 +80,10 @@ export async function POST(req: NextRequest) {
       INSERT INTO portal_settings (key, value) VALUES (${body.key}, ${strVal})
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     `;
+
+    // Invalidate relevant caches
+    if (INTEGRATION_KEYS.includes(body.key)) invalidateIntegrationsCache();
+    cacheDel("ai_settings");
 
     return jsonOk({ [body.key]: body.value });
   } catch (err) {

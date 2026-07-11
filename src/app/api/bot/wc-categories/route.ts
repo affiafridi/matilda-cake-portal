@@ -3,6 +3,7 @@ import { botQuery } from "@/lib/botdb";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getIntegrations } from "@/lib/integrations";
+import { cacheOr, cacheDel_prefix, TTL } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +16,21 @@ export async function GET(req: NextRequest) {
 
     const refresh = req.nextUrl.searchParams.get("refresh") === "true";
 
-    // Always read current DB state
-    const { rows: dbRows } = await botQuery<{
-      wc_id: number; name: string; enabled: boolean; sort_order: number;
-    }>(`SELECT wc_id, name, enabled, sort_order FROM bot_categories ORDER BY sort_order, wc_id`);
+    // On refresh, bust product cache so new categories show updated products
+    if (refresh) cacheDel_prefix("wc_cat:");
+
+    // Read current DB state — cached unless refreshing
+    const { rows: dbRows } = refresh
+      ? await botQuery<{ wc_id: number; name: string; enabled: boolean; sort_order: number }>(
+          `SELECT wc_id, name, enabled, sort_order FROM bot_categories ORDER BY sort_order, wc_id`,
+        ).then((r) => r)
+      : await cacheOr(
+          "wc_categories",
+          TTL.WC_CATEGORIES,
+          () => botQuery<{ wc_id: number; name: string; enabled: boolean; sort_order: number }>(
+            `SELECT wc_id, name, enabled, sort_order FROM bot_categories ORDER BY sort_order, wc_id`,
+          ).then((r) => r.rows),
+        ).then((rows) => ({ rows }));
 
     const dbMap = new Map(dbRows.map((r) => [r.wc_id, r]));
     let newCount = 0;
@@ -86,6 +98,10 @@ export async function POST(req: NextRequest) {
         [cat.enabled, cat.sort_order, cat.wc_id],
       );
     }
+
+    // Bust caches so bot sees updated categories + products immediately
+    cacheDel_prefix("wc_cat:");
+    cacheDel_prefix("wc_categories");
 
     return jsonOk({ updated: categories.length });
   } catch (err) {
