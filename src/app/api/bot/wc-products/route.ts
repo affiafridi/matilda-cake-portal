@@ -176,15 +176,15 @@ export async function GET(req: NextRequest) {
         const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
 
         if (totalCount > 0) {
-          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
-            `SELECT wc_id, name, price, image, permalink FROM bot_products
+          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string }>(
+            `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type FROM bot_products
              WHERE enabled = true AND name ILIKE $1
              ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
             [`%${search}%`, perPage, offset],
           );
           const totalPages = Math.ceil(totalCount / perPage);
           const products   = rows.map((p) => ({
-            id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple",
+            id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: p.type,
           }));
           return { products, hasMore: page < totalPages, page, totalPages };
         }
@@ -212,15 +212,15 @@ export async function GET(req: NextRequest) {
       const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
 
       if (totalCount > 0) {
-        const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
-          `SELECT wc_id, name, price, image, permalink FROM bot_products
+        const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string }>(
+          `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type FROM bot_products
            WHERE category_id = $1 AND enabled = true
            ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
           [catId, perPage, offset],
         );
         const totalPages = Math.ceil(totalCount / perPage);
         const products   = rows.map((p) => ({
-          id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple",
+          id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: p.type,
         }));
         return { products, hasMore: page < totalPages, page, totalPages };
       }
