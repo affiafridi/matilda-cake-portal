@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIntegrations } from "@/lib/integrations";
 import { getCurrentUser } from "@/lib/auth/server";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,12 +35,20 @@ export async function GET() {
     const verifiedName = phone.verified_name || waba?.name || "";
     const displayPhone = phone.display_phone_number || "";
 
+    // Fallback: read username from portal_settings if Meta doesn't return it
+    const metaUsername = phone.username ?? null;
+    let storedUsername: string | null = null;
+    if (!metaUsername) {
+      const rows = await prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'wa_username' LIMIT 1`;
+      storedUsername = rows[0]?.value ?? null;
+    }
+
     return NextResponse.json({
       ok: true,
       data: {
         verified_name:                verifiedName,
         display_phone_number:         displayPhone,
-        username:                     phone.username                         ?? null,
+        username:                     metaUsername ?? storedUsername,
         quality_rating:               phone.quality_rating                   ?? null,
         messaging_limit_tier:         phone.messaging_limit_tier             ?? null,
         status:                       phone.status                           ?? null,
@@ -82,6 +91,12 @@ export async function POST(req: NextRequest) {
         console.error("[wa/profile username POST]", JSON.stringify(data));
         return NextResponse.json({ ok: false, error: data?.error?.message ?? "Username update failed" }, { status: 502 });
       }
+      // Cache username in portal_settings so it survives Meta API inconsistency
+      await prisma.$executeRaw`
+        INSERT INTO portal_settings (key, value)
+        VALUES ('wa_username', ${body.username})
+        ON CONFLICT (key) DO UPDATE SET value = ${body.username}
+      `;
       return NextResponse.json({ ok: true });
     } catch (e) {
       console.error("[wa/profile username POST]", e);

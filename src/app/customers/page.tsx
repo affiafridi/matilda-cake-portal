@@ -142,6 +142,9 @@ export default function CustomersPage() {
   const [selected, setSelected]   = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
+  const [sheetsReady, setSheetsReady] = useState(false);
+  const [syncing, setSyncing]         = useState(false);
+  const [syncMsg, setSyncMsg]         = useState<{ ok: boolean; text: string; url?: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileRef     = useRef<HTMLInputElement>(null);
 
@@ -168,7 +171,15 @@ export default function CustomersPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { fetchCustomers("", ""); fetchTags(); }, [fetchCustomers, fetchTags]);
+  useEffect(() => {
+    fetchCustomers("", "");
+    fetchTags();
+    // Check if Google Sheets is connected
+    fetch("/api/admin/integrations/google/sheets")
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setSheetsReady(j.data.connected && !!j.data.sheetId); })
+      .catch(() => {});
+  }, [fetchCustomers, fetchTags]);
 
   function onSearch(val: string) {
     setQuery(val);
@@ -193,6 +204,20 @@ export default function CustomersPage() {
   function updateCustomerTags(waId: string, tags: string[]) {
     setCustomers((prev) => prev.map((c) => c.wa_id === waId ? { ...c, tags } : c));
     fetchTags();
+  }
+
+  async function handleSyncSheets() {
+    setSyncing(true); setSyncMsg(null);
+    try {
+      const r = await fetch("/api/admin/customers/export-sheets", { method: "POST" }).then((r) => r.json());
+      if (r.ok) setSyncMsg({ ok: true, text: `${r.data.count} contacts synced to Google Sheets`, url: r.data.sheetUrl });
+      else setSyncMsg({ ok: false, text: r.error ?? "Sync failed" });
+    } catch {
+      setSyncMsg({ ok: false, text: "Sync failed — check your connection" });
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(null), 5000);
+    }
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -243,6 +268,14 @@ export default function CustomersPage() {
               <IconDownload className="h-4 w-4" />
               Export CSV
             </button>
+            {sheetsReady && (
+              <button onClick={handleSyncSheets} disabled={syncing}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 transition disabled:opacity-50">
+                {syncing
+                  ? <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Syncing…</>
+                  : <><IconSheets className="h-4 w-4" />Sync to Sheets</>}
+              </button>
+            )}
             {selected.size > 0 && (
               <Link href={`/wa/templates?customers=${[...selected].map(encodeURIComponent).join(",")}`}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white hover:bg-[#128C7E] transition">
@@ -278,6 +311,21 @@ export default function CustomersPage() {
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-success/30 bg-success/5 px-4 py-2.5 text-sm text-success">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="M20 6L9 17l-5-5"/></svg>
             {importMsg}
+          </div>
+        )}
+        {syncMsg && (
+          <div className={["mb-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-sm", syncMsg.ok ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-600"].join(" ")}>
+            <div className="flex items-center gap-2">
+              {syncMsg.ok
+                ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="M20 6L9 17l-5-5"/></svg>
+                : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>}
+              {syncMsg.text}
+            </div>
+            {syncMsg.url && (
+              <a href={syncMsg.url} target="_blank" rel="noopener noreferrer" className="shrink-0 text-xs font-semibold underline underline-offset-2">
+                Open Sheet →
+              </a>
+            )}
           </div>
         )}
         {error && (
@@ -391,6 +439,14 @@ function IconSendIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
       <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+function IconSheets(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" {...props}>
+      <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-7 14H7v-2h5v2zm5-4H7v-2h10v2zm0-4H7V7h10v2z"/>
     </svg>
   );
 }

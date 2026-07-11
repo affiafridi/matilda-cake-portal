@@ -36,22 +36,49 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
   );
 }
 
-// ── Progress bar — indeterminate animated bar ─────────────────────────────────
-function ProgressBar({ active, color = "#7f54b3" }: { active: boolean; color?: string }) {
-  if (!active) return null;
+// ── Simulated progress bar with % ─────────────────────────────────────────────
+function useSimulatedProgress(active: boolean) {
+  const [pct, setPct] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (active) {
+      setPct(0);
+      timerRef.current = setInterval(() => {
+        setPct((p) => {
+          if (p >= 85) return p; // hold at 85% until done
+          return p + (85 - p) * 0.06; // decelerate as it approaches 85
+        });
+      }, 120);
+    } else {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      setPct((p) => p > 0 ? 100 : 0); // jump to 100 if was in progress
+      const t = setTimeout(() => setPct(0), 600);
+      return () => clearTimeout(t);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [active]);
+
+  return Math.round(pct);
+}
+
+function ProgressBar({ active }: { active: boolean }) {
+  const pct = useSimulatedProgress(active);
+  const visible = pct > 0;
+
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-0.5 overflow-hidden">
-      <div
-        className="h-full w-1/3 rounded-full animate-[progress_1.4s_ease-in-out_infinite]"
-        style={{ backgroundColor: color }}
-      />
-      <style>{`
-        @keyframes progress {
-          0%   { transform: translateX(-100%) scaleX(1); }
-          50%  { transform: translateX(150%) scaleX(1.5); }
-          100% { transform: translateX(400%) scaleX(1); }
-        }
-      `}</style>
+    <div className={["absolute bottom-0 left-0 right-0 transition-opacity duration-300", visible ? "opacity-100" : "opacity-0"].join(" ")}>
+      <div className="relative h-[3px] bg-[#7f54b3]/10">
+        <div
+          className="absolute inset-y-0 left-0 bg-[#7f54b3] rounded-full transition-all duration-200 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {visible && (
+        <div className="absolute right-2 -top-5 text-[10px] font-semibold text-[#7f54b3] tabular-nums">
+          {pct}%
+        </div>
+      )}
     </div>
   );
 }
@@ -408,9 +435,7 @@ export default function BotConfigPage() {
                       className="rounded-lg border border-rule bg-white py-1.5 pl-8 pr-3 text-xs text-ink placeholder:text-ink-muted/50 focus:outline-none focus:ring-2 focus:ring-[#7f54b3]/20 w-48" />
                   </div>
                   <p className="text-[11px] text-ink-muted whitespace-nowrap">
-                    {isLoadingProds ? "Loading products…"
-                      : isSyncingProds ? "Syncing from WooCommerce…"
-                      : `${enabledProdCount} of ${products.length} enabled`}
+                    {`${enabledProdCount} of ${products.length} enabled`}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -439,7 +464,7 @@ export default function BotConfigPage() {
                   )}
                 </div>
                 {/* Progress bar — shown during load or sync for this specific category */}
-                <ProgressBar active={isBusy} color={isSyncingProds ? "#7f54b3" : "#a78bfa"} />
+                <ProgressBar active={isBusy} />
               </div>
 
               {/* Products grid */}

@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
-  "https://www.googleapis.com/auth/drive.readonly",
 ];
 
 const SHEET_TAB  = "Customers";
@@ -139,24 +138,6 @@ async function getSheetsClient() {
   return google.sheets({ version: "v4", auth: oauth });
 }
 
-async function getDriveClient() {
-  const [accessToken, refreshToken, expiry] = await Promise.all([
-    getSetting("google_access_token"),
-    getSetting("google_refresh_token"),
-    getSetting("google_token_expiry"),
-  ]);
-
-  if (!accessToken || !refreshToken) throw new Error("Google account not connected");
-
-  const oauth = await getOAuthClient();
-  oauth.setCredentials({
-    access_token:  accessToken,
-    refresh_token: refreshToken,
-    expiry_date:   expiry ? Number(expiry) : undefined,
-  });
-
-  return google.drive({ version: "v3", auth: oauth });
-}
 
 // ── Sheet helpers ──────────────────────────────────────────────────────────
 
@@ -179,41 +160,56 @@ async function ensureTab(sheets: ReturnType<typeof google.sheets>, spreadsheetId
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-/** List all Google Sheets the user has access to (for the picker dropdown). */
-export async function listUserSheets(): Promise<{ id: string; name: string }[]> {
-  const drive = await getDriveClient();
-  const res   = await drive.files.list({
-    q:      "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
-    fields: "files(id, name)",
-    orderBy: "modifiedTime desc",
-    pageSize: 50,
-  });
-  return (res.data.files ?? []).map((f) => ({ id: f.id!, name: f.name! }));
+/** Extract spreadsheet ID from a URL or return as-is if already an ID. */
+export function parseSheetId(input: string): string {
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : input.trim();
 }
 
-/** Append one customer row — skips duplicates. Called on new WhatsApp contact. */
+/** Validate a sheet ID by fetching its title. Returns the sheet title or throws. */
+export async function validateSheetId(sheetId: string): Promise<string> {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId, fields: "properties.title" });
+  return res.data.properties?.title ?? sheetId;
+}
+
+/** Fetch all phone numbers already in the sheet (column A, skipping header). */
+async function getExistingPhones(sheets: ReturnType<typeof google.sheets>, spreadsheetId: string): Promise<Set<string>> {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEET_TAB}!A2:A`, // skip row 1 (header)
+  });
+  const phones = (res.data.values ?? []).flat().map((v) => String(v).trim());
+  return new Set(phones);
+}
+
+/** Normalise a phone string for comparison — strip leading + and spaces. */
+function normalisePhone(phone: string): string {
+  return phone.replace(/^\+/, "").replace(/\s/g, "").trim();
+}
+
+/** Append one customer row — skips if phone already exists. Called on new WhatsApp contact. */
 export async function appendCustomerRow(data: {
   phone: string; name: string; source?: string; firstSeen?: Date;
 }): Promise<void> {
   const sheetId = await getSetting("google_sheet_id");
-  if (!sheetId) return; // no sheet selected yet
+  if (!sheetId) return;
 
   try {
     const sheets = await getSheetsClient();
     await ensureTab(sheets, sheetId);
 
-    const existing = await sheets.spreadsheets.values.get({
-      spreadsheetId: sheetId, range: `${SHEET_TAB}!A:A`,
-    });
-    const phones = (existing.data.values ?? []).flat();
-    if (phones.includes(data.phone)) return;
+    const existing = await getExistingPhones(sheets, sheetId);
+    if (existing.has(normalisePhone(data.phone))) return; // already in sheet
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId, range: `${SHEET_TAB}!A1`,
+      spreadsheetId: sheetId, range: `${SHEET_TAB}!A2`,
       valueInputOption: "USER_ENTERED", insertDataOption: "INSERT_ROWS",
       requestBody: {
         values: [[
-          data.phone, data.name, data.source ?? "WhatsApp",
+          normalisePhone(data.phone),
+          data.name,
+          data.source ?? "WhatsApp",
           data.firstSeen ? data.firstSeen.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
           "Active",
         ]],
@@ -224,28 +220,41 @@ export async function appendCustomerRow(data: {
   }
 }
 
-/** Bulk export — clears the sheet and rewrites all rows. */
+/** Bulk export — deduplicates by phone before writing, then clears data rows and rewrites. */
 export async function exportAllCustomers(customers: {
   phone: string; name: string; source?: string;
   firstSeen?: Date | null; status?: string;
 }[]): Promise<{ sheetUrl: string; count: number }> {
   const sheetId = await getSetting("google_sheet_id");
-  if (!sheetId) throw new Error("No sheet selected. Please pick a sheet first.");
+  if (!sheetId) throw new Error("No sheet selected. Paste your Google Sheet URL first.");
+
+  // Deduplicate by normalised phone — keep first occurrence
+  const seen   = new Set<string>();
+  const unique = customers.filter((c) => {
+    const key = normalisePhone(c.phone);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   const sheets = await getSheetsClient();
   await ensureTab(sheets, sheetId);
 
+  // Clear existing data rows (keep header in row 1)
   await sheets.spreadsheets.values.clear({
     spreadsheetId: sheetId, range: `${SHEET_TAB}!A2:Z`,
   });
 
-  if (customers.length > 0) {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: sheetId, range: `${SHEET_TAB}!A2`,
-      valueInputOption: "USER_ENTERED", insertDataOption: "INSERT_ROWS",
+  if (unique.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${SHEET_TAB}!A2`,
+      valueInputOption: "USER_ENTERED",
       requestBody: {
-        values: customers.map((c) => [
-          c.phone, c.name, c.source ?? "WhatsApp",
+        values: unique.map((c) => [
+          normalisePhone(c.phone),
+          c.name,
+          c.source ?? "WhatsApp",
           c.firstSeen ? c.firstSeen.toISOString().slice(0, 10) : "",
           c.status ?? "Active",
         ]),
@@ -253,7 +262,7 @@ export async function exportAllCustomers(customers: {
     });
   }
 
-  return { sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}`, count: customers.length };
+  return { sheetUrl: `https://docs.google.com/spreadsheets/d/${sheetId}`, count: unique.length };
 }
 
 export async function isSheetsConfigured(): Promise<boolean> {
