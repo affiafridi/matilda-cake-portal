@@ -7,11 +7,49 @@ import { cacheOr, TTL } from "@/lib/cache";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const WC_TIMEOUT_MS = 4000; // abort WooCommerce calls after 4 seconds
+
 type WcProduct = {
   id: number; name: string; price: string; type: string;
   meta_data: { key: string; value: string }[];
   images: { src: string }[]; permalink: string;
 };
+
+/** fetch() with a hard timeout — prevents bot from hanging forever on slow WC responses. */
+async function wcFetch(url: string, auth: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WC_TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      headers: { Authorization: `Basic ${auth}` },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Fetch variations for a single variable product. Returns [] on timeout/error. */
+async function fetchVariations(
+  productId: number,
+  wcBase: string,
+  auth: string,
+): Promise<{ name: string; price: string }[]> {
+  try {
+    const res = await wcFetch(
+      `${wcBase}/wp-json/wc/v3/products/${productId}/variations?per_page=20&status=publish`,
+      auth,
+    );
+    if (!res.ok) return [];
+    const data = await res.json() as { price: string; attributes: { name: string; option: string }[] }[];
+    return data
+      .map((v) => ({ name: v.attributes.map((a) => a.option).join(" / ") || "Default", price: v.price }))
+      .filter((v) => v.price);
+  } catch {
+    return []; // timeout or network error — degrade gracefully
+  }
+}
 
 /** Fetch full product data (type, variations, minPrice, maxPrice) from WooCommerce by IDs. */
 async function enrichFromWC(
@@ -23,32 +61,21 @@ async function enrichFromWC(
   if (!wcIds.length) return map;
 
   try {
-    const res = await fetch(
+    const res = await wcFetch(
       `${wcBase}/wp-json/wc/v3/products?include=${wcIds.join(",")}&per_page=${wcIds.length}&status=publish`,
-      { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
+      auth,
     );
     if (!res.ok) return map;
 
     const products = await res.json() as WcProduct[];
     await Promise.all(products.map(async (p) => {
       const isVariable = p.type === "variable";
-      const meta = Object.fromEntries((p.meta_data ?? []).map((m) => [m.key, m.value]));
+      const meta  = Object.fromEntries((p.meta_data ?? []).map((m) => [m.key, m.value]));
       const entry: Record<string, unknown> = { type: p.type ?? "simple" };
       if (isVariable) {
-        entry.minPrice = meta["_min_variation_price"] ?? p.price;
-        entry.maxPrice = meta["_max_variation_price"] ?? p.price;
-        try {
-          const vRes = await fetch(
-            `${wcBase}/wp-json/wc/v3/products/${p.id}/variations?per_page=20&status=publish`,
-            { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
-          );
-          if (vRes.ok) {
-            const vData = await vRes.json() as { price: string; attributes: { name: string; option: string }[] }[];
-            entry.variations = vData
-              .map((v) => ({ name: v.attributes.map((a) => a.option).join(" / ") || "Default", price: v.price }))
-              .filter((v) => v.price);
-          }
-        } catch { entry.variations = []; }
+        entry.minPrice  = meta["_min_variation_price"] ?? p.price;
+        entry.maxPrice  = meta["_max_variation_price"] ?? p.price;
+        entry.variations = await fetchVariations(p.id, wcBase, auth);
       }
       map.set(p.id, entry);
     }));
@@ -69,20 +96,9 @@ async function enrichWcList(products: WcProduct[], wcBase: string, auth: string)
       permalink: p.permalink,
     };
     if (isVariable) {
-      base.minPrice = meta["_min_variation_price"] ?? p.price;
-      base.maxPrice = meta["_max_variation_price"] ?? p.price;
-      try {
-        const vRes = await fetch(
-          `${wcBase}/wp-json/wc/v3/products/${p.id}/variations?per_page=20&status=publish`,
-          { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
-        );
-        if (vRes.ok) {
-          const vData = await vRes.json() as { price: string; attributes: { name: string; option: string }[] }[];
-          base.variations = vData
-            .map((v) => ({ name: v.attributes.map((a) => a.option).join(" / ") || "Default", price: v.price }))
-            .filter((v) => v.price);
-        }
-      } catch { base.variations = []; }
+      base.minPrice   = meta["_min_variation_price"] ?? p.price;
+      base.maxPrice   = meta["_max_variation_price"] ?? p.price;
+      base.variations = await fetchVariations(p.id, wcBase, auth);
     }
     return base;
   }));
@@ -140,9 +156,9 @@ export async function GET(req: NextRequest) {
         }
 
         if (!wcBase || !auth) throw new Error("WooCommerce not configured");
-        const res = await fetch(
+        const res = await wcFetch(
           `${wcBase}/wp-json/wc/v3/products?search=${encodeURIComponent(search)}&page=${page}&per_page=${perPage}&status=publish`,
-          { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
+          auth,
         );
         if (!res.ok) throw new Error("WooCommerce search failed");
         const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);
@@ -178,9 +194,9 @@ export async function GET(req: NextRequest) {
       }
 
       if (!wcBase || !auth) throw new Error("WooCommerce not configured");
-      const res = await fetch(
+      const res = await wcFetch(
         `${wcBase}/wp-json/wc/v3/products?category=${catId}&page=${page}&per_page=${perPage}&status=publish&orderby=popularity`,
-        { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
+        auth,
       );
       if (!res.ok) throw new Error("Failed to fetch from WooCommerce");
       const totalPages = parseInt(res.headers.get("X-WP-TotalPages") ?? "1", 10);

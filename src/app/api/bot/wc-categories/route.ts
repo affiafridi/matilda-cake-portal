@@ -39,12 +39,15 @@ export async function GET(req: NextRequest) {
       const { wc_url: wcUrl, wc_consumer_key: key, wc_consumer_secret: sec } = await getIntegrations();
       if (!wcUrl || !key || !sec) return jsonError("WooCommerce not configured", 500);
 
-      const base     = wcUrl.replace(/\/$/, "");
-      const fetchUrl = `${base}/wp-json/wc/v3/products/categories?per_page=100`;
-      const res = await fetch(fetchUrl, {
-        headers: { Authorization: "Basic " + Buffer.from(`${key}:${sec}`).toString("base64") },
+      const base       = wcUrl.replace(/\/$/, "");
+      const auth       = Buffer.from(`${key}:${sec}`).toString("base64");
+      const controller = new AbortController();
+      const timer      = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(`${base}/wp-json/wc/v3/products/categories?per_page=100`, {
+        headers: { Authorization: `Basic ${auth}` },
         cache: "no-store",
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
 
       if (!res.ok) {
         const body = await res.text().catch(() => "");
