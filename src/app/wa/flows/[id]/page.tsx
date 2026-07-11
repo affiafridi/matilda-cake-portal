@@ -1182,6 +1182,7 @@ type AiSettings = {
   ai_kb_prompt: string;
   ai_max_tokens: number;
   ai_daily_limit: number;
+  ai_usage_today: number;
 };
 const EMPTY_AI: AiSettings = {
   openai_configured: false,
@@ -1194,6 +1195,7 @@ const EMPTY_AI: AiSettings = {
   ai_kb_prompt: "",
   ai_max_tokens: 150,
   ai_daily_limit: 200,
+  ai_usage_today: 0,
 };
 
 function buildCompiledPrompt(s: AiSettings): string {
@@ -2056,6 +2058,31 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                                     <span className="text-slate-500 font-semibold">200 recommended</span>
                                     <span className="text-emerald-500 font-medium">1000 — high</span>
                                   </div>
+
+                                  {/* Today's usage status */}
+                                  {(() => {
+                                    const used      = aiSettings.ai_usage_today;
+                                    const limit     = aiSettings.ai_daily_limit;
+                                    const remaining = Math.max(0, limit - used);
+                                    const pct       = Math.min(100, Math.round((used / limit) * 100));
+                                    const barColor  = pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-400" : "bg-emerald-500";
+                                    const textColor = pct >= 90 ? "text-red-600" : pct >= 70 ? "text-amber-600" : "text-emerald-600";
+                                    return (
+                                      <div className="mt-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <p className="text-xs font-semibold text-gray-600">Today&apos;s Usage</p>
+                                          <p className="text-xs text-gray-400">Resets at midnight</p>
+                                        </div>
+                                        <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
+                                          <div className={["h-2 rounded-full transition-all", barColor].join(" ")} style={{ width: `${pct}%` }} />
+                                        </div>
+                                        <div className="flex items-center justify-between mt-2">
+                                          <span className={["text-xs font-bold", textColor].join(" ")}>{used} used</span>
+                                          <span className="text-xs text-gray-400">{remaining} remaining of {limit}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
 
                               </div>

@@ -47,6 +47,7 @@ type AiSettings = {
   ai_intent_search: boolean;
   ai_intent_agent: boolean;
   ai_intent_info: boolean;
+  ai_usage_today: number;
 };
 
 export async function GET() {
@@ -63,7 +64,8 @@ export async function GET() {
         'ai_kb_sizes','ai_kb_flavours','ai_kb_delivery',
         'ai_kb_custom_orders','ai_kb_extra','ai_kb_use_prompt','ai_kb_prompt',
         'ai_max_tokens','ai_daily_limit',
-        'ai_intent_catalog','ai_intent_search','ai_intent_agent','ai_intent_info'
+        'ai_intent_catalog','ai_intent_search','ai_intent_agent','ai_intent_info',
+        'ai_usage_date','ai_usage_count'
       )
     `;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -86,6 +88,9 @@ export async function GET() {
       ai_intent_search:     (map["ai_intent_search"]    ?? "true") === "true",
       ai_intent_agent:      (map["ai_intent_agent"]     ?? "true") === "true",
       ai_intent_info:       (map["ai_intent_info"]      ?? "true") === "true",
+      ai_usage_today:       map["ai_usage_date"] === new Date().toISOString().slice(0, 10)
+                              ? Number(map["ai_usage_count"] ?? "0")
+                              : 0,
     } satisfies AiSettings);
   } catch (err) {
     return handleApiError(err);
