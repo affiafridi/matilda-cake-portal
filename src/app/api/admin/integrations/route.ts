@@ -11,6 +11,7 @@ const INTEGRATION_KEYS = [
   "bot_url", "sync_secret", "inbox_webhook_secret",
   "google_oauth_client_id", "google_oauth_client_secret",
   "openai_api_key",
+  "ccavenue_merchant_id", "ccavenue_access_code", "ccavenue_working_key", "ccavenue_website_url",
 ];
 
 async function canAccessIntegrations(user: { role: string } | null): Promise<boolean> {
@@ -33,7 +34,8 @@ export async function GET() {
         'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
         'bot_url', 'sync_secret', 'inbox_webhook_secret',
         'google_oauth_client_id', 'google_oauth_client_secret',
-        'openai_api_key'
+        'openai_api_key',
+        'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url'
       )
     `;
 
@@ -64,6 +66,10 @@ function envFallback(key: string): string {
     sync_secret:              process.env.SYNC_SECRET,
     inbox_webhook_secret:     process.env.INBOX_WEBHOOK_SECRET,
     openai_api_key:           process.env.OPENAI_API_KEY,
+    ccavenue_merchant_id:     process.env.CCAVENUE_MERCHANT_ID,
+    ccavenue_access_code:     process.env.CCAVENUE_ACCESS_CODE,
+    ccavenue_working_key:     process.env.CCAVENUE_WORKING_KEY,
+    ccavenue_website_url:     process.env.CCAVENUE_WEBSITE_URL,
   };
   return map[key] ?? "";
 }
