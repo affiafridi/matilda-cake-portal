@@ -147,11 +147,9 @@ export async function GET(req: NextRequest) {
             [`%${search}%`, perPage, offset],
           );
           const totalPages = Math.ceil(totalCount / perPage);
-          const enrichMap  = wcBase && auth ? await enrichFromWC(rows.map((r) => r.wc_id), wcBase, auth) : new Map();
-          const products   = rows.map((p) => {
-            const extra = enrichMap.get(p.wc_id) ?? {};
-            return { id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple", ...extra };
-          });
+          const products   = rows.map((p) => ({
+            id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple",
+          }));
           return { products, hasMore: page < totalPages, page, totalPages };
         }
 
@@ -185,11 +183,9 @@ export async function GET(req: NextRequest) {
           [catId, perPage, offset],
         );
         const totalPages = Math.ceil(totalCount / perPage);
-        const enrichMap  = wcBase && auth ? await enrichFromWC(rows.map((r) => r.wc_id), wcBase, auth) : new Map();
-        const products   = rows.map((p) => {
-          const extra = enrichMap.get(p.wc_id) ?? {};
-          return { id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple", ...extra };
-        });
+        const products   = rows.map((p) => ({
+          id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: "simple",
+        }));
         return { products, hasMore: page < totalPages, page, totalPages };
       }
 
