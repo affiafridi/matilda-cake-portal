@@ -3,6 +3,7 @@ import { botQuery } from "@/lib/botdb";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { getCurrentUser } from "@/lib/auth/server";
 import { getIntegrations } from "@/lib/integrations";
+import { cacheDel, cacheDel_prefix } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,7 +97,12 @@ export async function GET(req: NextRequest) {
             [p.name, p.price ?? "", p.images?.[0]?.src ?? "", p.permalink, productType, variationsJson, p.id, categoryId]
           );
         }
+        // Bust per-product cache so ?id=X returns fresh type+variations immediately
+        cacheDel(`wc_product:${p.id}`);
       }
+      // Bust category and search caches for this category
+      cacheDel_prefix(`wc_cat:${categoryId}`);
+      cacheDel_prefix(`wc_search:`);
     }
 
     const { rows } = await botQuery<{
