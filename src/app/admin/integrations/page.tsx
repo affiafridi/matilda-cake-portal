@@ -108,7 +108,7 @@ const INTEGRATIONS: IntegrationDef[] = [
     name: "Stripe",
     desc: "Send payment links and receive payment notifications via WhatsApp.",
     category: "Payment",
-    status: "coming_soon",
+    status: "configure",
     iconBg: "bg-[#635bff]/10",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#635bff]" fill="currentColor">
@@ -167,6 +167,7 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "bot-server":   ["bot_url", "inbox_webhook_secret"],
   "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
   "openai":       ["openai_api_key"],
+  "stripe":       ["stripe_secret_key"],
 };
 
 const STATUS_BADGE: Record<IntegrationStatus, { label: string; classes: string }> = {
