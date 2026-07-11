@@ -278,6 +278,9 @@ export default function InboxClient({
   // Tags panel
   const [showTagPicker, setShowTagPicker] = useState(false);
 
+  // Image lightbox
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+
   const bottomRef       = useRef<HTMLDivElement>(null);
   const scrollRef       = useRef<HTMLDivElement>(null);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
@@ -421,6 +424,14 @@ export default function InboxClient({
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Close lightbox on Escape ──────────────────────────────────────────────
+  useEffect(() => {
+    if (lightboxIdx === null) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxIdx(null); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [lightboxIdx]);
 
   // ── Close tag picker on outside click ────────────────────────────────────
   useEffect(() => {
@@ -576,6 +587,16 @@ export default function InboxClient({
   // ── Derived ───────────────────────────────────────────────────────────────
   const selected      = convDetail ?? conversations.find((c) => c.id === selectedId) ?? null;
   const windowClosed  = is24hWindowClosed(selected?.lastInboundAt ?? null);
+
+  // All image URLs in current conversation (for lightbox navigation)
+  const convImages = messages
+    .filter((m) => m.mediaType === "image" && m.mediaUrl)
+    .map((m) => m.mediaUrl as string);
+
+  function openLightbox(url: string) {
+    const idx = convImages.indexOf(url);
+    setLightboxIdx(idx >= 0 ? idx : 0);
+  }
 
   const counts = {
     unassigned: conversations.filter((c) => !c.assignedTo).length,
@@ -1073,10 +1094,10 @@ export default function InboxClient({
                                     return (
                                       <div className="min-w-[180px]">
                                         {m.mediaUrl && m.mediaType === "image" && (
-                                          <a href={m.mediaUrl} target="_blank" rel="noreferrer">
+                                          <button type="button" onClick={() => openLightbox(m.mediaUrl!)} className="block cursor-zoom-in">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
                                             <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover mb-2" />
-                                          </a>
+                                          </button>
                                         )}
                                         {m.body && <p className="text-[13px] whitespace-pre-wrap mb-2">{m.body}</p>}
                                         <div className="flex flex-col gap-1">
@@ -1093,11 +1114,11 @@ export default function InboxClient({
 
                                 // Image
                                 if (m.mediaUrl && m.mediaType === "image") return (
-                                  <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="block">
+                                  <button type="button" onClick={() => openLightbox(m.mediaUrl!)} className="block cursor-zoom-in text-left">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover" />
                                     {m.body && m.body !== "[image]" && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
-                                  </a>
+                                  </button>
                                 );
 
                                 // Sticker
@@ -1471,6 +1492,62 @@ export default function InboxClient({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Image Lightbox ── */}
+      {lightboxIdx !== null && convImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxIdx(null)}
+        >
+          {/* Prev */}
+          {convImages.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightboxIdx((i) => (i! - 1 + convImages.length) % convImages.length); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+          )}
+
+          {/* Image */}
+          <div className="relative flex max-h-[90vh] max-w-[90vw] items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={convImages[lightboxIdx]}
+              alt="image"
+              className="max-h-[90vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+            />
+          </div>
+
+          {/* Next */}
+          {convImages.length > 1 && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setLightboxIdx((i) => (i! + 1) % convImages.length); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>
+          )}
+
+          {/* Close */}
+          <button
+            type="button"
+            onClick={() => setLightboxIdx(null)}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+
+          {/* Counter */}
+          {convImages.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs font-medium text-white">
+              {lightboxIdx + 1} / {convImages.length}
             </div>
           )}
         </div>
