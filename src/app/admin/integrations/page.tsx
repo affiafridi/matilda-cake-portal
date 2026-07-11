@@ -109,11 +109,9 @@ const INTEGRATIONS: IntegrationDef[] = [
     desc: "Generate CCAvenue payment links for WhatsApp customers. Accept cards, UPI, netbanking and wallets — confirm payments automatically.",
     category: "Payment",
     status: "configure",
-    iconBg: "bg-[#e31837]/10",
+    iconBg: "bg-white",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#e31837]" fill="currentColor">
-        <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-      </svg>
+      <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-6 w-6 object-contain" />
     ),
   },
   {

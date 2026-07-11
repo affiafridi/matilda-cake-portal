@@ -121,7 +121,7 @@ const META: Record<string, IntegrationMeta> = {
     name: "CCAvenue",
     desc: "Generate CCAvenue payment links for WhatsApp customers. Accept cards, UPI, netbanking and wallets — confirm payments automatically via webhook.",
     category: "Payment",
-    iconBg: "bg-[#e31837]/10",
+    iconBg: "bg-white",
     features: [
       "Generate CCAvenue Checkout links directly from the bot",
       "Supports cards, UPI, netbanking, EMI and wallets",
@@ -130,9 +130,7 @@ const META: Record<string, IntegrationMeta> = {
       "Working key stored securely — never exposed to the browser",
     ],
     icon: (
-      <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#e31837]" fill="currentColor">
-        <path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-      </svg>
+      <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-8 w-8 object-contain" />
     ),
   },
   "openai": {
