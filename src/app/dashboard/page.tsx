@@ -386,7 +386,7 @@ export default async function DashboardPage({
 
         {/* ── Row 2: Admin revenue + WA stats ── */}
         {isAdmin && (
-          <div className={["grid gap-4", showPortal ? "lg:grid-cols-3" : "lg:grid-cols-4"].join(" ")}>
+          <div className="grid gap-4 lg:grid-cols-4">
             {/* Featured revenue card — portal only */}
             {showPortal && <div className="relative overflow-hidden rounded-2xl bg-brand p-5 lg:col-span-1">
               <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
@@ -461,7 +461,7 @@ export default async function DashboardPage({
               value={waLeadsTotal}
               link={{ href: "/wa/leads", label: `${waLeadsNew} new · ${waLeadsConverted} converted` }}
               bg="bg-[#6d28d9]"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-[#c4b5fd]"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>}
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-5 w-5 text-[#c4b5fd]"><path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
             />
           </div>
         )}
