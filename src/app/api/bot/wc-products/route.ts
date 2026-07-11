@@ -105,6 +105,7 @@ async function enrichWcList(products: WcProduct[], wcBase: string, auth: string)
 }
 
 /**
+ * GET /api/bot/wc-products?id=X                        — single product by wc_id
  * GET /api/bot/wc-products?categoryId=X&page=1&perPage=9
  * GET /api/bot/wc-products?search=keyword&page=1&perPage=9
  */
@@ -116,18 +117,42 @@ export async function GET(req: NextRequest) {
     if (!secret || secret !== inbox_webhook_secret) return jsonError("Unauthorized", 401);
 
     const params  = req.nextUrl.searchParams;
+    const wcId    = parseInt(params.get("id") ?? "0", 10);
     const catId   = parseInt(params.get("categoryId") ?? "0", 10);
     const search  = (params.get("search") ?? "").trim();
     const page    = parseInt(params.get("page") ?? "1", 10);
     const perPage = parseInt(params.get("perPage") ?? "9", 10);
     const offset  = (page - 1) * perPage;
 
-    if (!catId && !search) return jsonError("categoryId or search is required", 400);
+    // ── SINGLE PRODUCT MODE ──────────────────────────────────────────────────
+    if (wcId) {
+      const cacheKey = `wc_product:${wcId}`;
+      const product = await cacheOr(cacheKey, TTL.WC_PRODUCTS, async () => {
+        const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
+          `SELECT wc_id, name, price, image, permalink FROM bot_products WHERE wc_id = $1 AND enabled = true LIMIT 1`,
+          [wcId],
+        );
+        if (rows[0]) {
+          return { id: rows[0].wc_id, name: rows[0].name, price: rows[0].price, image: rows[0].image, permalink: rows[0].permalink, type: "simple" };
+        }
+        // Fallback to WooCommerce if not in bot DB
+        const wcBase = (wc_url ?? "").replace(/\/$/, "");
+        const auth   = wc_consumer_key && wc_consumer_secret
+          ? Buffer.from(`${wc_consumer_key}:${wc_consumer_secret}`).toString("base64") : "";
+        if (!wcBase || !auth) throw new Error("Product not found");
+        const res = await wcFetch(`${wcBase}/wp-json/wc/v3/products/${wcId}`, auth);
+        if (!res.ok) throw new Error("Product not found");
+        const p = await res.json() as WcProduct;
+        return { id: p.id, name: p.name, price: p.price, image: p.images?.[0]?.src ?? "", permalink: p.permalink, type: p.type ?? "simple" };
+      });
+      return jsonOk({ product });
+    }
+
+    if (!catId && !search) return jsonError("id, categoryId or search is required", 400);
 
     const wcBase = (wc_url ?? "").replace(/\/$/, "");
     const auth   = wc_consumer_key && wc_consumer_secret
-      ? Buffer.from(`${wc_consumer_key}:${wc_consumer_secret}`).toString("base64")
-      : "";
+      ? Buffer.from(`${wc_consumer_key}:${wc_consumer_secret}`).toString("base64") : "";
 
     // ── SEARCH MODE ──────────────────────────────────────────────────────────
     if (search) {
