@@ -128,12 +128,23 @@ export async function GET(req: NextRequest) {
     if (wcId) {
       const cacheKey = `wc_product:${wcId}`;
       const product = await cacheOr(cacheKey, TTL.WC_PRODUCTS, async () => {
-        const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: unknown }>(
-          `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products WHERE wc_id = $1 AND enabled = true LIMIT 1`,
-          [wcId],
-        );
-        if (rows[0]) {
-          return { id: rows[0].wc_id, name: rows[0].name, price: rows[0].price, image: rows[0].image, permalink: rows[0].permalink, type: rows[0].type ?? "simple", variations: rows[0].variations ?? [] };
+        // Try with type+variations columns first; fall back if columns don't exist yet (pre-Sync)
+        let row: { wc_id: number; name: string; price: string; image: string; permalink: string; type?: string; variations?: unknown } | undefined;
+        try {
+          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: unknown }>(
+            `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products WHERE wc_id = $1 AND enabled = true LIMIT 1`,
+            [wcId],
+          );
+          row = rows[0];
+        } catch {
+          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
+            `SELECT wc_id, name, price, image, permalink FROM bot_products WHERE wc_id = $1 AND enabled = true LIMIT 1`,
+            [wcId],
+          );
+          row = rows[0];
+        }
+        if (row) {
+          return { id: row.wc_id, name: row.name, price: row.price, image: row.image, permalink: row.permalink, type: row.type ?? "simple", variations: row.variations ?? [] };
         }
         // Fallback to WooCommerce if not in bot DB
         const wcBase = (wc_url ?? "").replace(/\/$/, "");
