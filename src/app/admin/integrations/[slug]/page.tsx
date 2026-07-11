@@ -545,6 +545,7 @@ export default function IntegrationDetailPage() {
       "bot-server":   ["bot_url", "inbox_webhook_secret"],
       "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
       "openai":       ["openai_api_key"],
+      "ccavenue":     ["ccavenue_merchant_id", "ccavenue_access_code", "ccavenue_working_key"],
     };
     const keys = required[slug];
     if (!keys) { setStatusLoaded(true); return; }
