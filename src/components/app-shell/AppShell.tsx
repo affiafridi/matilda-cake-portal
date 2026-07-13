@@ -356,30 +356,29 @@ export default function AppShell({
           </div>
         )}
 
-        {/* Sign out */}
-        <div className="space-y-0.5">
-          <SectionLabel label="Account" />
-          <button
-            type="button" onClick={signOut} disabled={signing}
-            className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#6b7280] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-          >
-            <IcLogout className="h-4 w-4 shrink-0 text-[#9ca3af] transition-colors group-hover:text-red-500" />
-            {signing ? "Signing out…" : "Sign out"}
-          </button>
-        </div>
       </nav>
 
       {/* User card */}
-      <div style={{ borderColor: "var(--sb-border, #e5e7eb)" }} className="shrink-0 border-t px-3 py-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white">
-            {initials || "U"}
+      <div style={{ borderColor: "var(--sb-border, #e5e7eb)" }} className="shrink-0 border-t p-3">
+        <div className="flex items-center gap-3 rounded-xl bg-[#f7f8fa] px-3 py-2.5">
+          {/* Avatar with online dot */}
+          <div className="relative shrink-0">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-[11px] font-bold text-white shadow-sm">
+              {initials || "U"}
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400" />
           </div>
           <div className="min-w-0 flex-1">
-            <p style={{ color: "var(--sb-fg, #111827)" }} className="truncate text-[13px] font-semibold leading-tight">{user.name}</p>
-            <p style={{ color: "var(--sb-muted, #6b7280)" }} className="truncate text-[11px] leading-tight">{ROLE_LABEL[user.role]}</p>
+            <p className="truncate text-[12.5px] font-semibold leading-snug text-[#111827]">{user.name}</p>
+            <p className="truncate text-[11px] leading-snug text-[#9ca3af]">{ROLE_LABEL[user.role]}</p>
           </div>
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Online" />
+          <button
+            type="button" onClick={signOut} disabled={signing}
+            title="Sign out"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#9ca3af] transition hover:bg-white hover:text-red-500 disabled:opacity-40"
+          >
+            <IcLogout className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
     </aside>
@@ -406,66 +405,82 @@ export default function AppShell({
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
 
-        {/* Top header */}
-        <header className="sticky top-0 z-30 flex h-[56px] shrink-0 items-center justify-between border-b border-rule bg-white px-5 lg:px-6">
+        {/* Top header — Stripe-style */}
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-4 border-b border-[#e5e7eb] bg-white px-5 lg:px-7">
 
-          {/* Left: hamburger + breadcrumb */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button" onClick={() => setSidebarOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rule text-[#9ca3af] hover:bg-canvas transition sm:hidden"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
-                <path d="M4 6h16M4 12h16M4 18h7" />
-              </svg>
-            </button>
+          {/* Mobile: hamburger */}
+          <button
+            type="button" onClick={() => setSidebarOpen(true)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#9ca3af] hover:bg-[#f7f8fa] hover:text-[#6b7280] transition sm:hidden"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
+          </button>
 
-            <div className="hidden items-center gap-1.5 sm:flex">
-              {meta.parent && meta.parentHref ? (
-                <>
-                  <Link href={meta.parentHref} className="text-[13px] text-[#9ca3af] hover:text-[#6b7280] transition">
-                    {meta.parent}
-                  </Link>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-[#d1d5db]" aria-hidden="true">
-                    <path d="M9 18l6-6-6-6" />
-                  </svg>
-                </>
-              ) : null}
-              <span className="text-[13px] font-semibold text-[#111827]">{meta.title}</span>
-            </div>
-
-            <div className="sm:hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoUrl} alt={appName} className="h-7 w-auto" />
-            </div>
+          {/* Breadcrumb */}
+          <div className="hidden items-center gap-1.5 sm:flex">
+            {meta.parent && meta.parentHref ? (
+              <>
+                <Link href={meta.parentHref} className="text-[13px] font-medium text-[#9ca3af] transition hover:text-[#6b7280]">
+                  {meta.parent}
+                </Link>
+                {/* Slash separator — Stripe style */}
+                <span className="text-[#d1d5db] select-none">/</span>
+              </>
+            ) : null}
+            <span className="text-[13px] font-semibold text-[#111827]">{meta.title}</span>
           </div>
 
-          {/* Right: actions */}
-          <div className="flex items-center gap-2">
+          {/* Mobile logo */}
+          <div className="sm:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoUrl} alt={appName} className="h-6 w-auto" />
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Right actions */}
+          <div className="flex items-center gap-1">
+
+            {/* Notification bell */}
             <button
               type="button"
-              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-rule bg-white text-[#9ca3af] hover:bg-canvas hover:text-[#6b7280] transition"
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg text-[#9ca3af] transition hover:bg-[#f7f8fa] hover:text-[#6b7280]"
+              title={inboxUnread > 0 ? `${inboxUnread} unread` : "Notifications"}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]" aria-hidden="true">
                 <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
               </svg>
               {inboxUnread > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
+                <span className="absolute right-1 top-1 flex h-2 w-2 items-center justify-center rounded-full bg-red-500 ring-2 ring-white" />
               )}
             </button>
 
+            {/* Divider */}
+            <div className="mx-1 h-5 w-px bg-[#e5e7eb]" />
+
+            {/* User pill — Stripe style: avatar + name + chevron */}
             <button
               type="button"
-              className="flex items-center gap-2 rounded-lg border border-rule bg-white px-2.5 py-1.5 transition hover:bg-canvas"
+              className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[#f7f8fa]"
             >
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand text-[10px] font-bold text-white">
-                {initials || "U"}
+              {/* Avatar */}
+              <div className="relative">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-[10.5px] font-bold text-white shadow-sm">
+                  {initials || "U"}
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-[1.5px] border-white bg-emerald-400" />
               </div>
+              {/* Name + role */}
               <div className="hidden text-left sm:block">
-                <p className="text-[12px] font-semibold leading-tight text-[#111827]">{user.name.split(" ")[0]}</p>
-                <p className="text-[10px] leading-tight text-[#9ca3af]">{ROLE_LABEL[user.role]}</p>
+                <p className="text-[12.5px] font-semibold leading-tight text-[#111827]">{user.name.split(" ")[0]}</p>
+                <p className="text-[10.5px] leading-tight text-[#9ca3af]">{ROLE_LABEL[user.role]}</p>
               </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="hidden h-3 w-3 text-[#d1d5db] sm:block" aria-hidden="true">
+              {/* Chevron */}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+                className="hidden h-3 w-3 text-[#d1d5db] transition group-hover:text-[#9ca3af] sm:block" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
