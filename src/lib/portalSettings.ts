@@ -95,7 +95,7 @@ export function buildBrandVars(primaryHex: string, sidebarHex = "#ffffff", accen
   const sidebarActiveBg  = isDark ? "rgba(255,255,255,0.13)" : "var(--color-brand)";
   const sidebarActiveFg  = "#ffffff";
   const sidebarHoverBg   = isDark ? "rgba(255,255,255,0.07)" : `hsl(${h} ${Math.max(0, s - 18)}% ${crm}%)`;
-  const sidebarBorder    = isDark ? "rgba(255,255,255,0.08)" : "#f0ebe4";
+  const sidebarBorder    = isDark ? "rgba(255,255,255,0.08)" : "#e5e7eb";
   const sidebarIconBg    = isDark ? "rgba(255,255,255,0.10)" : `hsl(${h} ${Math.max(0, s - 18)}% ${crm}%)`;
   const sidebarIconColor = isDark ? "rgba(255,255,255,0.75)" : "var(--color-brand)";
 

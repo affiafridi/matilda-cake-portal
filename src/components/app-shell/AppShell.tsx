@@ -6,26 +6,26 @@ import { useEffect, useRef, useState, type ReactElement, type SVGProps } from "r
 
 type Role = "SUPER_ADMIN" | "ADMIN" | "AGENT" | "OPERATOR";
 
-// ── Route → page title map ─────────────────────────────────────────────────
+// ── Page title map ─────────────────────────────────────────────────────────
 
 const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?: string }> = {
   "/dashboard":           { title: "Dashboard" },
-  "/new-order":           { title: "New Order",         parent: "Orders",    parentHref: "/orders" },
+  "/new-order":           { title: "New Order",         parent: "Orders",       parentHref: "/orders" },
   "/orders":              { title: "Orders" },
-  "/admin/branches":      { title: "Branches",           parent: "Admin",     parentHref: "/admin/settings" },
-  "/admin/users":         { title: "Users",              parent: "Admin",     parentHref: "/admin/settings" },
-  "/admin/settings":      { title: "Configuration",      parent: "Admin",     parentHref: "/dashboard" },
-  "/admin/integrations":  { title: "Integrations",       parent: "Admin",     parentHref: "/admin/settings" },
-  "/admin/quick-replies": { title: "Quick Replies",      parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/customers":           { title: "Customers",          parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/wa/templates":        { title: "Send Campaign",      parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/wa/campaigns":        { title: "Campaign History",   parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/wa/manage":           { title: "Manage Templates",   parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/wa/settings":         { title: "Channel Settings",   parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",  parentHref: "/dashboard" },
+  "/admin/branches":      { title: "Branches",           parent: "Admin",        parentHref: "/admin/settings" },
+  "/admin/users":         { title: "Users",              parent: "Admin",        parentHref: "/admin/settings" },
+  "/admin/settings":      { title: "Configuration",      parent: "Admin",        parentHref: "/dashboard" },
+  "/admin/integrations":  { title: "Integrations",       parent: "Admin",        parentHref: "/admin/settings" },
+  "/admin/quick-replies": { title: "Quick Replies",      parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/customers":           { title: "Customers",          parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/templates":        { title: "Send Campaign",      parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/campaigns":        { title: "Campaign History",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/manage":           { title: "Manage Templates",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/settings":         { title: "Channel Settings",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",     parentHref: "/dashboard" },
   "/wa/woocommerce":      { title: "WooCommerce",        parent: "Integrations", parentHref: "/admin/integrations" },
-  "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",  parentHref: "/wa/inbox" },
-  "/wa/leads":            { title: "WA Leads",           parent: "WhatsApp",  parentHref: "/wa/inbox" },
+  "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/leads":            { title: "WA Leads",           parent: "WhatsApp",     parentHref: "/wa/inbox" },
 };
 
 function getPageMeta(pathname: string) {
@@ -35,7 +35,7 @@ function getPageMeta(pathname: string) {
   return partial?.[1] ?? { title: "Portal" };
 }
 
-// ── Nav structure ──────────────────────────────────────────────────────────
+// ── Nav config ─────────────────────────────────────────────────────────────
 
 type NavItem = {
   href: string; label: string;
@@ -55,20 +55,20 @@ const PORTAL_NAV: NavItem[] = [
 ];
 
 const SETTINGS_NAV: NavItem[] = [
-  { href: "/admin/settings",     label: "Configuration",   roles: ["SUPER_ADMIN"], icon: IcPortalSettings },
-  { href: "/admin/integrations", label: "Integrations",    roles: ["SUPER_ADMIN"], icon: IcIntegrations },
+  { href: "/admin/settings",     label: "Configuration", roles: ["SUPER_ADMIN"], icon: IcPortalSettings },
+  { href: "/admin/integrations", label: "Integrations",  roles: ["SUPER_ADMIN"], icon: IcIntegrations },
 ];
 
-const WA_NAV: { href: string; label: string; icon: (p: SVGProps<SVGSVGElement>) => ReactElement; roles: readonly Role[] }[] = [
-  { href: "/wa/inbox",             label: "Team Inbox",       icon: IcInbox,      roles: ["SUPER_ADMIN", "ADMIN", "AGENT"] },
-  { href: "/customers",            label: "Customers",        icon: IcCustomers,  roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/admin/quick-replies",  label: "Quick Replies",    icon: IcQuickReply, roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/templates",         label: "Send Campaign",    icon: IcSend,       roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/campaigns",         label: "Campaign History", icon: IcHistory,    roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/manage",            label: "Manage Templates", icon: IcTemplate,   roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/settings",          label: "Channel Settings", icon: IcSettings,   roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/flows",             label: "Flow Builder",     icon: IcFlow,        roles: ["SUPER_ADMIN", "ADMIN"] },
-  { href: "/wa/leads",             label: "WA Leads",         icon: IcLeads,       roles: ["SUPER_ADMIN", "ADMIN"] },
+const WA_NAV: NavItem[] = [
+  { href: "/wa/inbox",            label: "Team Inbox",       icon: IcInbox,      roles: ["SUPER_ADMIN","ADMIN","AGENT"] },
+  { href: "/customers",           label: "Customers",        icon: IcCustomers,  roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/admin/quick-replies", label: "Quick Replies",    icon: IcQuickReply, roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/templates",        label: "Send Campaign",    icon: IcSend,       roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/campaigns",        label: "Campaign History", icon: IcHistory,    roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/manage",           label: "Manage Templates", icon: IcTemplate,   roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/settings",         label: "Channel Settings", icon: IcSettings,   roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/flows",            label: "Flow Builder",     icon: IcFlow,       roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/leads",            label: "WA Leads",         icon: IcLeads,      roles: ["SUPER_ADMIN","ADMIN"] },
 ];
 
 const WOO_NAV = [
@@ -78,11 +78,11 @@ const WOO_NAV = [
 const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN:       "Admin",
-  AGENT:    "Agent",
-  OPERATOR: "Operator",
+  AGENT:       "Agent",
+  OPERATOR:    "Operator",
 };
 
-// ── AppShell ───────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 
 type Settings = {
   woo_visible_to_admin:          boolean;
@@ -93,6 +93,55 @@ type Settings = {
   logo_url?:  string;
 };
 
+// ── Shared nav link component ──────────────────────────────────────────────
+
+function NavLink({
+  href, label, icon: Icon, active, badge, accent,
+}: {
+  href: string; label: string;
+  icon: (p: SVGProps<SVGSVGElement>) => ReactElement;
+  active: boolean; badge?: number;
+  accent?: { activeBg: string; activeText: string; hoverBg: string; iconColor: string };
+}) {
+  const def = {
+    activeBg:   "bg-[#f1f3f9]",
+    activeText: "text-[#111827]",
+    hoverBg:    "hover:bg-[#f7f8fa]",
+    iconColor:  active ? "text-[#111827]" : "text-[#9ca3af]",
+  };
+  const a = accent ?? def;
+
+  return (
+    <Link
+      href={href}
+      className={[
+        "group flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+        active
+          ? `${a.activeBg} ${a.activeText}`
+          : `text-[#6b7280] ${a.hoverBg} hover:text-[#111827]`,
+      ].join(" ")}
+    >
+      <Icon className={["h-4 w-4 shrink-0 transition-colors", active ? a.iconColor : `text-[#9ca3af] group-hover:text-[#6b7280]`].join(" ")} />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {badge != null && badge > 0 && !active && (
+        <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return (
+    <p className="mb-0.5 mt-3 px-2.5 text-[10.5px] font-semibold uppercase tracking-widest text-[#9ca3af]">
+      {label}
+    </p>
+  );
+}
+
+// ── AppShell ───────────────────────────────────────────────────────────────
+
 export default function AppShell({
   user, children, settings,
 }: {
@@ -100,52 +149,39 @@ export default function AppShell({
   children: React.ReactNode;
   settings?: Settings;
 }) {
-  const pathname  = usePathname();
-  const router    = useRouter();
-  const [open, setOpen]               = useState(false);
-  const [signing, setSigning]         = useState(false);
+  const pathname = usePathname();
+  const router   = useRouter();
+
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [signing,     setSigning]     = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
-  const [navPct, setNavPct]   = useState(0);
+  const [navPct,  setNavPct]  = useState(0);
   const [navShow, setNavShow] = useState(false);
   const navMounted = useRef(false);
   const navTick    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const navDone    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(() =>
-    typeof window !== "undefined" && window.location.pathname.startsWith("/admin/settings") ||
-    typeof window !== "undefined" && window.location.pathname.startsWith("/admin/integrations")
-  );
+  const navDone    = useRef<ReturnType<typeof setTimeout>  | null>(null);
 
+  // Nav progress bar
   function startNav() {
     if (navTick.current) clearInterval(navTick.current);
     if (navDone.current) clearTimeout(navDone.current);
-    setNavPct(0);
-    setNavShow(true);
-    // tick up quickly at first, then slow as it approaches 85%
+    setNavPct(0); setNavShow(true);
     let pct = 0;
-    navTick.current = setInterval(() => {
-      pct += (85 - pct) * 0.08;
-      setNavPct(Math.min(pct, 85));
-    }, 60);
+    navTick.current = setInterval(() => { pct += (85 - pct) * 0.08; setNavPct(Math.min(pct, 85)); }, 60);
   }
-
   function finishNav() {
     if (navTick.current) { clearInterval(navTick.current); navTick.current = null; }
     setNavPct(100);
     navDone.current = setTimeout(() => { setNavShow(false); setNavPct(0); }, 380);
   }
 
-  // Page settled — complete the bar
   useEffect(() => {
-    setOpen(false);
-    if (pathname.startsWith("/admin/settings") || pathname.startsWith("/admin/integrations")) {
-      setSettingsOpen(true);
-    }
+    setSidebarOpen(false);
     if (!navMounted.current) { navMounted.current = true; return; }
     finishNav();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Start bar the moment user clicks an internal link
   useEffect(() => {
     function onLinkClick(e: MouseEvent) {
       const anchor = (e.target as Element).closest("a");
@@ -160,7 +196,7 @@ export default function AppShell({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Poll unread count for inbox-eligible users
+  // Poll unread count
   useEffect(() => {
     if (!waNavItems.some((i) => i.href === "/wa/inbox")) return;
     function fetchUnread() {
@@ -175,7 +211,6 @@ export default function AppShell({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update browser tab title with unread badge
   useEffect(() => {
     if (typeof document === "undefined") return;
     const base = document.title.replace(/^\(\d+\)\s*/, "");
@@ -185,21 +220,27 @@ export default function AppShell({
   const appName = settings?.app_name ?? "Order Portal";
   const logoUrl = settings?.logo_url ?? "/uploads/logo.png";
 
-  const waNavItems    = WA_NAV.filter((i) => i.roles.includes(user.role));
-  const isWaUser      = waNavItems.length > 0;
-  const isSuperAdmin  = user.role === "SUPER_ADMIN";
-  const showWoo          = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin          ?? false));
-  const showWA           = isSuperAdmin || user.role === "AGENT" || (user.role === "ADMIN" && (settings?.wa_visible_to_admin           ?? true));
-  const showPortal       = isSuperAdmin || user.role === "AGENT" || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin       ?? true));
+  const waNavItems      = WA_NAV.filter((i) => i.roles.includes(user.role));
+  const isSuperAdmin    = user.role === "SUPER_ADMIN";
+  const showWoo         = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin          ?? false));
+  const showWA          = isSuperAdmin || user.role === "AGENT"    || (user.role === "ADMIN" && (settings?.wa_visible_to_admin           ?? true));
+  const showPortal      = isSuperAdmin || user.role === "AGENT"    || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin       ?? true));
   const showIntegrations = isSuperAdmin || (user.role === "ADMIN" && (settings?.integrations_visible_to_admin ?? false));
-  const items         = MAIN_NAV.filter((i) => i.roles.includes(user.role));
+
+  const mainItems     = MAIN_NAV.filter((i) => i.roles.includes(user.role));
   const portalItems   = PORTAL_NAV.filter((i) => i.roles.includes(user.role));
   const settingsItems = SETTINGS_NAV.filter((i) =>
     i.href === "/admin/integrations" ? showIntegrations : i.roles.includes(user.role)
   );
-  const meta     = getPageMeta(pathname);
 
+  const meta     = getPageMeta(pathname);
   const initials = user.name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+  const isFlowEditor = /^\/wa\/flows\/\d+/.test(pathname);
+
+  function isActive(href: string) {
+    if (href === "/orders") return pathname === "/orders" || (pathname.startsWith("/orders/") && !pathname.startsWith("/orders/new"));
+    return pathname === href || pathname.startsWith(href + "/");
+  }
 
   async function signOut() {
     if (signing) return;
@@ -209,269 +250,190 @@ export default function AppShell({
     router.refresh();
   }
 
-  function isActive(href: string) {
-    if (href === "/orders") return pathname === "/orders" || (pathname.startsWith("/orders/") && !pathname.startsWith("/orders/new"));
-    return pathname === href || pathname.startsWith(href + "/");
+  // ── Sidebar content ───────────────────────────────────────────────────────
+  const sidebar = (
+    <aside
+      style={{ background: "var(--sb-bg, #ffffff)", borderColor: "var(--sb-border, #e5e7eb)" }}
+      className={[
+        "fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r",
+        "transform transition-transform duration-200 ease-out",
+        "sm:sticky sm:top-0 sm:h-screen sm:translate-x-0 sm:z-auto",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full",
+      ].join(" ")}
+    >
+      {/* Logo */}
+      <div
+        style={{ borderColor: "var(--sb-border, #e5e7eb)" }}
+        className="flex h-[56px] shrink-0 items-center border-b px-4"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt={appName} className="h-8 w-auto" />
+      </div>
+
+      {/* Nav */}
+      <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-3">
+
+        {/* Dashboard */}
+        <div className="space-y-0.5">
+          {mainItems.map((item) => (
+            <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={isActive(item.href)} />
+          ))}
+        </div>
+
+        {/* Portal */}
+        {showPortal && portalItems.length > 0 && (
+          <div className="space-y-0.5">
+            <SectionLabel label="Portal" />
+            {portalItems.map((item) => (
+              <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={isActive(item.href)} />
+            ))}
+          </div>
+        )}
+
+        {/* WhatsApp Business */}
+        {waNavItems.length > 0 && showWA && (
+          <div className="space-y-0.5">
+            <div className="mb-0.5 mt-3 flex items-center gap-1.5 px-2.5">
+              <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" aria-hidden="true">
+                <path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path fill="#25D366" d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.528 5.849L.057 23.899a.75.75 0 00.921.921l6.05-1.471A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.857a9.834 9.834 0 01-5.032-1.381l-.36-.214-3.733.907.922-3.638-.235-.374A9.857 9.857 0 012.143 12C2.143 6.55 6.55 2.143 12 2.143S21.857 6.55 21.857 12 17.45 21.857 12 21.857z"/>
+              </svg>
+              <span className="text-[10.5px] font-semibold uppercase tracking-widest text-[#9ca3af]">WhatsApp</span>
+            </div>
+            {waNavItems.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <NavLink
+                  key={item.href} href={item.href} label={item.label} icon={item.icon}
+                  active={active}
+                  badge={item.href === "/wa/inbox" ? inboxUnread : undefined}
+                  accent={{
+                    activeBg:   "bg-[#e8f5e9]",
+                    activeText: "text-[#065f46]",
+                    hoverBg:    "hover:bg-[#f0fdf4]",
+                    iconColor:  "text-[#16a34a]",
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* WooCommerce */}
+        {showWoo && (
+          <div className="space-y-0.5">
+            <div className="mb-0.5 mt-3 flex items-center gap-1.5 px-2.5">
+              <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0 text-[#7f54b3]" aria-hidden="true">
+                <path fill="currentColor" d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2zm2.01 3.33c-.31.04-.54.19-.65.5-.06.18-.04.37.02.56l2.18 6.93 2.27-4.46 2.27 4.46 2.18-6.93c.11-.37-.04-.75-.38-.92a.76.76 0 00-.99.34l-1.08 3.9-1.98-3.88-2.01 3.88-1.08-3.9c-.11-.36-.41-.52-.75-.48zm11.06.12c-.72.04-1.37.46-1.68 1.11-.31.66-.25 1.46.17 2.06.43.61 1.16.93 1.9.84.74-.09 1.38-.59 1.63-1.3.25-.7.08-1.49-.43-2.02a1.87 1.87 0 00-1.59-.69zm0 .98c.36-.01.71.17.91.47.2.3.24.69.09 1.02-.14.34-.46.57-.82.61-.36.04-.72-.12-.94-.42-.22-.3-.26-.7-.1-1.04.16-.34.5-.57.86-.64z"/>
+              </svg>
+              <span className="text-[10.5px] font-semibold uppercase tracking-widest text-[#9ca3af]">WooCommerce</span>
+            </div>
+            {WOO_NAV.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <NavLink
+                  key={item.href} href={item.href} label={item.label} icon={item.icon}
+                  active={active}
+                  accent={{
+                    activeBg:   "bg-[#f3eeff]",
+                    activeText: "text-[#5b21b6]",
+                    hoverBg:    "hover:bg-[#faf5ff]",
+                    iconColor:  "text-[#7f54b3]",
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Admin */}
+        {settingsItems.length > 0 && (
+          <div className="space-y-0.5">
+            <SectionLabel label="Admin" />
+            {settingsItems.map((item) => (
+              <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={isActive(item.href)} />
+            ))}
+          </div>
+        )}
+
+        {/* Sign out */}
+        <div className="space-y-0.5">
+          <SectionLabel label="Account" />
+          <button
+            type="button" onClick={signOut} disabled={signing}
+            className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-[#6b7280] transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          >
+            <IcLogout className="h-4 w-4 shrink-0 text-[#9ca3af] transition-colors group-hover:text-red-500" />
+            {signing ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      </nav>
+
+      {/* User card */}
+      <div style={{ borderColor: "var(--sb-border, #e5e7eb)" }} className="shrink-0 border-t px-3 py-3">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white">
+            {initials || "U"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p style={{ color: "var(--sb-fg, #111827)" }} className="truncate text-[13px] font-semibold leading-tight">{user.name}</p>
+            <p style={{ color: "var(--sb-muted, #6b7280)" }} className="truncate text-[11px] leading-tight">{ROLE_LABEL[user.role]}</p>
+          </div>
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" title="Online" />
+        </div>
+      </div>
+    </aside>
+  );
+
+  // ── Full-canvas pages (flow editor) — no shell chrome ────────────────────
+  if (isFlowEditor) {
+    return <>{children}</>;
   }
 
   return (
     <div className="flex min-h-screen bg-canvas">
-
       {/* Mobile overlay */}
-      {open && (
-        <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden"
-          onClick={() => setOpen(false)} aria-hidden="true" />
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm sm:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
       )}
 
-      {/* ── Sidebar ── */}
-      <aside
-        style={{ background: "var(--sb-bg)", borderColor: "var(--sb-border)" }}
-        className={[
-          "fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col",
-          "border-r",
-          "transform transition-transform duration-200 ease-out",
-          "sm:sticky sm:top-0 sm:h-screen sm:translate-x-0 sm:z-auto",
-          open ? "translate-x-0" : "-translate-x-full",
-        ].join(" ")}>
+      {sidebar}
 
-        {/* Logo area */}
-        <div
-          style={{ borderColor: "var(--sb-border)" }}
-          className="flex h-[64px] shrink-0 items-center justify-center border-b px-5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt={appName} className="h-9 w-auto" />
-        </div>
-
-        {/* Nav scroll area */}
-        <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-3 space-y-3">
-
-          {/* Dashboard */}
-          <div className="space-y-0.5">
-            {items.map((item) => {
-              const active = isActive(item.href);
-              const Icon = item.icon;
-              return (
-                <Link key={item.href} href={item.href}
-                  style={active ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" } : { color: "var(--sb-fg)" }}
-                  className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
-                  onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
-                  onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
-                  <span style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
-                    <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
-                  </span>
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* PORTAL section */}
-          {showPortal && portalItems.length > 0 && (
-            <div>
-              <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">Portal</p>
-              <div className="space-y-0.5">
-                {portalItems.map((item) => {
-                  const active = isActive(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.href} href={item.href}
-                      style={active ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" } : { color: "var(--sb-fg)" }}
-                      className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
-                      onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
-                      onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
-                      <span style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
-                        <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
-                      </span>
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* WHATSAPP section — admin only */}
-          {isWaUser && showWA && (
-            <div>
-              {/* Section label */}
-              <div className="mb-1 flex items-center gap-2 px-3">
-                <div className="h-px flex-1 bg-rule" />
-                <div className="flex items-center gap-1.5">
-                  {/* WhatsApp Business icon — chat bubble with B badge */}
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" aria-hidden="true">
-                    <path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
-                    <path fill="#25D366" d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.121 1.528 5.849L.057 23.899a.75.75 0 00.921.921l6.05-1.471A11.943 11.943 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.857a9.834 9.834 0 01-5.032-1.381l-.36-.214-3.733.907.922-3.638-.235-.374A9.857 9.857 0 012.143 12C2.143 6.55 6.55 2.143 12 2.143S21.857 6.55 21.857 12 17.45 21.857 12 21.857z"/>
-                    {/* Business badge */}
-                    <circle cx="18.5" cy="18.5" r="5.5" fill="#075E54"/>
-                    <text x="18.5" y="22" textAnchor="middle" fill="white" fontSize="6.5" fontWeight="bold" fontFamily="sans-serif">B</text>
-                  </svg>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#075E54]/70">WhatsApp Business</span>
-                </div>
-                <div className="h-px flex-1 bg-rule" />
-              </div>
-              <div className="space-y-0.5">
-                {waNavItems.map((item) => {
-                  const active  = isActive(item.href);
-                  const Icon    = item.icon;
-                  const showBadge = item.href === "/wa/inbox" && inboxUnread > 0 && !active;
-                  return (
-                    <Link key={item.href} href={item.href}
-                      style={!active ? { color: "var(--sb-fg)" } : undefined}
-                      className={[
-                        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
-                        active
-                          ? "bg-[#075E54] text-white"
-                          : "hover:bg-[#e8f5e9]/60 hover:text-[#075E54]",
-                      ].join(" ")}>
-                      <span className={["flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        active ? "bg-white/15" : "bg-[#e8f5e9] group-hover:bg-[#e8f5e9]",
-                      ].join(" ")}>
-                        <Icon className={["h-4 w-4", active ? "text-white" : "text-[#25D366]"].join(" ")} />
-                      </span>
-                      {item.label}
-                      {showBadge && (
-                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                          {inboxUnread > 99 ? "99+" : inboxUnread}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* WOOCOMMERCE section */}
-          {showWoo && (
-            <div>
-              <div className="mb-1 flex items-center gap-2 px-3">
-                <div className="h-px flex-1 bg-rule" />
-                <div className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 24 24" className="h-3 w-3 text-[#7f54b3]" aria-hidden="true"><path fill="currentColor" d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2zm2.01 3.33c-.31.04-.54.19-.65.5-.06.18-.04.37.02.56l2.18 6.93 2.27-4.46 2.27 4.46 2.18-6.93c.11-.37-.04-.75-.38-.92a.76.76 0 00-.99.34l-1.08 3.9-1.98-3.88-2.01 3.88-1.08-3.9c-.11-.36-.41-.52-.75-.48zm11.06.12c-.72.04-1.37.46-1.68 1.11-.31.66-.25 1.46.17 2.06.43.61 1.16.93 1.9.84.74-.09 1.38-.59 1.63-1.3.25-.7.08-1.49-.43-2.02a1.87 1.87 0 00-1.59-.69zm0 .98c.36-.01.71.17.91.47.2.3.24.69.09 1.02-.14.34-.46.57-.82.61-.36.04-.72-.12-.94-.42-.22-.3-.26-.7-.1-1.04.16-.34.5-.57.86-.64z"/></svg>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#7f54b3]/70">WooCommerce</span>
-                </div>
-                <div className="h-px flex-1 bg-rule" />
-              </div>
-              <div className="space-y-0.5">
-                {WOO_NAV.map((item) => {
-                  const active = isActive(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.href} href={item.href}
-                      style={!active ? { color: "var(--sb-fg)" } : undefined}
-                      className={[
-                        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150",
-                        active
-                          ? "bg-[#7f54b3] text-white"
-                          : "hover:bg-[#f3eeff]/60 hover:text-[#7f54b3]",
-                      ].join(" ")}>
-                      <span className={["flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
-                        active ? "bg-white/15" : "bg-[#f3eeff] group-hover:bg-[#f3eeff]",
-                      ].join(" ")}>
-                        <Icon className={["h-4 w-4", active ? "text-white" : "text-[#7f54b3]"].join(" ")} />
-                      </span>
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ADMIN section */}
-          {settingsItems.length > 0 && (
-            <div>
-              <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">Admin</p>
-              <div className="space-y-0.5">
-                {settingsItems.map((item) => {
-                  const active = isActive(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <Link key={item.href} href={item.href}
-                      style={active ? { background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" } : { color: "var(--sb-fg)" }}
-                      className="group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-150 hover:opacity-90"
-                      onMouseEnter={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "var(--sb-hover-bg)") : undefined}
-                      onMouseLeave={!active ? (e) => ((e.currentTarget as HTMLElement).style.background = "") : undefined}>
-                      <span style={{ background: active ? "rgba(255,255,255,0.15)" : "var(--sb-icon-bg)" }}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors">
-                        <Icon style={{ color: active ? "var(--sb-active-fg)" : "var(--sb-icon-color)" }} className="h-4 w-4" />
-                      </span>
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* SIGN OUT */}
-          <div>
-            <p style={{ color: "var(--sb-muted)" }} className="mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.12em]">General</p>
-            <div className="space-y-0.5">
-              <button type="button" onClick={signOut} disabled={signing}
-                style={{ color: "var(--sb-fg)" }}
-                onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(239,68,68,0.10)"; el.style.color = "#dc2626"; }}
-                onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = ""; el.style.color = "var(--sb-fg)"; }}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors disabled:opacity-50">
-                <span style={{ background: "var(--sb-icon-bg)" }} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg">
-                  <IcLogout style={{ color: "var(--sb-icon-color)" }} className="h-4 w-4" />
-                </span>
-                {signing ? "Signing out…" : "Sign out"}
-              </button>
-            </div>
-          </div>
-        </nav>
-
-        {/* User card */}
-        <div style={{ borderColor: "var(--sb-border)" }} className="shrink-0 border-t p-3">
-          <div style={{ background: "var(--sb-hover-bg)" }} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
-            <div style={{ background: "var(--sb-active-bg)", color: "var(--sb-active-fg)" }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold">
-              {initials || "U"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p style={{ color: "var(--sb-fg)" }} className="truncate text-sm font-semibold">{user.name}</p>
-              <p style={{ color: "var(--sb-muted)" }} className="truncate text-[11px]">{ROLE_LABEL[user.role]}</p>
-            </div>
-            <div className="h-2 w-2 rounded-full bg-[#25D366]" title="Online" />
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Main column ── */}
+      {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
 
-        {/* Top header — hidden on full-canvas pages like the flow editor */}
-        <header className={`sticky top-0 z-30 flex h-[64px] shrink-0 items-center justify-between border-b border-rule bg-white px-6 lg:px-8${/^\/wa\/flows\/\d+/.test(pathname) ? " hidden" : ""}`}>
+        {/* Top header */}
+        <header className="sticky top-0 z-30 flex h-[56px] shrink-0 items-center justify-between border-b border-rule bg-white px-5 lg:px-6">
 
-          {/* Left: hamburger (mobile) + breadcrumb */}
+          {/* Left: hamburger + breadcrumb */}
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-rule text-ink-muted hover:bg-canvas sm:hidden">
+            <button
+              type="button" onClick={() => setSidebarOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rule text-[#9ca3af] hover:bg-canvas transition sm:hidden"
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
                 <path d="M4 6h16M4 12h16M4 18h7" />
               </svg>
             </button>
 
-            {/* Breadcrumb */}
             <div className="hidden items-center gap-1.5 sm:flex">
               {meta.parent && meta.parentHref ? (
                 <>
-                  <Link href={meta.parentHref}
-                    className="text-sm text-ink-muted hover:text-ink transition">
+                  <Link href={meta.parentHref} className="text-[13px] text-[#9ca3af] hover:text-[#6b7280] transition">
                     {meta.parent}
                   </Link>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-ink-muted/40" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 text-[#d1d5db]" aria-hidden="true">
                     <path d="M9 18l6-6-6-6" />
                   </svg>
                 </>
               ) : null}
-              <span className="text-sm font-semibold text-ink">{meta.title}</span>
+              <span className="text-[13px] font-semibold text-[#111827]">{meta.title}</span>
             </div>
 
-            {/* Mobile: just logo */}
             <div className="sm:hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={logoUrl} alt={appName} className="h-7 w-auto" />
@@ -480,25 +442,30 @@ export default function AppShell({
 
           {/* Right: actions */}
           <div className="flex items-center gap-2">
-            {/* Notification bell */}
-            <button type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-rule bg-white text-ink-muted hover:bg-canvas transition">
+            <button
+              type="button"
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-rule bg-white text-[#9ca3af] hover:bg-canvas hover:text-[#6b7280] transition"
+            >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden="true">
                 <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
               </svg>
+              {inboxUnread > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
             </button>
 
-            {/* User avatar + name */}
-            <button type="button"
-              className="flex items-center gap-2.5 rounded-xl border border-rule bg-white px-3 py-1.5 transition hover:bg-canvas">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-[11px] font-bold text-white">
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg border border-rule bg-white px-2.5 py-1.5 transition hover:bg-canvas"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-brand text-[10px] font-bold text-white">
                 {initials || "U"}
               </div>
               <div className="hidden text-left sm:block">
-                <p className="text-xs font-semibold leading-tight text-ink">{user.name.split(" ")[0]}</p>
-                <p className="text-[10px] leading-tight text-caramel">{ROLE_LABEL[user.role]}</p>
+                <p className="text-[12px] font-semibold leading-tight text-[#111827]">{user.name.split(" ")[0]}</p>
+                <p className="text-[10px] leading-tight text-[#9ca3af]">{ROLE_LABEL[user.role]}</p>
               </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="hidden h-3 w-3 text-ink-muted sm:block" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="hidden h-3 w-3 text-[#d1d5db] sm:block" aria-hidden="true">
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -506,11 +473,10 @@ export default function AppShell({
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto relative">
-          {/* Navigation progress bar */}
+        <main className="relative flex-1 overflow-auto">
           {navShow && (
             <div
-              className="absolute inset-x-0 top-0 z-50 h-px"
+              className="absolute inset-x-0 top-0 z-50 h-[2px]"
               style={{
                 background: "var(--color-brand)",
                 width: `${navPct}%`,
@@ -518,7 +484,6 @@ export default function AppShell({
                 transition: navPct >= 100
                   ? "width 0.18s ease-in, opacity 0.22s ease-out 0.15s"
                   : "width 0.06s linear, opacity 0.1s",
-                boxShadow: "0 0 4px 0px var(--color-brand)",
               }}
             />
           )}
