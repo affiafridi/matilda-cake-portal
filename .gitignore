@@ -1,3 +1,8 @@
+# RSA keys — never commit these
+flows_private.pem
+flows_public.pem
+migration_temp.sql
+
 # dependencies
 /node_modules
 /.pnp
