@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import { getPortalSettings, buildBrandVars } from "@/lib/portalSettings";
+import { getPortalSettings } from "@/lib/portalSettings";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -27,11 +27,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const { primary_color, accent_color, sidebar_color } = await getPortalSettings();
-  const brandVars = buildBrandVars(primary_color, sidebar_color, accent_color);
-
   return (
-    <html lang="en" className={jakarta.variable} style={brandVars as React.CSSProperties}>
+    <html lang="en" className={jakarta.variable}>
       <body className="antialiased" suppressHydrationWarning>
         {children}
       </body>

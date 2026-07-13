@@ -89,7 +89,7 @@ const PRESET_TAGS: { label: string; color: string; bg: string }[] = [
   { label: "Follow-up",     color: "text-blue-700",   bg: "bg-blue-50 border-blue-200" },
   { label: "New customer",  color: "text-emerald-700",bg: "bg-emerald-50 border-emerald-200" },
   { label: "VIP",           color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
-  { label: "Delivery",      color: "text-indigo-700", bg: "bg-indigo-50 border-indigo-200" },
+  { label: "Delivery",      color: "text-blue-700", bg: "bg-blue-50 border-indigo-200" },
   { label: "Urgent",        color: "text-rose-700",   bg: "bg-rose-50 border-rose-200" },
 ];
 
@@ -281,6 +281,9 @@ export default function InboxClient({
   // Image lightbox
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
+  // Scroll-to-bottom button
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+
   const bottomRef       = useRef<HTMLDivElement>(null);
   const scrollRef       = useRef<HTMLDivElement>(null);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
@@ -420,6 +423,17 @@ export default function InboxClient({
   };
 
   const prevSelectedId = useRef<string | null>(null);
+
+  // Track scroll position to show/hide scroll-to-bottom button
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      setShowScrollBtn(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [selectedId]);
 
   // Scroll to bottom after messages render — instant on conversation switch, smooth on poll update
   useEffect(() => {
@@ -957,7 +971,7 @@ export default function InboxClient({
             </div>
 
             {/* ── Chat messages ── */}
-            <>
+            <div className="relative flex-1 flex flex-col min-h-0">
               {/* Merged message + event feed */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
                 style={{ background: "#efeae2", backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")` }}>
@@ -1189,6 +1203,20 @@ export default function InboxClient({
                 <div ref={bottomRef} />
               </div>
 
+              {/* ── Scroll-to-bottom button ── */}
+              {showScrollBtn && (
+                <button
+                  type="button"
+                  onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-[#e5e7eb] text-[#64748b] hover:text-[#0f172a] hover:shadow-lg transition-all"
+                  title="Scroll to bottom"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              )}
+
               {/* ── Reply / Note box ── */}
               <div className="shrink-0 border-t border-[#e9edef] bg-[#f0f2f5]">
                 {/* Assigned-to banner */}
@@ -1319,7 +1347,7 @@ export default function InboxClient({
                   )}
                 </div>
               </div>
-            </>
+            </div>
           </>
         )}
       </div>

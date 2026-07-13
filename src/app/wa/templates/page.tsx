@@ -847,14 +847,11 @@ function TemplatesContent() {
       onClose={() => setPickerOpen(false)}
       onApply={(ids) => { setPreselected(ids); }}
     />
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="px-6 py-5 lg:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-ink">Send Campaign</h1>
-            <p className="mt-0.5 text-sm text-ink-muted">Pick an approved template and send it to your selected customers.</p>
-          </div>
+      <div className="px-6 py-4 lg:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12.5px] text-[#64748b]">Pick an approved template and send it to your selected customers.</p>
           {preselected.length > 0 && (
             <button onClick={() => setPickerOpen(true)}
               className="flex items-center gap-3 rounded-xl border border-[#25D366]/30 bg-[#25D366]/5 px-4 py-2.5 transition hover:bg-[#25D366]/10">
@@ -902,24 +899,24 @@ function TemplatesContent() {
 
         {/* Left: template list */}
         <div className="flex-1 min-w-0 px-6 py-6 lg:px-8">
-          <div className="mb-4 flex items-center gap-3">
+          <div className="pb-4 mb-4 border-b border-[#e5e7eb] flex items-center gap-3">
             <div className="relative flex-1">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input type="search" placeholder="Search templates…" value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-rule bg-white py-2.5 pl-9 pr-4 text-sm text-ink focus:border-[#25D366] focus:outline-none focus:ring-2 focus:ring-[#25D366]/20" />
+                className="h-8 w-full rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none transition" />
             </div>
-            <span className="shrink-0 text-xs text-ink-muted">{filtered.length} template{filtered.length !== 1 ? "s" : ""}</span>
+            <span className="shrink-0 text-[12px] text-[#9ca3af]">{filtered.length} template{filtered.length !== 1 ? "s" : ""}</span>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {loading ? Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-2xl bg-cream/60" />
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-[#f1f5f9]" />
             )) : filtered.length === 0 ? (
-              <div className="col-span-2 rounded-2xl border border-dashed border-rule bg-white py-14 text-center">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 h-8 w-8 text-ink-muted/40"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                <p className="text-sm font-medium text-ink">No approved templates</p>
-                <p className="mt-1 text-xs text-ink-muted">Go to Manage Templates to create one.</p>
-                <button onClick={() => router.push("/wa/manage")} className="mt-3 rounded-xl border border-rule px-4 py-1.5 text-xs font-medium text-ink hover:bg-cream/50 transition">
+              <div className="col-span-2 rounded-xl border border-dashed border-[#e5e7eb] bg-white py-14 text-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-3 h-8 w-8 text-[#cbd5e1]"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                <p className="text-sm font-medium text-[#0f172a]">No approved templates</p>
+                <p className="mt-1 text-xs text-[#64748b]">Go to Manage Templates to create one.</p>
+                <button onClick={() => router.push("/wa/manage")} className="mt-3 rounded-lg border border-[#e5e7eb] px-4 py-1.5 text-xs font-medium text-[#0f172a] hover:bg-[#f6f8fa] transition">
                   Manage Templates →
                 </button>
               </div>
@@ -930,68 +927,50 @@ function TemplatesContent() {
               const bv = countBodyVars(t);
               const btnCount = getComp(t, "BUTTONS")?.buttons?.length ?? 0;
               const catColor: Record<string, string> = {
-                MARKETING: "#a855f7",
-                UTILITY: "#3b82f6",
-                AUTHENTICATION: "#f59e0b",
+                MARKETING: "text-purple-600", UTILITY: "text-blue-600", AUTHENTICATION: "text-amber-600",
               };
-              const accent = catColor[t.category] ?? "#6b7280";
               return (
                 <button key={t.id} onClick={() => selectTemplate(t)}
                   className={[
-                    "group relative w-full rounded-2xl border text-left transition-all duration-150 overflow-hidden",
-                    isActive
-                      ? "border-[#25D366] bg-white shadow-[0_0_0_2px_rgba(37,211,102,0.25)]"
-                      : "border-rule bg-white hover:border-[#25D366]/40",
+                    "group relative w-full rounded-xl border text-left transition-colors duration-100",
+                    isActive ? "border-[#0f172a] bg-white" : "border-[#e5e7eb] bg-[#f8fafc] hover:border-[#94a3b8] hover:bg-white",
                   ].join(" ")}
                 >
-                  {/* Accent bar */}
-                  <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ backgroundColor: isActive ? "#25D366" : accent + "55" }} />
+                  {/* Selected indicator strip */}
+                  {isActive && <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-[#25D366]" />}
 
-                  <div className="pl-4 pr-4 pt-3.5 pb-3.5">
-                    {/* Top row: name + selected check */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {/* Header type icon */}
-                        {needsImg ? (
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                          </span>
-                        ) : (
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-canvas text-ink-muted">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                          </span>
-                        )}
-                        <p className="text-sm font-semibold text-ink truncate">{t.name}</p>
-                      </div>
-                      {/* Selected indicator */}
-                      <div className={["flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all", isActive ? "border-[#25D366] bg-[#25D366]" : "border-rule group-hover:border-[#25D366]/40"].join(" ")}>
-                        {isActive && (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M20 6L9 17l-5-5"/></svg>
-                        )}
+                  <div className="px-5 py-4">
+                    {/* Row 1: category + radio */}
+                    <div className="mb-2.5 flex items-center justify-between">
+                      <span className={["text-[10px] font-bold uppercase tracking-widest", catColor[t.category] ?? "text-[#64748b]"].join(" ")}>
+                        {t.category}
+                      </span>
+                      <div className={[
+                        "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                        isActive ? "border-[#25D366] bg-[#25D366]" : "border-[#d1d5db] group-hover:border-[#94a3b8]",
+                      ].join(" ")}>
+                        {isActive && <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M20 6L9 17l-5-5"/></svg>}
                       </div>
                     </div>
 
-                    {/* Body preview */}
-                    <p className="line-clamp-2 text-xs leading-relaxed text-ink-muted mb-3">
+                    {/* Row 2: name */}
+                    <div className="mb-1.5 flex items-center gap-1.5 min-w-0">
+                      {needsImg && <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>}
+                      <p className="text-[13.5px] font-semibold text-[#0f172a] truncate">{t.name}</p>
+                    </div>
+
+                    {/* Row 3: body preview */}
+                    <p className="line-clamp-2 text-[12px] leading-[1.6] text-[#64748b]">
                       {body?.text?.slice(0, 100) ?? "No body text"}
                     </p>
 
-                    {/* Footer: tags */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: accent, borderColor: accent + "40", backgroundColor: accent + "0d" }}>
-                        {t.category.toLowerCase()}
-                      </span>
-                      {bv > 0 && (
-                        <span className="rounded-md bg-amber-50 border border-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600">
-                          {bv} var{bv !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                      {btnCount > 0 && (
-                        <span className="rounded-md bg-canvas border border-rule px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
-                          {btnCount} btn{btnCount !== 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </div>
+                    {/* Row 4: meta chips */}
+                    {(bv > 0 || btnCount > 0) && (
+                      <div className="mt-3 flex items-center gap-1.5">
+                        {bv > 0 && <span className="rounded-md bg-[#fefce8] border border-[#fde68a] px-2 py-0.5 text-[10px] font-semibold text-[#92400e]">{bv} var{bv !== 1 ? "s" : ""}</span>}
+                        {btnCount > 0 && <span className="rounded-md bg-[#f6f8fa] border border-[#e5e7eb] px-2 py-0.5 text-[10px] font-semibold text-[#64748b]">{btnCount} btn{btnCount !== 1 ? "s" : ""}</span>}
+                      </div>
+                    )}
                   </div>
                 </button>
               );

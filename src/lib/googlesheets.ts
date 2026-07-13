@@ -142,7 +142,15 @@ async function getSheetsClient() {
 // ── Sheet helpers ──────────────────────────────────────────────────────────
 
 async function ensureTab(sheets: ReturnType<typeof google.sheets>, spreadsheetId: string) {
-  const meta   = await sheets.spreadsheets.get({ spreadsheetId });
+  let meta;
+  try {
+    meta = await sheets.spreadsheets.get({ spreadsheetId });
+  } catch (err: unknown) {
+    const code = (err as { code?: number | string })?.code ?? (err as { status?: number })?.status;
+    if (code === 403 || String(code) === "403") throw new Error("forbidden: Google account does not have access to this sheet");
+    if (code === 404 || String(code) === "404") throw new Error("not found: spreadsheet does not exist");
+    throw err;
+  }
   const exists = meta.data.sheets?.some((s) => s.properties?.title === SHEET_TAB);
 
   if (!exists) {

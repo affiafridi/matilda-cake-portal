@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
-/* Design tokens */
+/* Design tokens — static professional palette */
 @theme {
-  --color-brand:      #2563eb;
-  --color-brand-dark: #1d4ed8;
-  --color-caramel:    #93c5fd;
-  --color-cream:      #eff6ff;
-  --color-canvas:     #f7f8fa;   /* page background — cool near-white */
-  --color-surface:    #ffffff;   /* card background */
-  --color-ink:        #111827;   /* primary text */
-  --color-ink-muted:  #6b7280;   /* secondary text */
-  --color-rule:       #e5e7eb;   /* borders */
-  --color-gold:       #6366f1;
+  --color-brand:      #0f172a;   /* slate-900  — primary actions, CTAs */
+  --color-brand-dark: #1e293b;   /* slate-800  — hover state */
+  --color-caramel:    #374151;   /* gray-700   — accents */
+  --color-cream:      #f1f5f9;   /* slate-100  — light tint backgrounds */
+  --color-canvas:     #f8fafc;   /* slate-50   — input & subtle area bg */
+  --color-surface:    #ffffff;
+  --color-ink:        #0f172a;   /* slate-900  — primary text */
+  --color-ink-muted:  #64748b;   /* slate-500  — secondary text */
+  --color-rule:       #e2e8f0;   /* slate-200  — borders & dividers */
+  --color-gold:       #3b82f6;
   --color-success:    #16a34a;
   --color-danger:     #dc2626;
-  --color-focus:      #93c5fd;
+  --color-focus:      #93c5fd;   /* blue-300   — focus rings */
 }
 
 /* Thin scrollbar */
@@ -28,7 +28,7 @@
 .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
 
 body {
-  background: var(--color-canvas);
+  background: #ffffff;
   color: var(--color-ink);
   font-family: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;

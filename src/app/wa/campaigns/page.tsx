@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense, type ReactNode } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -55,19 +54,16 @@ function presetToRange(value: string): { from: string | null; to: string | null 
 
 // ── Stat card ─────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, accent, iconBg }: {
-  label: string; value: string | number;
-  icon: ReactNode; accent?: string; iconBg?: string;
+function StatCard({ label, value, sub, danger }: {
+  label: string; value: string | number; sub?: string; danger?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-rule bg-white px-5 py-4">
-      <div className={["flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", iconBg ?? "bg-canvas"].join(" ")}>
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className={["text-2xl font-bold tabular-nums tracking-tight leading-tight", accent ?? "text-ink"].join(" ")}>{value}</p>
-        <p className="text-xs font-medium text-ink-muted truncate">{label}</p>
-      </div>
+    <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] px-5 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">{label}</p>
+      <p className={["mt-2 text-2xl font-bold tabular-nums tracking-tight leading-tight", danger ? "text-red-600" : "text-[#0f172a]"].join(" ")}>
+        {typeof value === "number" ? value.toLocaleString() : value}
+      </p>
+      {sub && <p className="mt-0.5 text-[11px] text-[#64748b]">{sub}</p>}
     </div>
   );
 }
@@ -79,7 +75,7 @@ function MiniBar({ delivered, read, total }: { delivered: number; read: number; 
   const rPct = total > 0 ? (read      / total) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-canvas">
+      <div className="h-px flex-1 overflow-hidden rounded-full bg-[#e5e7eb]">
         <div className="flex h-full">
           <div className="bg-emerald-400 transition-all" style={{ width: `${dPct}%` }} />
           <div className="bg-violet-400 transition-all" style={{ width: `${rPct}%` }} />
@@ -121,7 +117,7 @@ function ScheduledTab() {
   }
 
   if (loading) return (
-    <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+    <div className="rounded-xl border border-rule bg-white overflow-hidden">
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="flex items-center gap-4 border-b border-rule px-5 py-4 last:border-0">
           <div className="h-4 w-40 animate-pulse rounded bg-canvas" />
@@ -132,8 +128,8 @@ function ScheduledTab() {
   );
 
   if (rows.length === 0) return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-rule bg-white py-20 text-center">
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-canvas">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-rule bg-white py-20 text-center">
+      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-canvas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-ink-muted">
           <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/>
         </svg>
@@ -148,7 +144,7 @@ function ScheduledTab() {
   );
 
   return (
-    <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+    <div className="rounded-xl border border-rule bg-white overflow-hidden">
       <div className="flex items-center justify-between border-b border-rule bg-canvas px-5 py-3.5">
         <div>
           <p className="text-sm font-bold text-ink">Scheduled Campaigns</p>
@@ -262,85 +258,65 @@ function CampaignsPage() {
   const readRate  = totals.delivered  > 0 ? Math.round((totals.read      / totals.delivered)  * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]">
+    <div className="min-h-screen bg-white">
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4 lg:px-8">
-        <div>
-          <h1 className="text-lg font-bold text-ink">Campaigns</h1>
-          <p className="text-xs text-ink-muted">Track delivery, read rates and manage scheduled sends.</p>
-        </div>
-        <button
-          onClick={() => router.push("/wa/templates")}
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-          Send Campaign
-        </button>
-      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-4 lg:px-8">
 
-      {/* ── Toolbar: Tabs + Search + Filters ── */}
-      <div className="px-6 lg:px-8 pb-1">
-        <div className="flex flex-wrap items-center gap-3">
-
-          {/* Tabs */}
-          <div className="flex items-center gap-1 rounded-xl border border-rule bg-white p-1">
+        {/* Left — tabs + search */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
             {([
-              { key: "history",   label: "History",   icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> },
-              { key: "scheduled", label: "Scheduled", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg> },
+              { key: "history",   label: "History",   icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> },
+              { key: "scheduled", label: "Scheduled", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg> },
             ] as const).map((t) => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
-                className={["flex items-center gap-1.5 rounded-[9px] px-4 py-2 text-sm font-semibold transition-all",
-                  activeTab === t.key ? "bg-brand text-white" : "text-ink-muted hover:bg-canvas hover:text-ink",
+                className={["flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-150",
+                  activeTab === t.key ? "bg-white text-[#0f172a] shadow-sm shadow-black/8" : "text-[#64748b] hover:text-[#374151]",
                 ].join(" ")}>
                 {t.icon}{t.label}
               </button>
             ))}
           </div>
 
-          {/* Divider */}
-          <div className="h-8 w-px bg-rule hidden sm:block" />
-
-          {/* Search — only shown on history tab */}
           {activeTab === "history" && (
             <div className="relative">
-              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-                </svg>
-              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              </svg>
               <input type="text" value={search} onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Search campaigns…"
-                className="w-56 rounded-xl border border-rule bg-white py-2.5 pl-9 pr-4 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-brand/30"
+                className="h-8 w-48 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none transition"
               />
             </div>
           )}
+        </div>
 
-          {/* Period pills — only shown on history tab */}
+        {/* Right — date presets + Send */}
+        <div className="flex items-center gap-2">
           {activeTab === "history" && (
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="flex items-center gap-1.5 text-ink-muted">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                  <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-                </svg>
-                <span className="text-xs font-semibold uppercase tracking-wider">Period</span>
-              </div>
-              <div className="h-5 w-px bg-rule" />
-              <div className="flex items-center gap-1 rounded-xl border border-rule bg-white p-1">
-                {PRESETS.map((p) => (
-                  <button key={p.value} onClick={() => handlePreset(p.value)}
-                    className={["rounded-[9px] px-3 py-1.5 text-sm font-semibold transition-all duration-150",
-                      preset === p.value ? "bg-brand text-white" : "text-ink-muted hover:bg-canvas hover:text-ink",
-                    ].join(" ")}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
+              {PRESETS.map((p) => (
+                <button key={p.value} onClick={() => handlePreset(p.value)}
+                  className={["rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-150",
+                    preset === p.value ? "bg-white text-[#0f172a] shadow-sm shadow-black/8" : "text-[#64748b] hover:text-[#374151]",
+                  ].join(" ")}>
+                  {p.label}
+                </button>
+              ))}
             </div>
           )}
 
+          <button
+            onClick={() => router.push("/wa/templates")}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[#25D366] px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-[#1DA851]"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            Send
+          </button>
         </div>
       </div>
 
@@ -361,45 +337,17 @@ function CampaignsPage() {
 
         {/* ── Stat cards ── */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <StatCard
-            label="Campaigns"
-            value={totals.campaigns.toLocaleString()}
-            iconBg="bg-caramel/10"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="var(--color-caramel)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>}
-          />
-          <StatCard
-            label="Recipients"
-            value={totals.recipients.toLocaleString()}
-            iconBg="bg-brand/10"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
-          />
-          <StatCard
-            label={`Delivered · ${delivRate}%`}
-            value={totals.delivered.toLocaleString()}
-            accent="text-emerald-700"
-            iconBg="bg-emerald-50"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>}
-          />
-          <StatCard
-            label={totals.delivered > 0 ? `Read · ${readRate}% of delivered` : "Read"}
-            value={totals.read.toLocaleString()}
-            accent="text-violet-700"
-            iconBg="bg-violet-50"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
-          />
-          <StatCard
-            label="Failed"
-            value={totals.failed.toLocaleString()}
-            accent={totals.failed > 0 ? "text-red-600" : "text-ink-muted"}
-            iconBg={totals.failed > 0 ? "bg-red-50" : "bg-canvas"}
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke={totals.failed > 0 ? "#dc2626" : "#9e7b6d"} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>}
-          />
+          <StatCard label="Campaigns" value={totals.campaigns} />
+          <StatCard label="Recipients" value={totals.recipients} />
+          <StatCard label="Delivered" value={totals.delivered} sub={`${delivRate}% delivery rate`} />
+          <StatCard label="Read" value={totals.read} sub={totals.delivered > 0 ? `${readRate}% of delivered` : undefined} />
+          <StatCard label="Failed" value={totals.failed} danger={totals.failed > 0} sub={totals.failed > 0 ? `${totals.campaigns > 0 ? Math.round((totals.failed / totals.recipients) * 100) : 0}% failure rate` : undefined} />
         </div>
 
 
 
         {/* ── Table ── */}
-        <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+        <div className="rounded-xl border border-rule bg-white overflow-hidden">
           <div className="flex items-center justify-between border-b border-rule bg-canvas px-5 py-3.5">
             <div>
               <p className="text-sm font-bold text-ink">All Campaigns</p>
@@ -428,7 +376,7 @@ function CampaignsPage() {
             </div>
           ) : broadcasts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/10">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10">
                 <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
                   <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
                 </svg>
@@ -445,9 +393,9 @@ function CampaignsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[700px]">
                   <thead>
-                    <tr className="border-b border-rule bg-canvas/50 text-left">
-                      {["Campaign", "Template", "Date", "Recipients", "Delivered", "Read", "Failed", ""].map((h) => (
-                        <th key={h} className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{h}</th>
+                    <tr className="border-b border-rule bg-[#f6f8fa] text-left">
+                      {["Campaign", "Template", "Date", "Recipients", "Delivered", "Read", "Failed"].map((h) => (
+                        <th key={h} className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -456,8 +404,9 @@ function CampaignsPage() {
                       const delivPct = b.totalCount > 0 ? Math.round((b.deliveredCount / b.totalCount) * 100) : 0;
                       const readPct  = b.totalCount > 0 ? Math.round((b.readCount      / b.totalCount) * 100) : 0;
                       return (
-                        <tr key={b.id} className="group hover:bg-canvas/50 transition-colors">
-                          <td className="px-5 py-4">
+                        <tr key={b.id} onClick={() => router.push(`/wa/campaigns/${b.id}`)}
+                          className="cursor-pointer hover:bg-[#f6f8fa] transition-colors">
+                          <td className="px-5 py-3">
                             <p className="font-semibold text-ink">{b.name}</p>
                             {b.sentBy && <p className="mt-0.5 text-[11px] text-ink-muted">by {b.sentBy.name}</p>}
                             <span className={[
@@ -467,7 +416,7 @@ function CampaignsPage() {
                                 : "border-amber-200 bg-amber-50 text-amber-700",
                             ].join(" ")}>{b.status}</span>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-5 py-3">
                             <p className="text-ink">{b.templateName}</p>
                             <span className="text-[10px] uppercase tracking-wide text-ink-muted font-semibold">{b.templateLang}</span>
                           </td>
@@ -476,30 +425,18 @@ function CampaignsPage() {
                             <p className="text-xs text-ink-muted">{new Date(b.createdAt).toLocaleTimeString("en-AE", { hour: "2-digit", minute: "2-digit" })}</p>
                           </td>
                           <td className="px-5 py-4 tabular-nums font-semibold text-ink">{b.totalCount.toLocaleString()}</td>
-                          <td className="px-5 py-4">
+                          <td className="px-5 py-3">
                             <p className="font-semibold text-emerald-700 tabular-nums">{b.deliveredCount.toLocaleString()}</p>
                             <p className="text-xs text-ink-muted">{delivPct}%</p>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-5 py-3">
                             <p className="font-semibold text-violet-700 tabular-nums">{b.readCount.toLocaleString()}</p>
                             <p className="text-xs text-ink-muted">{readPct}%</p>
                           </td>
-                          <td className="px-5 py-4">
+                          <td className="px-5 py-3">
                             <p className={`font-semibold tabular-nums ${b.failedCount > 0 ? "text-red-600" : "text-ink-muted"}`}>
                               {b.failedCount.toLocaleString()}
                             </p>
-                          </td>
-                          <td className="px-5 py-4">
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <MiniBar delivered={b.deliveredCount} read={b.readCount} total={b.totalCount} />
-                              <Link href={`/wa/campaigns/${b.id}`}
-                                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-rule bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-canvas transition">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                                </svg>
-                                View
-                              </Link>
-                            </div>
                           </td>
                         </tr>
                       );

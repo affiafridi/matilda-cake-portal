@@ -19,7 +19,7 @@ const TAG_COLORS = [
   "bg-emerald-50 text-emerald-700 border-emerald-200",
   "bg-amber-50 text-amber-700 border-amber-200",
   "bg-rose-50 text-rose-700 border-rose-200",
-  "bg-indigo-50 text-indigo-700 border-indigo-200",
+  "bg-blue-50 text-blue-700 border-indigo-200",
 ];
 
 function tagColor(tag: string) {
@@ -111,14 +111,14 @@ function TagEditor({ waId, tags, allTags, onSaved }: {
             <input autoFocus type="text" value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(input); } }}
               placeholder="Type and press Enter…"
-              className="w-full rounded-lg border border-rule bg-canvas px-2.5 py-1.5 text-xs focus:border-[#25D366] focus:outline-none focus:ring-1 focus:ring-[#25D366]/20" />
+              className="w-full rounded-lg border border-rule bg-[#f6f8fa] px-2.5 py-1.5 text-xs focus:border-[#25D366] focus:outline-none focus:ring-1 focus:ring-[#25D366]/20" />
           </div>
           {suggestions.length > 0 && (
             <div className="border-t border-rule p-1.5">
               <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Existing tags</p>
               {suggestions.slice(0, 8).map((t) => (
                 <button key={t} onClick={() => addTag(t)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-cream/60 transition">
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-[#f6f8fa] transition">
                   <span className={["rounded-full border px-2 py-0.5 text-[10px] font-medium", tagColor(t)].join(" ")}>{t}</span>
                 </button>
               ))}
@@ -244,42 +244,53 @@ export default function CustomersPage() {
   const someSelected = selected.size > 0 && !allSelected;
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="px-6 py-5 lg:px-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-ink">Customers</h1>
-            <p className="mt-0.5 text-sm text-ink-muted">WhatsApp contacts from Bot</p>
-          </div>
+      <div className="px-6 py-4 lg:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12.5px] text-[#64748b]">WhatsApp contacts from Bot</p>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Search */}
             <div className="relative">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input type="search" placeholder="Search name or number…" value={query} onChange={(e) => onSearch(e.target.value)}
-                className="w-56 rounded-lg border border-rule bg-canvas py-2 pl-9 pr-3 text-sm focus:border-[#25D366] focus:outline-none focus:ring-2 focus:ring-[#25D366]/20" />
+                className="h-8 w-52 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none transition" />
             </div>
-            <label className={["inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-rule bg-white px-3 py-2 text-sm font-medium text-ink-muted hover:bg-cream/60 transition", importing ? "pointer-events-none opacity-60" : ""].join(" ")}>
-              <IconUpload className="h-4 w-4" />
+
+            {/* Divider */}
+            <div className="h-5 w-px bg-[#e5e7eb]" />
+
+            {/* Import CSV */}
+            <label className={["inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition", importing ? "pointer-events-none opacity-50" : ""].join(" ")}>
+              <IconUpload className="h-3.5 w-3.5 text-[#6b7280]" />
               {importing ? "Importing…" : "Import CSV"}
               <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
             </label>
+
+            {/* Export CSV */}
             <button onClick={() => window.open("/api/bot/customers/export", "_blank")}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-rule bg-white px-3 py-2 text-sm font-medium text-ink-muted hover:bg-cream/60 transition">
-              <IconDownload className="h-4 w-4" />
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition">
+              <IconDownload className="h-3.5 w-3.5 text-[#6b7280]" />
               Export CSV
             </button>
+
+            {/* Sync to Sheets */}
             {sheetsReady && (
               <button onClick={handleSyncSheets} disabled={syncing}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 transition disabled:opacity-50">
-                {syncing
-                  ? <><svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Syncing…</>
-                  : <><IconSheets className="h-4 w-4" />Sync to Sheets</>}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#34a853]/30 bg-[#f0faf4] px-3 text-[13px] font-medium text-[#1e7e34] hover:bg-[#dcf5e5] transition disabled:opacity-50">
+                {syncing ? (
+                  <><svg className="h-3.5 w-3.5 animate-spin text-[#6b7280]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Syncing…</>
+                ) : (
+                  <><IconSheets className="h-3.5 w-3.5" />Sync to Sheets</>
+                )}
               </button>
             )}
+
+            {/* Send Campaign */}
             {selected.size > 0 && (
               <Link href={`/wa/templates?customers=${[...selected].map(encodeURIComponent).join(",")}`}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-semibold text-white hover:bg-[#128C7E] transition">
-                <IconSendIcon className="h-4 w-4" />
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-[13px] font-semibold text-white hover:bg-[#1DA851] transition">
+                <IconSendIcon className="h-3.5 w-3.5" />
                 Send Campaign ({selected.size})
               </Link>
             )}
@@ -293,7 +304,7 @@ export default function CustomersPage() {
           <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Filter by tag:</p>
           {allTags.map((t) => (
             <button key={t} onClick={() => onTagFilter(t)}
-              className={["rounded-full border px-2.5 py-0.5 text-xs font-medium transition", tagFilter === t ? [tagColor(t), "ring-1 ring-current"].join(" ") : "border-rule bg-canvas text-ink-muted hover:border-[#25D366]/40"].join(" ")}>
+              className={["rounded-full border px-2.5 py-0.5 text-xs font-medium transition", tagFilter === t ? [tagColor(t), "ring-1 ring-current"].join(" ") : "border-rule bg-[#f6f8fa] text-ink-muted hover:border-[#25D366]/40"].join(" ")}>
               {t}
             </button>
           ))}
@@ -337,7 +348,7 @@ export default function CustomersPage() {
 
         {/* Selection bar */}
         {selected.size > 0 && (
-          <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#25D366]/30 bg-[#25D366]/5 px-4 py-2.5 text-sm">
+          <div className="mb-3 flex items-center gap-3 rounded-xl border border-[#25D366]/30 bg-[#f0fdf4] px-4 py-2.5 text-sm">
             <span className="font-medium text-[#075E54]">{selected.size} customer{selected.size !== 1 ? "s" : ""} selected</span>
             <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-ink-muted hover:text-ink">Clear</button>
           </div>
@@ -346,7 +357,7 @@ export default function CustomersPage() {
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-rule bg-white">
           <table className="min-w-full divide-y divide-rule text-sm">
-            <thead className="bg-canvas">
+            <thead className="bg-[#f6f8fa]">
               <tr>
                 <th className="w-10 px-4 py-3">
                   <input type="checkbox" checked={allSelected}
@@ -371,7 +382,7 @@ export default function CustomersPage() {
                 const isSelected = selected.has(c.wa_id);
                 return (
                   <tr key={c.wa_id} onClick={() => toggleOne(c.wa_id)}
-                    className={["cursor-pointer transition-colors", isSelected ? "bg-[#25D366]/5" : "hover:bg-cream/30"].join(" ")}>
+                    className={["cursor-pointer transition-colors", isSelected ? "bg-[#f0fdf4]" : "hover:bg-[#f6f8fa]"].join(" ")}>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={isSelected} onChange={() => toggleOne(c.wa_id)} className="h-4 w-4 rounded border-rule accent-[#25D366]" />
                     </td>
@@ -388,7 +399,7 @@ export default function CustomersPage() {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-full bg-cream px-2 py-0.5 text-xs font-medium text-ink">{c.language || "—"}</span>
+                      <span className="inline-flex items-center rounded-full bg-[#f1f5f9] px-2 py-0.5 text-xs font-medium text-ink">{c.language || "—"}</span>
                     </td>
                     <td className="px-4 py-3 text-ink">{c.total_messages ?? 0}</td>
                     <td className="px-4 py-3 text-ink-muted">{fmtDate(c.first_seen)}</td>

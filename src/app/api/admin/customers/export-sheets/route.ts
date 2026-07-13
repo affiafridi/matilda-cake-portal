@@ -41,13 +41,17 @@ export async function POST(_req: NextRequest) {
       ({ sheetUrl } = await exportAllCustomers(customers));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: number | string })?.code;
       if (/invalid_grant|token|unauthorized|expired|revoked/i.test(msg)) {
         return jsonError("Google token expired. Please disconnect and reconnect your Google account in Integrations → Google Sheets.", 401);
       }
-      if (/forbidden|permission|403/i.test(msg)) {
-        return jsonError("Permission denied. Make sure your Google account has edit access to the sheet.", 403);
+      if (/forbidden|permission/i.test(msg) || code === 403 || String(code) === "403") {
+        return jsonError("Permission denied (403). Make sure your Google account has edit access to the sheet, and the sheet exists.", 403);
       }
-      throw err;
+      if (/not found|404/i.test(msg) || code === 404 || String(code) === "404") {
+        return jsonError("Sheet not found. The spreadsheet ID may be wrong or the sheet was deleted.", 404);
+      }
+      return jsonError(`Export failed: ${msg}`, 500);
     }
 
     return jsonOk({ count: customers.length, sheetUrl });

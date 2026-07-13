@@ -28,12 +28,18 @@ const STATUS_FILTER_OPTIONS = [
   { value: "FAILED",    label: "Failed" },
 ];
 
-const STATUS_BADGE: Record<string, { label: string; dot: string; text: string; border: string; bg: string }> = {
-  PENDING:   { label: "Pending",   dot: "bg-ink-muted/30",  text: "text-ink-muted",  border: "border-rule", bg: "bg-canvas" },
-  SENT:      { label: "Sent",      dot: "bg-ink-muted/50",  text: "text-ink-muted",  border: "border-rule", bg: "bg-canvas" },
-  DELIVERED: { label: "Delivered", dot: "bg-ink-muted/70",  text: "text-ink",        border: "border-rule", bg: "bg-canvas" },
-  READ:      { label: "Read",      dot: "bg-ink",           text: "text-ink",        border: "border-rule", bg: "bg-canvas" },
-  FAILED:    { label: "Failed",    dot: "bg-red-500",       text: "text-red-600",    border: "border-red-200", bg: "bg-red-50" },
+// System badge: did we successfully send it, or did it fail?
+const SYSTEM_BADGE: Record<string, { label: string; dot: string; text: string; border: string; bg: string }> = {
+  default: { label: "Sent",   dot: "bg-emerald-400", text: "text-emerald-700", border: "border-emerald-200", bg: "bg-emerald-50" },
+  FAILED:  { label: "Failed", dot: "bg-red-400",     text: "text-red-600",    border: "border-red-200",     bg: "bg-red-50" },
+  PENDING: { label: "Pending",dot: "bg-amber-400",   text: "text-amber-700",  border: "border-amber-200",   bg: "bg-amber-50" },
+};
+
+// User badge: what the recipient did with the message
+const USER_BADGE: Record<string, { label: string; dot: string; text: string; border: string; bg: string }> = {
+  READ:      { label: "Read",      dot: "bg-[#0f172a]",  text: "text-[#0f172a]",  border: "border-[#cbd5e1]", bg: "bg-[#f1f5f9]" },
+  DELIVERED: { label: "Delivered", dot: "bg-blue-400",   text: "text-blue-700",   border: "border-blue-200",  bg: "bg-blue-50" },
+  default:   { label: "Waiting",   dot: "bg-[#d1d5db]",  text: "text-[#9ca3af]",  border: "border-[#e5e7eb]", bg: "bg-[#f9fafb]" },
 };
 
 function fmt(d: string | null, mode: "date" | "time" | "both" = "both") {
@@ -92,7 +98,7 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
   const failPct  = b ? pct(b.failedCount,    b.totalCount) : 0;
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]">
+    <div className="min-h-screen bg-white">
 
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4 lg:px-8">
@@ -134,12 +140,12 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
               { label: "Read",       value: b.readCount,      p: readPct },
               { label: "Failed",     value: b.failedCount,    p: failPct, danger: b.failedCount > 0 },
             ].map((s) => (
-              <div key={s.label} className="rounded-2xl border border-rule bg-white px-5 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{s.label}</p>
-                <p className={["mt-2 text-2xl font-bold tabular-nums tracking-tight", s.danger ? "text-red-600" : "text-ink"].join(" ")}>
+              <div key={s.label} className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] px-5 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">{s.label}</p>
+                <p className={["mt-2 text-2xl font-bold tabular-nums tracking-tight", s.danger ? "text-red-600" : "text-[#0f172a]"].join(" ")}>
                   {s.value.toLocaleString()}
                 </p>
-                <p className="mt-0.5 text-xs text-ink-muted">{s.p}%</p>
+                <p className="mt-0.5 text-[11px] text-[#64748b]">{s.p}%</p>
               </div>
             ))}
           </div>
@@ -147,23 +153,23 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
 
         {/* ── Delivery funnel ── */}
         {b && b.totalCount > 0 && (
-          <div className="rounded-2xl border border-rule bg-white px-6 py-5">
-            <p className="mb-5 text-sm font-bold text-ink">Delivery Funnel</p>
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] px-6 py-5">
+            <p className="mb-5 text-sm font-bold text-[#0f172a]">Delivery Funnel</p>
             <div className="space-y-4">
               {[
                 { label: "Sent",      count: b.sentCount,      p: pct(b.sentCount, b.totalCount), bar: "bg-slate-400" },
                 { label: "Delivered", count: b.deliveredCount, p: delivPct,                       bar: "bg-emerald-500" },
-                { label: "Read",      count: b.readCount,      p: readPct,                        bar: "bg-brand" },
+                { label: "Read",      count: b.readCount,      p: readPct,                        bar: "bg-[#0f172a]" },
                 ...(b.failedCount > 0 ? [{ label: "Failed", count: b.failedCount, p: failPct, bar: "bg-red-400" }] : []),
               ].map((row) => (
                 <div key={row.label}>
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="text-xs font-medium text-ink-muted">{row.label}</span>
-                    <span className="text-xs font-bold tabular-nums text-ink">
-                      {row.count.toLocaleString()} <span className="font-normal text-ink-muted">({row.p}%)</span>
+                    <span className="text-xs font-medium text-[#64748b]">{row.label}</span>
+                    <span className="text-xs font-bold tabular-nums text-[#0f172a]">
+                      {row.count.toLocaleString()} <span className="font-normal text-[#64748b]">({row.p}%)</span>
                     </span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-canvas">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f1f5f9]">
                     <div className={["h-full rounded-full transition-all", row.bar].join(" ")} style={{ width: `${row.p}%` }} />
                   </div>
                 </div>
@@ -173,15 +179,15 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
         )}
 
         {/* ── Recipient table ── */}
-        <div className="rounded-2xl border border-rule bg-white overflow-hidden">
-          <div className="flex flex-col gap-3 border-b border-rule px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-xl border border-[#e5e7eb] bg-white overflow-hidden">
+          <div className="flex flex-col gap-3 border-b border-[#e5e7eb] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-bold text-ink">Recipients</p>
-              <p className="text-xs text-ink-muted">{total.toLocaleString()} contact{total !== 1 ? "s" : ""}</p>
+              <p className="text-sm font-semibold text-[#0f172a]">Recipients</p>
+              <p className="text-xs text-[#64748b]">{total.toLocaleString()} contact{total !== 1 ? "s" : ""}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
-                <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
+                <div className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9ca3af]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                   </svg>
@@ -194,15 +200,17 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
                     searchRef.current = setTimeout(() => load(1, statusFilter, e.target.value), 350);
                   }}
                   placeholder="Search name or phone…"
-                  className="rounded-xl border border-rule bg-canvas py-2 pl-8 pr-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-brand/30 w-48"
+                  className="h-8 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none transition w-48"
                 />
               </div>
-              <div className="flex items-center gap-1 rounded-xl border border-rule bg-canvas p-1">
+              <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
                 {STATUS_FILTER_OPTIONS.map((opt) => (
                   <button key={opt.value}
                     onClick={() => { setStatusFilter(opt.value); load(1, opt.value, search); }}
-                    className={["rounded-[9px] px-3 py-1.5 text-xs font-semibold transition",
-                      statusFilter === opt.value ? "bg-brand text-white" : "text-ink-muted hover:text-ink",
+                    className={["rounded-md px-3 py-1 text-xs font-semibold transition",
+                      statusFilter === opt.value
+                        ? "bg-white text-[#0f172a] shadow-sm shadow-black/8"
+                        : "text-[#64748b] hover:text-[#0f172a]",
                     ].join(" ")}>
                     {opt.label}
                   </button>
@@ -212,78 +220,82 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
           </div>
 
           {loading ? (
-            <div className="divide-y divide-rule">
+            <div className="divide-y divide-[#f1f5f9]">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-4 px-5 py-3.5">
-                  <div className="h-8 w-8 animate-pulse rounded-full bg-canvas" />
+                  <div className="h-8 w-8 animate-pulse rounded-full bg-[#f1f5f9]" />
                   <div className="space-y-1.5 flex-1">
-                    <div className="h-3.5 w-36 animate-pulse rounded bg-canvas" />
-                    <div className="h-3 w-24 animate-pulse rounded bg-canvas" />
+                    <div className="h-3.5 w-36 animate-pulse rounded bg-[#f1f5f9]" />
+                    <div className="h-3 w-24 animate-pulse rounded bg-[#f1f5f9]" />
                   </div>
-                  <div className="h-6 w-20 animate-pulse rounded-full bg-canvas" />
+                  <div className="h-6 w-20 animate-pulse rounded-full bg-[#f1f5f9]" />
                 </div>
               ))}
             </div>
           ) : recipients.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-canvas">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-ink-muted">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#f6f8fa]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-[#64748b]">
                   <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
                 </svg>
               </div>
-              <p className="text-sm font-semibold text-ink">No recipients found</p>
-              <p className="mt-1 text-xs text-ink-muted">Try adjusting your filters.</p>
+              <p className="text-sm font-semibold text-[#0f172a]">No recipients found</p>
+              <p className="mt-1 text-xs text-[#64748b]">Try adjusting your filters.</p>
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[560px]">
                   <thead>
-                    <tr className="border-b border-rule bg-canvas/50 text-left">
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Contact</th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Message Status</th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Sent</th>
+                    <tr className="border-b border-[#e5e7eb] bg-[#f6f8fa] text-left">
+                      <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">Contact</th>
+                      <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">System</th>
+                      <th className="px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">User</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-rule">
+                  <tbody className="divide-y divide-[#f1f5f9]">
                     {recipients.map((r) => {
-                      const badge = STATUS_BADGE[r.status] ?? STATUS_BADGE.PENDING;
+                      const sysBadge = r.status === "FAILED"  ? SYSTEM_BADGE.FAILED
+                                     : r.status === "PENDING" ? SYSTEM_BADGE.PENDING
+                                     : SYSTEM_BADGE.default;
+                      const usrBadge = r.readAt      ? USER_BADGE.READ
+                                     : r.deliveredAt ? USER_BADGE.DELIVERED
+                                     : USER_BADGE.default;
                       const displayName = r.customerName || r.phone || r.waId;
                       const initials = displayName.slice(0, 2).toUpperCase();
                       return (
-                        <tr key={r.id} className="hover:bg-canvas/50 transition-colors">
-                          <td className="px-5 py-3.5">
+                        <tr key={r.id} className="hover:bg-[#f6f8fa] transition-colors">
+                          <td className="px-5 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-canvas text-xs font-bold text-ink-muted">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f1f5f9] text-[11px] font-bold text-[#64748b]">
                                 {initials}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-medium text-ink truncate">{r.customerName || r.waId}</p>
-                                <p className="text-xs text-ink-muted">{r.phone || r.waId}</p>
+                                <p className="text-sm font-medium text-[#0f172a] truncate">{r.customerName || r.waId}</p>
+                                <p className="text-[11px] text-[#9ca3af]">{r.phone || r.waId}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5">
-                            <span className={["inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", badge.bg, badge.border, badge.text].join(" ")}>
-                              <span className={["h-1.5 w-1.5 rounded-full", badge.dot].join(" ")} />
-                              {badge.label}
-                            </span>
-                            {r.errorMsg && (
-                              <p className="mt-1 text-[11px] text-red-500 max-w-[200px] truncate" title={r.errorMsg}>{r.errorMsg}</p>
-                            )}
-                            {(r.readAt || r.deliveredAt) && (
-                              <p className="mt-1 text-[11px] text-ink-muted">
-                                {fmt(r.readAt ?? r.deliveredAt!, "time")} · {fmt(r.readAt ?? r.deliveredAt!, "date")}
-                              </p>
-                            )}
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={["inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold", sysBadge.bg, sysBadge.border, sysBadge.text].join(" ")}>
+                                <span className={["h-1.5 w-1.5 rounded-full shrink-0", sysBadge.dot].join(" ")} />
+                                {sysBadge.label}
+                              </span>
+                              {r.sentAt && <span className="text-[11px] text-[#9ca3af]">{fmt(r.sentAt, "time")} · {fmt(r.sentAt, "date")}</span>}
+                              {r.errorMsg && <span className="text-[11px] text-red-500 truncate max-w-[160px]" title={r.errorMsg}>{r.errorMsg}</span>}
+                            </div>
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap">
-                            {r.sentAt ? (
-                              <>
-                                <p className="font-medium text-ink">{fmt(r.sentAt, "time")}</p>
-                                <p className="text-xs text-ink-muted">{fmt(r.sentAt, "date")}</p>
-                              </>
-                            ) : <span className="text-ink-muted">—</span>}
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={["inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold", usrBadge.bg, usrBadge.border, usrBadge.text].join(" ")}>
+                                <span className={["h-1.5 w-1.5 rounded-full shrink-0", usrBadge.dot].join(" ")} />
+                                {usrBadge.label}
+                              </span>
+                              {(r.readAt || r.deliveredAt) && (
+                                <span className="text-[11px] text-[#9ca3af]">{fmt(r.readAt ?? r.deliveredAt!, "time")} · {fmt(r.readAt ?? r.deliveredAt!, "date")}</span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -293,16 +305,16 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
               </div>
 
               {pages > 1 && (
-                <div className="flex items-center justify-between border-t border-rule px-5 py-3.5">
-                  <p className="text-sm text-ink-muted">Showing {recipients.length} of {total}</p>
+                <div className="flex items-center justify-between border-t border-[#e5e7eb] px-5 py-3.5">
+                  <p className="text-sm text-[#64748b]">Showing {recipients.length} of {total}</p>
                   <div className="flex items-center gap-2">
                     <button onClick={() => load(page - 1)} disabled={page <= 1}
-                      className="rounded-lg border border-rule bg-white px-3.5 py-2 text-sm font-medium text-ink hover:bg-canvas disabled:opacity-40 transition">
+                      className="rounded-lg border border-[#e5e7eb] bg-white px-3.5 py-1.5 text-sm font-medium text-[#0f172a] hover:bg-[#f6f8fa] disabled:opacity-40 transition">
                       Previous
                     </button>
-                    <span className="px-2 text-sm text-ink-muted">Page {page} of {pages}</span>
+                    <span className="px-2 text-sm text-[#64748b]">Page {page} of {pages}</span>
                     <button onClick={() => load(page + 1)} disabled={page >= pages}
-                      className="rounded-lg border border-rule bg-white px-3.5 py-2 text-sm font-medium text-ink hover:bg-canvas disabled:opacity-40 transition">
+                      className="rounded-lg border border-[#e5e7eb] bg-white px-3.5 py-1.5 text-sm font-medium text-[#0f172a] hover:bg-[#f6f8fa] disabled:opacity-40 transition">
                       Next
                     </button>
                   </div>

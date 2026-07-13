@@ -84,6 +84,28 @@ async function enrichFromWC(
   return map;
 }
 
+/**
+ * Rewrite a WordPress full-res image URL to its medium thumbnail (300×300).
+ * WordPress generates resized variants by inserting "-{w}x{h}" before the extension
+ * and strips any "-scaled" suffix from the base name.
+ * Falls back to the original URL if it doesn't look like a WP upload.
+ */
+function wpThumb(src: string, size = "300x300"): string {
+  if (!src) return src;
+  try {
+    const url  = new URL(src);
+    const path = url.pathname;                          // e.g. /wp-content/uploads/2024/01/image-scaled.webp
+    const dot  = path.lastIndexOf(".");
+    if (dot === -1) return src;
+    const ext  = path.slice(dot);                       // .webp
+    const base = path.slice(0, dot).replace(/-scaled$/, ""); // strip -scaled
+    url.pathname = `${base}-${size}${ext}`;
+    return url.toString();
+  } catch {
+    return src;
+  }
+}
+
 /** Enrich a raw WC product list with variations (for the WC-direct paths). */
 async function enrichWcList(products: WcProduct[], wcBase: string, auth: string): Promise<Record<string, unknown>[]> {
   return Promise.all(products.map(async (p) => {
@@ -92,7 +114,7 @@ async function enrichWcList(products: WcProduct[], wcBase: string, auth: string)
     const base: Record<string, unknown> = {
       id: p.id, name: p.name, price: p.price,
       type: p.type ?? "simple",
-      image: p.images?.[0]?.src ?? "",
+      image: wpThumb(p.images?.[0]?.src ?? ""),
       permalink: p.permalink,
     };
     if (isVariable) {
@@ -144,7 +166,7 @@ export async function GET(req: NextRequest) {
           row = rows[0];
         }
         if (row) {
-          return { id: row.wc_id, name: row.name, price: row.price, image: row.image, permalink: row.permalink, type: row.type ?? "simple", variations: row.variations ?? [] };
+          return { id: row.wc_id, name: row.name, price: row.price, image: wpThumb(row.image), permalink: row.permalink, type: row.type ?? "simple", variations: row.variations ?? [] };
         }
         // Fallback to WooCommerce if not in bot DB
         const wcBase = (wc_url ?? "").replace(/\/$/, "");
@@ -154,7 +176,7 @@ export async function GET(req: NextRequest) {
         const res = await wcFetch(`${wcBase}/wp-json/wc/v3/products/${wcId}`, auth);
         if (!res.ok) throw new Error("Product not found");
         const p = await res.json() as WcProduct;
-        return { id: p.id, name: p.name, price: p.price, image: p.images?.[0]?.src ?? "", permalink: p.permalink, type: p.type ?? "simple", variations: [] };
+        return { id: p.id, name: p.name, price: p.price, image: wpThumb(p.images?.[0]?.src ?? ""), permalink: p.permalink, type: p.type ?? "simple", variations: [] };
       });
       return jsonOk({ product });
     }
@@ -188,7 +210,7 @@ export async function GET(req: NextRequest) {
             const vars  = Array.isArray(p.variations) ? p.variations : [];
             const prices = vars.map((v) => parseFloat(v.price)).filter((n) => !isNaN(n) && n > 0);
             return {
-              id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: p.type,
+              id: p.wc_id, name: p.name, price: p.price, image: wpThumb(p.image), permalink: p.permalink, type: p.type,
               ...(isVar && prices.length ? { minPrice: String(Math.min(...prices)) } : {}),
             };
           });

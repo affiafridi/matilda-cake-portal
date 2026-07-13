@@ -78,9 +78,9 @@ const INTEGRATIONS: IntegrationDef[] = [
     desc: "Configure the connection between this portal and your Python WhatsApp bot — URL, sync secret and webhook secret.",
     category: "Automation",
     status: "configure",
-    iconBg: "bg-brand/10",
+    iconBg: "bg-[#0f172a]/8",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-[#0f172a]">
         <rect x="3" y="11" width="18" height="10" rx="2"/>
         <path d="M12 11V7M8 7h8M9 15h.01M15 15h.01"/>
       </svg>
@@ -102,7 +102,6 @@ const INTEGRATIONS: IntegrationDef[] = [
       </svg>
     ),
   },
-  // ── Coming soon ──────────────────────────────────────────────────────────
   {
     slug: "ccavenue",
     name: "CCAvenue",
@@ -117,13 +116,27 @@ const INTEGRATIONS: IntegrationDef[] = [
   {
     slug: "stripe",
     name: "Stripe",
-    desc: "Send payment links and receive payment notifications via WhatsApp.",
+    desc: "Send Stripe payment links via WhatsApp and receive payment confirmation notifications automatically.",
     category: "Payment",
-    status: "coming_soon",
+    status: "configure",
     iconBg: "bg-[#635bff]/10",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#635bff]" fill="currentColor">
         <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+      </svg>
+    ),
+  },
+  {
+    slug: "paypal",
+    name: "PayPal",
+    desc: "Generate PayPal payment links for WhatsApp customers and receive payment notifications via webhook.",
+    category: "Payment",
+    status: "configure",
+    iconBg: "bg-[#003087]/8",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none">
+        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.26-.93 4.778-4.005 7.201-9.138 7.201h-2.19a.563.563 0 0 0-.556.479l-1.187 7.527h-.506l-.24 1.516a.56.56 0 0 0 .554.647h3.882c.46 0 .85-.334.922-.788.06-.26.76-4.852.816-5.09a.932.932 0 0 1 .923-.788h.58c3.76 0 6.705-1.528 7.566-5.946.36-1.847.174-3.388-.778-4.477z" fill="#009cde"/>
+        <path d="M6.635 5.263c.045-.283.283-.49.572-.49h8.104c.96 0 1.85.063 2.658.195a5.89 5.89 0 0 1 1.022.26c.254.091.49.2.707.327.256-1.631-.002-2.74-.88-3.746C17.764.557 15.954 0 13.565 0H6.107C5.583 0 5.134.382 5.053.9L2.03 20.382a.562.562 0 0 0 .555.647H6.59l1.047-6.636 1-8.13z" fill="#012169"/>
       </svg>
     ),
   },
@@ -171,7 +184,6 @@ const INTEGRATIONS: IntegrationDef[] = [
 
 const CATEGORIES: Category[] = ["All", "Messaging", "E-Commerce", "Automation", "Analytics", "CRM", "Payment"];
 
-// Which keys must be non-empty for an integration to count as "configured"
 const REQUIRED_KEYS: Record<string, string[]> = {
   "whatsapp":     ["wa_phone_number_id", "wa_access_token"],
   "woocommerce":  ["wc_url", "wc_consumer_key"],
@@ -179,12 +191,8 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
   "openai":       ["openai_api_key"],
   "ccavenue":     ["ccavenue_merchant_id", "ccavenue_access_code"],
-};
-
-const STATUS_BADGE: Record<IntegrationStatus, { label: string; classes: string }> = {
-  configured:  { label: "Configured",   classes: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  configure:   { label: "Configure",    classes: "bg-brand/8 text-brand border-brand/20" },
-  coming_soon: { label: "Coming soon",  classes: "bg-gray-100 text-gray-500 border-gray-200" },
+  "stripe":       ["stripe_secret_key"],
+  "paypal":       ["paypal_client_id", "paypal_client_secret"],
 };
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -216,45 +224,54 @@ export default function IntegrationsPage() {
       const order = { configured: 0, configure: 1, coming_soon: 2 };
       return order[a.status] - order[b.status];
     });
-  const filtered = (activeCategory === "All" ? integrations : integrations.filter((i) => i.category === activeCategory));
-  const configuredCount = integrations.filter((i) => i.status === "configured").length;
+  const filtered = activeCategory === "All" ? integrations : integrations.filter((i) => i.category === activeCategory);
 
   return (
     <div className="px-6 py-6 lg:px-8">
 
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Integrations</h1>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          Connect your tools and services. Credentials are saved securely — no restart needed.
-        </p>
-      </div>
-
       {/* Skeleton while loading */}
       {!loaded && (
         <div className="animate-pulse">
-          <div className="flex flex-wrap gap-2 mb-8">
-            {[80, 96, 72, 88].map((w, i) => (
-              <div key={i} className="h-11 rounded-xl border border-rule bg-canvas" style={{ width: w }} />
+
+          {/* Active integrations row */}
+          <div className="mb-6">
+            <div className="h-2.5 w-32 rounded bg-[#e5e7eb] mb-3" />
+            <div className="flex flex-wrap gap-2">
+              {[100, 120, 110, 96, 130, 104].map((w, i) => (
+                <div key={i} className="flex items-center gap-2.5 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2" style={{ width: w }}>
+                  <div className="h-7 w-7 rounded-lg bg-[#e5e7eb] shrink-0" />
+                  <div className="space-y-1.5 flex-1">
+                    <div className="h-2.5 w-full rounded bg-[#e5e7eb]" />
+                    <div className="h-2 w-3/4 rounded bg-[#e5e7eb]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tab bar */}
+          <div className="flex gap-0.5 border-b border-[#e5e7eb] mb-6">
+            {[32, 64, 80, 72, 64, 40, 56].map((w, i) => (
+              <div key={i} className="h-10 rounded-t bg-[#f1f5f9]" style={{ width: w }} />
             ))}
           </div>
-          <div className="flex flex-wrap gap-2 mb-5">
-            {[48, 64, 80, 56, 72, 56, 64].map((w, i) => (
-              <div key={i} className="h-8 rounded-xl bg-rule" style={{ width: w }} />
-            ))}
-          </div>
+
+          {/* Cards grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-rule bg-surface p-5 space-y-3">
+              <div key={i} className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5 space-y-3.5">
                 <div className="flex items-start justify-between">
-                  <div className="h-11 w-11 rounded-2xl bg-rule" />
-                  <div className="h-5 w-16 rounded-full bg-rule" />
+                  <div className="h-10 w-10 rounded-xl bg-[#e5e7eb]" />
+                  <div className="h-5 w-20 rounded-full bg-[#e5e7eb]" />
                 </div>
-                <div className="h-3.5 w-28 rounded bg-rule" />
-                <div className="h-2.5 w-16 rounded bg-rule" />
                 <div className="space-y-1.5">
-                  <div className="h-2 w-full rounded bg-rule" />
-                  <div className="h-2 w-4/5 rounded bg-rule" />
+                  <div className="h-3 w-32 rounded bg-[#e5e7eb]" />
+                  <div className="h-2.5 w-20 rounded bg-[#e5e7eb]" />
+                </div>
+                <div className="space-y-1.5 pt-1">
+                  <div className="h-2 w-full rounded bg-[#e5e7eb]" />
+                  <div className="h-2 w-5/6 rounded bg-[#e5e7eb]" />
+                  <div className="h-2 w-2/3 rounded bg-[#e5e7eb]" />
                 </div>
               </div>
             ))}
@@ -262,124 +279,133 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      {/* Configured integrations summary */}
-      {loaded && configuredCount > 0 && (
-        <div className="mb-8">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-ink-muted/60">Active integrations</p>
-          <div className="flex flex-wrap gap-2">
-            {integrations.filter((i) => i.status === "configured").map((int) => (
-              <Link key={int.slug} href={`/admin/integrations/${int.slug}`}
-                className="group flex items-center gap-2.5 rounded-xl border border-emerald-200/80 bg-white px-3 py-2 hover:border-emerald-300 transition">
-                <div className="shrink-0">
-                  <div className={`h-7 w-7 rounded-lg ${int.iconBg} flex items-center justify-center`}>
-                    <span className="scale-75 flex items-center justify-center">{int.icon}</span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-ink leading-tight">{int.name}</p>
-                  <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" /> Active
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Category filter + Grid */}
-      {loaded && <>
-      <div className="mb-5 flex flex-wrap gap-2">
-        {CATEGORIES.map((cat) => (
-          <button key={cat} onClick={() => setActiveCategory(cat)}
-            className={["rounded-xl border px-3.5 py-1.5 text-sm font-medium transition",
-              activeCategory === cat
-                ? "border-brand bg-brand text-white"
-                : "border-rule bg-surface text-ink-muted hover:border-brand/40 hover:text-ink",
-            ].join(" ")}>
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((int) => {
-          const badge = STATUS_BADGE[int.status];
-          const isClickable = int.status !== "coming_soon";
-
-          const card = (
-            <div className={[
-              "group relative flex flex-col h-full rounded-2xl border bg-surface p-5 transition",
-              int.status === "configured"
-                ? "border-emerald-200 hover:border-emerald-300 cursor-pointer"
-                : isClickable
-                  ? "border-rule hover:border-brand/40 cursor-pointer"
-                  : "border-rule opacity-60 cursor-default",
-            ].join(" ")}>
-              {/* Icon + badge row */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="shrink-0">
-                  <div className={`h-11 w-11 rounded-2xl ${int.iconBg} flex items-center justify-center`}>
-                    {int.icon}
-                  </div>
-                </div>
-                <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${badge.classes}`}>
-                  {badge.label}
-                </span>
+      {/* Category filter tabs + Grid */}
+      {loaded && (
+        <>
+          {/* Active integrations */}
+          {integrations.filter((i) => i.status === "configured").length > 0 && (
+            <div className="mb-6">
+              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">Active integrations</p>
+              <div className="flex flex-wrap gap-2">
+                {integrations.filter((i) => i.status === "configured").map((int) => (
+                  <Link key={int.slug} href={`/admin/integrations/${int.slug}`}
+                    className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-white px-3 py-2 hover:border-emerald-300 transition">
+                    <div className={`h-7 w-7 rounded-lg ${int.iconBg} flex items-center justify-center shrink-0`}>
+                      <span className="scale-75 flex items-center justify-center">{int.icon}</span>
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-semibold text-[#0f172a] leading-tight">{int.name}</p>
+                      <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block" /> Active
+                      </p>
+                    </div>
+                  </Link>
+                ))}
               </div>
-
-              {/* Name + category + desc */}
-              <p className="text-sm font-bold text-ink mb-0.5">{int.name}</p>
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-[11px] font-medium text-brand/70">{int.category}</p>
-                {int.slug === "whatsapp" && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0866ff] bg-[#0866ff]/8 px-1.5 py-0.5 rounded-full">
-                    <svg viewBox="0 0 290 191" className="h-3 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
-                      <defs>
-                        <linearGradient id="mlg1" x1="61" y1="117" x2="259" y2="127" gradientUnits="userSpaceOnUse">
-                          <stop style={{stopColor:"#0064e1"}} offset="0"/>
-                          <stop style={{stopColor:"#0064e1"}} offset="0.4"/>
-                          <stop style={{stopColor:"#0073ee"}} offset="0.83"/>
-                          <stop style={{stopColor:"#0082fb"}} offset="1"/>
-                        </linearGradient>
-                        <linearGradient id="mlg2" x1="45" y1="139" x2="45" y2="66" gradientUnits="userSpaceOnUse">
-                          <stop style={{stopColor:"#0082fb"}} offset="0"/>
-                          <stop style={{stopColor:"#0064e0"}} offset="1"/>
-                        </linearGradient>
-                      </defs>
-                      <path style={{fill:"#0081fb"}} d="m31.06,125.96c0,10.98 2.41,19.41 5.56,24.51 4.13,6.68 10.29,9.51 16.57,9.51 8.1,0 15.51-2.01 29.79-21.76 11.44-15.83 24.92-38.05 33.99-51.98l15.36-23.6c10.67-16.39 23.02-34.61 37.18-46.96 11.56-10.08 24.03-15.68 36.58-15.68 21.07,0 41.14,12.21 56.5,35.11 16.81,25.08 24.97,56.67 24.97,89.27 0,19.38-3.82,33.62-10.32,44.87-6.28,10.88-18.52,21.75-39.11,21.75l0-31.02c17.63,0 22.03-16.2 22.03-34.74 0-26.42-6.16-55.74-19.73-76.69-9.63-14.86-22.11-23.94-35.84-23.94-14.85,0-26.8,11.2-40.23,31.17-7.14,10.61-14.47,23.54-22.7,38.13l-9.06,16.05c-18.2,32.27-22.81,39.62-31.91,51.75-15.95,21.24-29.57,29.29-47.5,29.29-21.27,0-34.72-9.21-43.05-23.09-6.8-11.31-10.14-26.15-10.14-43.06z"/>
-                      <path style={{fill:"url(#mlg1)"}} d="m24.49,37.3c14.24-21.95 34.79-37.3 58.36-37.3 13.65,0 27.22,4.04 41.39,15.61 15.5,12.65 32.02,33.48 52.63,67.81l7.39,12.32c17.84,29.72 27.99,45.01 33.93,52.22 7.64,9.26 12.99,12.02 19.94,12.02 17.63,0 22.03-16.2 22.03-34.74l27.4-.86c0,19.38-3.82,33.62-10.32,44.87-6.28,10.88-18.52,21.75-39.11,21.75-12.8,0-24.14-2.78-36.68-14.61-9.64-9.08-20.91-25.21-29.58-39.71l-25.79-43.08c-12.94-21.62-24.81-37.74-31.68-45.04-7.39-7.85-16.89-17.33-32.05-17.33-12.27,0-22.69,8.61-31.41,21.78z"/>
-                      <path style={{fill:"url(#mlg2)"}} d="m82.35,31.23c-12.27,0-22.69,8.61-31.41,21.78-12.33,18.61-19.88,46.33-19.88,72.95 0,10.98 2.41,19.41 5.56,24.51l-26.48,17.44c-6.8-11.31-10.14-26.15-10.14-43.06 0-30.75 8.44-62.8 24.49-87.55 14.24-21.95 34.79-37.3 58.36-37.3z"/>
-                    </svg>
-                    via Meta API
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-ink-muted leading-relaxed line-clamp-2">{int.desc}</p>
-
-              {/* Arrow on hover */}
-              {isClickable && (
-                <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-brand opacity-0 group-hover:opacity-100 transition-opacity">
-                  View & configure
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                  </svg>
-                </div>
-              )}
             </div>
-          );
+          )}
 
-          return isClickable ? (
-            <Link key={int.slug} href={`/admin/integrations/${int.slug}`} className="block h-full">
-              {card}
-            </Link>
-          ) : (
-            <div key={int.slug} className="h-full">{card}</div>
-          );
-        })}
-      </div>
-      </>}
+          {/* Underline tab bar */}
+          <div className="border-b border-[#e5e7eb] mb-6">
+            <div className="flex items-end gap-0.5">
+              {CATEGORIES.map((cat) => (
+                <button key={cat} onClick={() => setActiveCategory(cat)}
+                  className={[
+                    "px-3.5 py-3 text-[13px] font-medium border-b-2 transition-colors select-none",
+                    activeCategory === cat
+                      ? "border-[#0f172a] text-[#0f172a]"
+                      : "border-transparent text-[#64748b] hover:text-[#374151]",
+                  ].join(" ")}>
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.map((int) => {
+              const isConfigured = int.status === "configured";
+              const isClickable  = int.status !== "coming_soon";
+
+              const card = (
+                <div className={[
+                  "group relative flex flex-col h-full rounded-xl border p-5 transition",
+                  isConfigured
+                    ? "border-emerald-200 bg-[#f6f8fa] hover:border-emerald-300 cursor-pointer"
+                    : isClickable
+                      ? "border-[#e5e7eb] bg-[#f6f8fa] hover:border-[#94a3b8] cursor-pointer"
+                      : "border-[#e5e7eb] bg-[#f6f8fa] opacity-55 cursor-default",
+                ].join(" ")}>
+
+                  {/* Icon + badge row */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`h-10 w-10 rounded-xl ${int.iconBg} flex items-center justify-center shrink-0`}>
+                      {int.icon}
+                    </div>
+                    {isConfigured ? (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                        Configured
+                      </span>
+                    ) : int.status === "coming_soon" ? (
+                      <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-0.5 text-[11px] font-medium text-[#9ca3af]">
+                        Coming soon
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Name + category */}
+                  <p className="text-[13px] font-bold text-[#0f172a] mb-0.5">{int.name}</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-[11px] font-medium text-[#64748b]">{int.category}</p>
+                    {int.slug === "whatsapp" && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0866ff] bg-[#0866ff]/8 px-1.5 py-0.5 rounded-full">
+                        <svg viewBox="0 0 290 191" className="h-3 w-5 shrink-0" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
+                          <defs>
+                            <linearGradient id="mlg1" x1="61" y1="117" x2="259" y2="127" gradientUnits="userSpaceOnUse">
+                              <stop style={{stopColor:"#0064e1"}} offset="0"/>
+                              <stop style={{stopColor:"#0064e1"}} offset="0.4"/>
+                              <stop style={{stopColor:"#0073ee"}} offset="0.83"/>
+                              <stop style={{stopColor:"#0082fb"}} offset="1"/>
+                            </linearGradient>
+                            <linearGradient id="mlg2" x1="45" y1="139" x2="45" y2="66" gradientUnits="userSpaceOnUse">
+                              <stop style={{stopColor:"#0082fb"}} offset="0"/>
+                              <stop style={{stopColor:"#0064e0"}} offset="1"/>
+                            </linearGradient>
+                          </defs>
+                          <path style={{fill:"#0081fb"}} d="m31.06,125.96c0,10.98 2.41,19.41 5.56,24.51 4.13,6.68 10.29,9.51 16.57,9.51 8.1,0 15.51-2.01 29.79-21.76 11.44-15.83 24.92-38.05 33.99-51.98l15.36-23.6c10.67-16.39 23.02-34.61 37.18-46.96 11.56-10.08 24.03-15.68 36.58-15.68 21.07,0 41.14,12.21 56.5,35.11 16.81,25.08 24.97,56.67 24.97,89.27 0,19.38-3.82,33.62-10.32,44.87-6.28,10.88-18.52,21.75-39.11,21.75l0-31.02c17.63,0 22.03-16.2 22.03-34.74 0-26.42-6.16-55.74-19.73-76.69-9.63-14.86-22.11-23.94-35.84-23.94-14.85,0-26.8,11.2-40.23,31.17-7.14,10.61-14.47,23.54-22.7,38.13l-9.06,16.05c-18.2,32.27-22.81,39.62-31.91,51.75-15.95,21.24-29.57,29.29-47.5,29.29-21.27,0-34.72-9.21-43.05-23.09-6.8-11.31-10.14-26.15-10.14-43.06z"/>
+                          <path style={{fill:"url(#mlg1)"}} d="m24.49,37.3c14.24-21.95 34.79-37.3 58.36-37.3 13.65,0 27.22,4.04 41.39,15.61 15.5,12.65 32.02,33.48 52.63,67.81l7.39,12.32c17.84,29.72 27.99,45.01 33.93,52.22 7.64,9.26 12.99,12.02 19.94,12.02 17.63,0 22.03-16.2 22.03-34.74l27.4-.86c0,19.38-3.82,33.62-10.32,44.87-6.28,10.88-18.52,21.75-39.11,21.75-12.8,0-24.14-2.78-36.68-14.61-9.64-9.08-20.91-25.21-29.58-39.71l-25.79-43.08c-12.94-21.62-24.81-37.74-31.68-45.04-7.39-7.85-16.89-17.33-32.05-17.33-12.27,0-22.69,8.61-31.41,21.78z"/>
+                          <path style={{fill:"url(#mlg2)"}} d="m82.35,31.23c-12.27,0-22.69,8.61-31.41,21.78-12.33,18.61-19.88,46.33-19.88,72.95 0,10.98 2.41,19.41 5.56,24.51l-26.48,17.44c-6.8-11.31-10.14-26.15-10.14-43.06 0-30.75 8.44-62.8 24.49-87.55 14.24-21.95 34.79-37.3 58.36-37.3z"/>
+                        </svg>
+                        via Meta API
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[12px] text-[#64748b] leading-relaxed line-clamp-2">{int.desc}</p>
+
+                  {/* Arrow on hover */}
+                  {isClickable && (
+                    <div className="mt-4 flex items-center gap-1 text-[12px] font-semibold text-[#0f172a] opacity-0 group-hover:opacity-100 transition-opacity">
+                      View & configure
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              );
+
+              return isClickable ? (
+                <Link key={int.slug} href={`/admin/integrations/${int.slug}`} className="block h-full">
+                  {card}
+                </Link>
+              ) : (
+                <div key={int.slug} className="h-full">{card}</div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -66,42 +66,33 @@ export default function LeadsPage() {
   const convertedCount = leads.filter((l) => l.status === "CONVERTED").length;
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]">
+    <div className="min-h-screen bg-white">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-4 px-6 pt-5 pb-4 lg:px-8">
-        <div>
-          <h1 className="text-lg font-bold text-ink">WhatsApp Leads</h1>
-          <p className="text-xs text-ink-muted mt-0.5">
-            {total} lead{total !== 1 ? "s" : ""} captured from the WhatsApp order flow
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-4 lg:px-8">
+        <div className="flex items-center gap-3">
+          <p className="text-[12.5px] text-[#64748b]">
+            {total} lead{total !== 1 ? "s" : ""} from the WhatsApp order flow
           </p>
+          {total > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">{newCount} New</span>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">{convertedCount} Converted</span>
+            </div>
+          )}
         </div>
 
-        {/* Summary pills */}
-        {total > 0 && (
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {newCount} New
-            </span>
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-              {convertedCount} Converted
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* ── Status filter tabs ── */}
-      <div className="px-6 lg:px-8 pb-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* ── Status filter tabs ── */}
+        <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
           {["", ...STATUS_OPTIONS].map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
               className={[
-                "px-4 py-2 rounded-xl text-sm font-semibold border transition",
+                "rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-150",
                 filter === s
-                  ? "bg-brand text-white border-brand shadow-sm"
-                  : "bg-white text-ink-muted border-rule hover:border-brand/30 hover:text-ink",
+                  ? "bg-white text-[#0f172a] shadow-sm shadow-black/8"
+                  : "text-[#64748b] hover:text-[#374151]",
               ].join(" ")}
             >
               {s || "All"}
@@ -112,7 +103,7 @@ export default function LeadsPage() {
 
       {/* ── Table card ── */}
       <div className="px-6 lg:px-8 pb-8">
-        <div className="rounded-2xl border border-rule bg-white overflow-hidden shadow-sm">
+        <div className="rounded-xl border border-[#e5e7eb] bg-white overflow-hidden">
 
           {loading ? (
             <div className="divide-y divide-rule">
@@ -144,7 +135,7 @@ export default function LeadsPage() {
               {/* Desktop table */}
               <table className="w-full text-sm hidden md:table">
                 <thead>
-                  <tr className="border-b border-rule bg-[#f8f9fa]">
+                  <tr className="border-b border-rule bg-[#f6f8fa]">
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Customer</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Order Details</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Date</th>
@@ -153,7 +144,7 @@ export default function LeadsPage() {
                 </thead>
                 <tbody className="divide-y divide-rule">
                   {leads.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-[#f8f9fa] transition-colors">
+                    <tr key={lead.id} className="hover:bg-[#f6f8fa] transition-colors">
                       <td className="px-5 py-4">
                         <p className="font-semibold text-ink">{lead.customerName}</p>
                         <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
@@ -220,12 +211,12 @@ export default function LeadsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-5">
             <button onClick={() => load(page - 1)} disabled={page <= 1}
-              className="px-4 py-2 rounded-xl border border-rule bg-white text-xs font-semibold text-ink-muted disabled:opacity-40 hover:bg-canvas transition">
+              className="px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white text-[12.5px] font-semibold text-[#64748b] disabled:opacity-40 hover:bg-[#f6f8fa] transition">
               ← Prev
             </button>
             <span className="text-xs text-ink-muted">Page {page} of {totalPages}</span>
             <button onClick={() => load(page + 1)} disabled={page >= totalPages}
-              className="px-4 py-2 rounded-xl border border-rule bg-white text-xs font-semibold text-ink-muted disabled:opacity-40 hover:bg-canvas transition">
+              className="px-4 py-2 rounded-lg border border-[#e5e7eb] bg-white text-[12.5px] font-semibold text-[#64748b] disabled:opacity-40 hover:bg-[#f6f8fa] transition">
               Next →
             </button>
           </div>

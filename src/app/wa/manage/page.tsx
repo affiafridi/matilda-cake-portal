@@ -734,9 +734,9 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-screen bg-white">
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-canvas/95 backdrop-blur px-6 py-3 lg:px-8">
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-6 py-3 lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button onClick={onCancel} className="flex h-8 w-8 items-center justify-center rounded-lg border border-rule text-ink-muted hover:bg-cream/60 transition">
@@ -784,7 +784,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
             )}
 
             {/* ── Section 1: Name / Language / Category ── */}
-            <div className="rounded-xl border border-rule bg-white">
+            <div className="rounded-xl border border-rule bg-[#f6f8fa]">
               <div className="border-b border-rule px-4 py-3">
                 <p className="text-sm font-semibold text-ink">Template details</p>
               </div>
@@ -814,7 +814,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
             </div>
 
             {/* ── Section 2: Header ── */}
-            <div className="rounded-xl border border-rule bg-white">
+            <div className="rounded-xl border border-rule bg-[#f6f8fa]">
               <div className="border-b border-rule px-4 py-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-ink">Header</p>
@@ -878,7 +878,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
             </div>
 
             {/* ── Section 3: Body ── */}
-            <div className="rounded-xl border border-rule bg-white">
+            <div className="rounded-xl border border-rule bg-[#f6f8fa]">
               <div className="border-b border-rule px-4 py-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-ink">Message body <span className="text-danger">*</span></p>
@@ -916,7 +916,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
             </div>
 
             {/* ── Section 4: Footer ── */}
-            <div className="rounded-xl border border-rule bg-white">
+            <div className="rounded-xl border border-rule bg-[#f6f8fa]">
               <div className="border-b border-rule px-4 py-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-ink">Footer</p>
@@ -932,7 +932,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
             </div>
 
             {/* ── Section 5: Buttons ── */}
-            <div className="rounded-xl border border-rule bg-white">
+            <div className="rounded-xl border border-rule bg-[#f6f8fa]">
               <div className="border-b border-rule px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1077,7 +1077,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
               </div>
 
               {/* Review timeline */}
-              <div className="rounded-2xl border border-rule bg-white overflow-hidden">
+              <div className="rounded-2xl border border-rule bg-[#f6f8fa] overflow-hidden">
                 <div className="border-b border-rule bg-canvas px-4 py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Review timeline</p>
                 </div>
@@ -1213,7 +1213,7 @@ function TemplateCard({ t, onDelete, deleting, onEdit, onDuplicate }: { t: Templ
 
   return (
     <div className={[
-      "group relative flex flex-col rounded-2xl border bg-white overflow-hidden transition-all",
+      "group relative flex flex-col rounded-2xl border bg-[#f6f8fa] overflow-hidden transition-all",
       t.status === "REJECTED" ? "border-red-200" : "border-rule",
     ].join(" ")}>
       {/* Top: image banner or gradient header */}
@@ -1391,54 +1391,43 @@ export default function ManageTemplatesPage() {
   const pendingCount = templates.filter((t) => t.status === "PENDING").length;
 
   return (
-    <div className="min-h-screen bg-canvas">
-      {/* Page header — no divider, no white bg */}
-      <div className="px-6 py-5 lg:px-8">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-ink">Manage Templates</h1>
-            <p className="mt-0.5 text-sm text-ink-muted">Create, edit and review your WhatsApp message templates.</p>
-          </div>
+    <div className="min-h-screen bg-white">
+      <div className="px-6 py-4 lg:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[12.5px] text-[#64748b]">Create, edit and review your WhatsApp message templates.</p>
           <button onClick={() => setCreating(true)}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-[#25D366] px-4 py-2 text-sm font-semibold text-white hover:bg-[#128C7E] transition active:scale-95">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M12 5v14M5 12h14"/></svg>
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-[13px] font-semibold text-white hover:bg-[#1DA851] transition">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M12 5v14M5 12h14"/></svg>
             New template
           </button>
         </div>
 
         {/* Toolbar: tabs + search */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-end gap-2 border-b border-[#e5e7eb] pb-0">
           {/* Filter tabs */}
-          <div className="inline-flex items-center gap-0.5 rounded-xl border border-rule bg-white p-1">
+          <div className="flex items-end gap-3">
             {FILTERS.map((f) => {
               const label = f === "ALL" ? "All" : STATUS[f]?.label ?? f;
               const active = filter === f;
               const dotCfg: Record<string, string> = {
-                APPROVED: "bg-emerald-500",
-                PENDING:  "bg-amber-400",
-                REJECTED: "bg-red-500",
-                DRAFT:    "bg-slate-400",
-              };
-              const countCfg: Record<string, string> = {
-                ALL:      active ? "bg-ink/10 text-ink" : "bg-ink/6 text-ink-muted",
-                APPROVED: active ? "bg-emerald-100 text-emerald-700" : "bg-ink/6 text-ink-muted",
-                PENDING:  active ? "bg-amber-100 text-amber-700"     : "bg-ink/6 text-ink-muted",
-                REJECTED: active ? "bg-red-100 text-red-600"         : "bg-ink/6 text-ink-muted",
-                DRAFT:    active ? "bg-slate-100 text-slate-600"     : "bg-ink/6 text-ink-muted",
+                APPROVED: "bg-emerald-500", PENDING: "bg-amber-400",
+                REJECTED: "bg-red-500",     DRAFT:   "bg-slate-400",
               };
               return (
                 <button key={f} onClick={() => setFilter(f)}
                   className={[
-                    "flex items-center gap-1.5 rounded-[9px] px-3.5 py-2 text-sm font-semibold transition-all duration-150 select-none",
-                    active ? "bg-brand text-white" : "text-ink-muted hover:bg-canvas hover:text-ink",
+                    "flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors border-b-2",
+                    active
+                      ? "border-[#0f172a] text-[#0f172a]"
+                      : "border-transparent text-[#64748b] hover:text-[#374151]",
                   ].join(" ")}>
-                  {f !== "ALL" && !active && (
+                  {f !== "ALL" && (
                     <span className={["h-1.5 w-1.5 rounded-full shrink-0", dotCfg[f]].join(" ")} />
                   )}
                   {label}
                   <span className={[
                     "rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-                    active ? "bg-white/20 text-white" : countCfg[f],
+                    active ? "bg-[#0f172a] text-white" : "bg-[#f1f5f9] text-[#64748b]",
                   ].join(" ")}>
                     {counts[f]}
                   </span>
@@ -1447,16 +1436,16 @@ export default function ManageTemplatesPage() {
             })}
           </div>
 
-          {/* Search + Refresh — pushed to the right */}
-          <div className="ml-auto flex items-center gap-2">
+          {/* Search + Refresh */}
+          <div className="ml-auto flex items-center gap-2 pb-3">
             <div className="relative">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input type="search" placeholder="Search templates…" value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-52 rounded-xl border border-rule bg-white py-2.5 pl-9 pr-4 text-sm text-ink placeholder:text-ink-muted focus:border-brand/40 focus:outline-none focus:ring-1 focus:ring-brand/20" />
+                className="h-8 w-48 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none transition" />
             </div>
             <button onClick={load}
-              className="flex items-center gap-1.5 rounded-xl border border-rule bg-white px-3 py-2.5 text-xs font-semibold text-ink-muted hover:bg-canvas hover:text-ink transition">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-[#6b7280]"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
               Refresh
             </button>
           </div>
@@ -1493,7 +1482,7 @@ export default function ManageTemplatesPage() {
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {visibleDrafts.map((d) => (
-                <div key={d.id} className="group flex flex-col rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all hover:border-slate-300">
+                <div key={d.id} className="group flex flex-col rounded-2xl border border-slate-200 bg-[#f6f8fa] overflow-hidden transition-all hover:border-slate-300">
                   {/* Header area */}
                   <div className="flex h-36 items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
                     <svg viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-40"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
@@ -1548,7 +1537,7 @@ export default function ManageTemplatesPage() {
         ) : loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-rule bg-white overflow-hidden">
+              <div key={i} className="rounded-2xl border border-rule bg-[#f6f8fa] overflow-hidden">
                 <div className="h-36 animate-pulse bg-canvas" />
                 <div className="p-4 space-y-2.5">
                   <div className="h-3.5 w-2/3 animate-pulse rounded-full bg-canvas" />

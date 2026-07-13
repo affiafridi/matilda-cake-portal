@@ -4,12 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
 type Field = { key: string; label: string; type?: "password" | "text" | "url"; hint?: string };
 type SaveState = "idle" | "saving" | "saved" | "error";
-
-// ── Integration meta catalogue (mirrors marketplace page) ─────────────────
 
 type IntegrationMeta = {
   name:     string;
@@ -81,7 +77,7 @@ const META: Record<string, IntegrationMeta> = {
     name: "Bot Server",
     desc: "Configure the connection between this portal and your Python WhatsApp bot — the URL it runs on, and the shared secrets for secure communication.",
     category: "Automation",
-    iconBg: "bg-brand/10",
+    iconBg: "bg-[#0f172a]/8",
     features: [
       "Portal calls the bot to reload config on changes",
       "Bot calls the portal webhook on incoming messages",
@@ -90,7 +86,7 @@ const META: Record<string, IntegrationMeta> = {
       "Required for all WhatsApp flow automations",
     ],
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8 text-[#0f172a]">
         <rect x="3" y="11" width="18" height="10" rx="2"/>
         <path d="M12 11V7M8 7h8M9 15h.01M15 15h.01"/>
       </svg>
@@ -133,6 +129,43 @@ const META: Record<string, IntegrationMeta> = {
       <img src="https://tfvoiztdfxdmkwrvfmds.supabase.co/storage/v1/object/public/indialt-storage/logos/1764772763568-ticse6wkbai.png" alt="CCAvenue" className="h-12 w-12 object-contain" />
     ),
   },
+  "stripe": {
+    name: "Stripe",
+    desc: "Send Stripe payment links via WhatsApp and receive payment confirmation notifications automatically via webhook.",
+    category: "Payment",
+    iconBg: "bg-[#635bff]/10",
+    features: [
+      "Generate Stripe Checkout links directly from the bot",
+      "Supports cards, Apple Pay, Google Pay and more",
+      "Webhook confirms payment and sends WhatsApp notification",
+      "Test mode supported — use test keys to verify the flow first",
+      "Secret key stored securely — never exposed to the browser",
+    ],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-8 w-8 text-[#635bff]" fill="currentColor">
+        <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+      </svg>
+    ),
+  },
+  "paypal": {
+    name: "PayPal",
+    desc: "Generate PayPal payment links for WhatsApp customers and receive payment notifications via webhook. Supports sandbox and live modes.",
+    category: "Payment",
+    iconBg: "bg-[#003087]/8",
+    features: [
+      "Generate PayPal order links directly from the bot",
+      "Supports PayPal balance, cards and Pay Later",
+      "Webhook confirms payment and sends WhatsApp notification",
+      "Sandbox mode for testing before going live",
+      "Client secret stored securely — never exposed to the browser",
+    ],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none">
+        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.026.175-.041.26-.93 4.778-4.005 7.201-9.138 7.201h-2.19a.563.563 0 0 0-.556.479l-1.187 7.527h-.506l-.24 1.516a.56.56 0 0 0 .554.647h3.882c.46 0 .85-.334.922-.788.06-.26.76-4.852.816-5.09a.932.932 0 0 1 .923-.788h.58c3.76 0 6.705-1.528 7.566-5.946.36-1.847.174-3.388-.778-4.477z" fill="#009cde"/>
+        <path d="M6.635 5.263c.045-.283.283-.49.572-.49h8.104c.96 0 1.85.063 2.658.195a5.89 5.89 0 0 1 1.022.26c.254.091.49.2.707.327.256-1.631-.002-2.74-.88-3.746C17.764.557 15.954 0 13.565 0H6.107C5.583 0 5.134.382 5.053.9L2.03 20.382a.562.562 0 0 0 .555.647H6.59l1.047-6.636 1-8.13z" fill="#012169"/>
+      </svg>
+    ),
+  },
   "openai": {
     name: "OpenAI",
     desc: "Add your OpenAI API key to power AI replies inside the bot. When a customer message doesn't match a flow, the bot asks the AI — which can also search WooCommerce products and reply naturally.",
@@ -152,8 +185,6 @@ const META: Record<string, IntegrationMeta> = {
     ),
   },
 };
-
-// ── Field definitions ─────────────────────────────────────────────────────
 
 const FIELDS: Record<string, Field[]> = {
   "whatsapp": [
@@ -179,18 +210,29 @@ const FIELDS: Record<string, Field[]> = {
     { key: "openai_api_key", label: "API Key", type: "password", hint: "platform.openai.com → API keys → Create new secret key" },
   ],
   "ccavenue": [
-    { key: "ccavenue_merchant_id",  label: "Merchant ID",   hint: "CCAvenue dashboard → Profile → Merchant ID" },
-    { key: "ccavenue_access_code",  label: "Access Code",   hint: "CCAvenue dashboard → Payment Gateway → Access Code" },
-    { key: "ccavenue_working_key",  label: "Working Key",   type: "password", hint: "CCAvenue dashboard → Payment Gateway → Working Key — keep this secret" },
-    { key: "ccavenue_website_url",  label: "Website URL",   type: "url", hint: "Your website URL as registered with CCAvenue, e.g. https://yourstore.com" },
+    { key: "ccavenue_merchant_id",  label: "Merchant ID",  hint: "CCAvenue dashboard → Profile → Merchant ID" },
+    { key: "ccavenue_access_code",  label: "Access Code",  hint: "CCAvenue dashboard → Payment Gateway → Access Code" },
+    { key: "ccavenue_working_key",  label: "Working Key",  type: "password", hint: "CCAvenue dashboard → Payment Gateway → Working Key — keep this secret" },
+    { key: "ccavenue_website_url",  label: "Website URL",  type: "url", hint: "Your website URL as registered with CCAvenue, e.g. https://yourstore.com" },
+  ],
+  "stripe": [
+    { key: "stripe_secret_key",      label: "Secret Key",      type: "password", hint: "Stripe Dashboard → Developers → API keys → Secret key (sk_live_… or sk_test_…)" },
+    { key: "stripe_webhook_secret",  label: "Webhook Secret",  type: "password", hint: "Stripe Dashboard → Developers → Webhooks → Signing secret (whsec_…)" },
+    { key: "stripe_success_url",     label: "Success URL",     type: "url",      hint: "URL to redirect customers to after a successful payment" },
+  ],
+  "paypal": [
+    { key: "paypal_client_id",      label: "Client ID",      hint: "PayPal Developer → My Apps & Credentials → App → Client ID" },
+    { key: "paypal_client_secret",  label: "Client Secret",  type: "password", hint: "PayPal Developer → My Apps & Credentials → App → Secret" },
+    { key: "paypal_mode",           label: "Mode",           hint: "Enter 'sandbox' for testing or 'live' for production" },
+    { key: "paypal_success_url",    label: "Success URL",    type: "url",      hint: "URL to redirect customers to after a successful payment" },
   ],
 };
-
-// ── Helpers ───────────────────────────────────────────────────────────────
 
 function Spinner() {
   return <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>;
 }
+
+const inputCls = "h-9 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 font-mono text-sm text-[#0f172a] placeholder:text-[#9ca3af] focus:border-[#94a3b8] focus:outline-none transition";
 
 // ── Google Sheets sub-form ────────────────────────────────────────────────
 
@@ -267,28 +309,29 @@ function GoogleSheetsConfig() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Connection status */}
-      <div className="rounded-2xl border border-rule bg-canvas px-5 py-4 space-y-3">
+      <div className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-4 space-y-3">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-ink">Google Account</p>
-            <p className="text-xs text-ink-muted mt-0.5">
+            <p className="text-[13px] font-semibold text-[#0f172a]">Google Account</p>
+            <p className="text-[11px] text-[#64748b] mt-0.5">
               {connected ? "Your Google account is connected and syncing." : oauthReady ? "OAuth credentials saved — ready to connect." : "Configure Google OAuth integration first, then connect."}
             </p>
           </div>
           {loading ? <Spinner /> : connected ? (
-            <div className="flex items-center gap-3 shrink-0">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Connected
               </span>
               <button onClick={handleDisconnect} disabled={disconnecting}
-                className="text-xs text-ink-muted hover:text-red-500 transition border border-rule rounded-xl px-3 py-1.5">
+                className="h-8 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-[#64748b] hover:border-red-200 hover:text-red-500 transition">
                 {disconnecting ? "…" : "Disconnect"}
               </button>
             </div>
           ) : oauthReady ? (
-            <a href="/api/admin/integrations/google/connect" className="shrink-0 flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition">
+            <a href="/api/admin/integrations/google/connect"
+              className="shrink-0 flex h-8 items-center gap-1.5 rounded-lg bg-[#0f172a] px-3 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
                 <path d="M12 0C5.372 0 0 5.373 0 12s5.372 12 12 12c6.627 0 12-5.373 12-12S18.627 0 12 0zm.14 19.018c-3.868 0-7-3.14-7-7.018 0-3.878 3.132-7.018 7-7.018 1.89 0 3.47.697 4.682 1.829l-1.974 1.978v-.004c-.735-.702-1.667-1.062-2.708-1.062-2.31 0-4.187 1.956-4.187 4.273 0 2.315 1.877 4.277 4.187 4.277 2.096 0 3.522-1.202 3.816-2.852H12.14v-2.737h6.585c.088.47.135.96.135 1.474 0 4.01-2.677 6.86-6.72 6.86z"/>
               </svg>
@@ -297,11 +340,11 @@ function GoogleSheetsConfig() {
           ) : null}
         </div>
         {!loading && !connected && !oauthReady && (
-          <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-amber-500 shrink-0">
               <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
-            <p className="text-xs font-medium text-amber-700">Go to <span className="font-semibold">Integrations → Google OAuth</span> and save your credentials first</p>
+            <p className="text-[12px] font-medium text-amber-700">Go to <span className="font-semibold">Integrations → Google OAuth</span> and save your credentials first</p>
           </div>
         )}
       </div>
@@ -310,34 +353,36 @@ function GoogleSheetsConfig() {
       {connected && (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-1.5">
               Google Sheet URL or ID
             </label>
-            <p className="text-xs text-ink-muted mb-2">
-              Open your Google Sheet, copy the URL from the browser, and paste it here.
-            </p>
+            <p className="text-[11px] text-[#64748b] mb-2">Open your Google Sheet, copy the URL from the browser, and paste it here.</p>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={sheetInput}
-                onChange={(e) => setSheetInput(e.target.value)}
+              <input type="text" value={sheetInput} onChange={(e) => setSheetInput(e.target.value)}
                 placeholder="https://docs.google.com/spreadsheets/d/…"
-                className="flex-1 rounded-xl border border-rule bg-canvas px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
-              />
+                className={inputCls + " flex-1"} />
               <button onClick={handleSaveSheet} disabled={saving || !sheetInput.trim()}
-                className="shrink-0 flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition disabled:opacity-40">
+                className="h-9 shrink-0 flex items-center gap-1.5 rounded-lg bg-[#0f172a] px-4 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-40">
                 {saving ? <><Spinner /> Saving…</> : "Connect"}
               </button>
             </div>
           </div>
           {sheetName && sheetId && (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
-              <p className="text-xs text-emerald-700 flex items-center gap-1.5">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+              <p className="text-[12px] text-emerald-700 flex items-center gap-1.5 min-w-0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
-                Syncing to <strong>{sheetName}</strong> — new contacts added automatically
+                <span className="truncate">
+                  Syncing to{" "}
+                  <strong>
+                    {sheetName === sheetId
+                      ? `…${sheetId.slice(-12)}`
+                      : sheetName}
+                  </strong>
+                  {" "}— new contacts added automatically
+                </span>
               </p>
               <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-semibold text-emerald-700 underline underline-offset-2 shrink-0">
+                className="text-[12px] font-semibold text-emerald-700 underline underline-offset-2 shrink-0">
                 Open →
               </a>
             </div>
@@ -345,10 +390,9 @@ function GoogleSheetsConfig() {
         </div>
       )}
 
-      {/* Export button */}
       {connected && sheetId && (
         <button onClick={handleExport} disabled={exporting}
-          className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100 transition disabled:opacity-50">
+          className="h-9 flex items-center gap-2 rounded-lg border border-[#34a853]/30 bg-[#f0faf4] px-4 text-[13px] font-semibold text-[#1e7e34] hover:bg-[#dcf5e5] transition disabled:opacity-50">
           {exporting ? <><Spinner /> Exporting…</> : (
             <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export all contacts now</>
           )}
@@ -356,9 +400,9 @@ function GoogleSheetsConfig() {
       )}
 
       {msg && (
-        <div className={`rounded-xl px-4 py-3 text-sm flex items-center justify-between gap-3 ${msg.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+        <div className={`rounded-lg px-4 py-3 text-[13px] flex items-center justify-between gap-3 ${msg.ok ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
           <span>{msg.text}</span>
-          {msg.url && <a href={msg.url} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold underline underline-offset-2 shrink-0">Open Sheet →</a>}
+          {msg.url && <a href={msg.url} target="_blank" rel="noopener noreferrer" className="text-[12px] font-semibold underline underline-offset-2 shrink-0">Open Sheet →</a>}
         </div>
       )}
     </div>
@@ -368,10 +412,10 @@ function GoogleSheetsConfig() {
 // ── Generic credentials form ──────────────────────────────────────────────
 
 function CredentialsForm({ fields }: { fields: Field[] }) {
-  const [values,        setValues]        = useState<Record<string, string>>({});
-  const [saveState,     setSaveState]     = useState<SaveState>("idle");
-  const [loaded,        setLoaded]        = useState(false);
-  const [isConfigured,  setIsConfigured]  = useState(false);
+  const [values,         setValues]         = useState<Record<string, string>>({});
+  const [saveState,      setSaveState]      = useState<SaveState>("idle");
+  const [loaded,         setLoaded]         = useState(false);
+  const [isConfigured,   setIsConfigured]   = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
   const [disconnecting,  setDisconnecting]  = useState(false);
   const router = useRouter();
@@ -426,67 +470,60 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
       setValues({});
       setIsConfigured(false);
       setShowDisconnect(false);
-    } catch {
-      // ignore
-    } finally {
-      setDisconnecting(false);
-    }
+    } catch { /**/ }
+    finally { setDisconnecting(false); }
   }
 
   if (!loaded) {
     return (
       <div className="space-y-5 animate-pulse">
-        {/* banner skeleton */}
-        <div className="flex items-center gap-3 rounded-xl border border-rule bg-canvas px-4 py-3">
-          <div className="h-7 w-7 shrink-0 rounded-full bg-rule" />
+        <div className="flex items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-4 py-3">
+          <div className="h-7 w-7 shrink-0 rounded-full bg-[#e5e7eb]" />
           <div className="space-y-1.5 flex-1">
-            <div className="h-3 w-32 rounded-lg bg-rule" />
-            <div className="h-2.5 w-56 rounded-lg bg-rule" />
+            <div className="h-3 w-32 rounded bg-[#e5e7eb]" />
+            <div className="h-2.5 w-56 rounded bg-[#e5e7eb]" />
           </div>
         </div>
-        {/* field skeletons — match how many fields this integration has */}
         {fields.map((f) => (
           <div key={f.key} className="space-y-1.5">
-            <div className="h-2.5 w-24 rounded bg-rule" />
-            <div className="h-10 w-full rounded-xl bg-rule" />
-            <div className="h-2 w-48 rounded bg-rule" />
+            <div className="h-2.5 w-24 rounded bg-[#e5e7eb]" />
+            <div className="h-9 w-full rounded-lg bg-[#e5e7eb]" />
+            <div className="h-2 w-48 rounded bg-[#e5e7eb]" />
           </div>
         ))}
-        {/* save button skeleton */}
-        <div className="h-10 w-28 rounded-xl bg-rule" />
+        <div className="h-9 w-28 rounded-lg bg-[#e5e7eb]" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-
+    <div className="space-y-4">
       {fields.map((f) => (
         <div key={f.key}>
-          <label className="block text-xs font-semibold text-ink-muted uppercase tracking-wide mb-1.5">{f.label}</label>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-1.5">{f.label}</label>
           <input
             type={f.type === "password" ? "password" : f.type === "url" ? "url" : "text"}
             value={values[f.key] ?? ""}
             onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
             placeholder={f.type === "password" ? "••••••••••••" : f.type === "url" ? "https://" : ""}
             autoComplete="off"
-            className="w-full rounded-xl border border-rule bg-canvas px-4 py-2.5 text-sm font-mono text-ink focus:outline-none focus:ring-2 focus:ring-brand/30 transition"
+            className={inputCls}
           />
-          {f.hint && <p className="mt-1.5 text-[11px] text-ink-muted">{f.hint}</p>}
+          {f.hint && <p className="mt-1.5 text-[11px] text-[#64748b]">{f.hint}</p>}
         </div>
       ))}
 
-      <div className="flex items-center gap-3 pt-4 border-t border-rule">
+      <div className="flex items-center gap-3 pt-4 border-t border-[#f1f5f9]">
         {!isConfigured && (
           <button onClick={save} disabled={saveState === "saving"}
-            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 bg-brand hover:bg-brand-dark">
+            className="h-9 flex items-center gap-2 rounded-lg bg-[#0f172a] px-5 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-50">
             {saveState === "saving" && <Spinner />}
             {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : "Save credentials"}
           </button>
         )}
         {isConfigured && (
           <button onClick={() => setShowDisconnect(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition">
+            className="h-9 flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 text-[13px] font-semibold text-red-600 hover:bg-red-100 transition">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
               <path d="M18.36 6.64A9 9 0 0 1 20.77 15M5.63 5.63A9 9 0 1 0 15 20.77M8.71 2.71A9 9 0 0 1 18.36 6.64"/>
               <line x1="1" y1="1" x2="23" y2="23"/>
@@ -495,7 +532,7 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
           </button>
         )}
         {saveState === "error" && (
-          <span className="text-xs text-red-500">Something went wrong. Check values and try again.</span>
+          <span className="text-[12px] text-red-500">Something went wrong. Check values and try again.</span>
         )}
       </div>
 
@@ -504,21 +541,21 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => !disconnecting && setShowDisconnect(false)}>
           <div onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-2xl border border-rule bg-white p-6 shadow-xl mx-4">
-            <div className="flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mx-auto mb-4">
+            className="w-full max-w-sm rounded-xl border border-[#e5e7eb] bg-white p-6 shadow-xl mx-4">
+            <div className="flex items-center justify-center h-11 w-11 rounded-full bg-red-100 mx-auto mb-4">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-red-600">
                 <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
             </div>
-            <h3 className="text-base font-bold text-gray-900 text-center mb-1">Disconnect integration?</h3>
-            <p className="text-sm text-gray-500 text-center mb-6">This will clear all saved credentials. Any features relying on this integration will stop working.</p>
+            <h3 className="text-[15px] font-bold text-[#0f172a] text-center mb-1">Disconnect integration?</h3>
+            <p className="text-[13px] text-[#64748b] text-center mb-6">This will clear all saved credentials. Any features relying on this integration will stop working.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowDisconnect(false)} disabled={disconnecting}
-                className="flex-1 rounded-xl border border-rule py-2.5 text-sm font-semibold text-ink hover:bg-canvas transition disabled:opacity-40">
+                className="flex-1 h-9 rounded-lg border border-[#e5e7eb] text-[13px] font-semibold text-[#374151] hover:bg-[#f6f8fa] transition disabled:opacity-40">
                 Cancel
               </button>
               <button onClick={disconnect} disabled={disconnecting}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 py-2.5 text-sm font-semibold text-white transition disabled:opacity-40">
+                className="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-[13px] font-semibold text-white transition disabled:opacity-40">
                 {disconnecting ? <><Spinner /> Disconnecting…</> : "Yes, disconnect"}
               </button>
             </div>
@@ -544,6 +581,8 @@ export default function IntegrationDetailPage() {
       "google-oauth": ["google_oauth_client_id", "google_oauth_client_secret"],
       "openai":       ["openai_api_key"],
       "ccavenue":     ["ccavenue_merchant_id", "ccavenue_access_code", "ccavenue_working_key"],
+      "stripe":       ["stripe_secret_key"],
+      "paypal":       ["paypal_client_id", "paypal_client_secret"],
     };
     const keys = required[slug];
     if (!keys) { setStatusLoaded(true); return; }
@@ -559,11 +598,11 @@ export default function IntegrationDetailPage() {
   if (!meta) {
     return (
       <div className="px-6 py-6 lg:px-8">
-        <Link href="/admin/integrations" className="flex items-center gap-2 text-sm text-ink-muted hover:text-ink transition mb-6">
+        <Link href="/admin/integrations" className="flex items-center gap-1.5 text-[13px] text-[#64748b] hover:text-[#0f172a] transition mb-6">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           Back to Integrations
         </Link>
-        <p className="text-sm text-ink-muted">Integration not found.</p>
+        <p className="text-[13px] text-[#64748b]">Integration not found.</p>
       </div>
     );
   }
@@ -575,50 +614,55 @@ export default function IntegrationDetailPage() {
     <div className="px-6 py-6 lg:px-8">
 
       {/* Breadcrumb */}
-      <Link href="/admin/integrations" className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink transition mb-5">
+      <Link href="/admin/integrations"
+        className="inline-flex items-center gap-1.5 text-[12px] text-[#64748b] hover:text-[#0f172a] transition mb-5">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Integrations
-        <span className="text-gray-300">/</span>
-        <span className="text-ink">{meta.name}</span>
+        <span className="text-[#d1d5db]">/</span>
+        <span className="text-[#0f172a]">{meta.name}</span>
       </Link>
 
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <div className={`h-14 w-14 rounded-2xl ${meta.iconBg} flex items-center justify-center shrink-0`}>
+        <div className={`h-14 w-14 rounded-xl ${meta.iconBg} flex items-center justify-center shrink-0`}>
           {meta.icon}
         </div>
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold text-ink">{meta.name}</h1>
+            <h1 className="text-xl font-bold text-[#0f172a]">{meta.name}</h1>
             {statusLoaded && (
               isConfigured
-                ? <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Connected</span>
-                : <span className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-[11px] font-semibold text-gray-500"><span className="h-1.5 w-1.5 rounded-full bg-gray-300" />Not connected</span>
+                ? <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Connected
+                  </span>
+                : <span className="flex items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-[#f6f8fa] px-2.5 py-0.5 text-[11px] font-semibold text-[#9ca3af]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#d1d5db]" />Not connected
+                  </span>
             )}
           </div>
-          <p className="text-xs font-medium text-ink-muted mt-0.5">{meta.category}</p>
+          <p className="text-[12px] font-medium text-[#64748b] mt-0.5">{meta.category}</p>
         </div>
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-w-5xl">
 
-        {/* Left — About */}
-        <div className="space-y-5">
-          <div className="rounded-2xl border border-rule bg-white p-5">
-            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-1">About</p>
-            <p className="text-sm text-ink leading-relaxed">{meta.desc}</p>
+        {/* Left — About + What's included */}
+        <div className="space-y-4">
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-2">About</p>
+            <p className="text-[13px] text-[#374151] leading-relaxed">{meta.desc}</p>
           </div>
 
-          <div className="rounded-2xl border border-rule bg-white p-5">
-            <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-3">What&apos;s included</p>
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-3">What&apos;s included</p>
             <ul className="space-y-2.5">
               {meta.features.map((feat, i) => (
                 <li key={i} className="flex items-start gap-2.5">
-                  <div className="mt-0.5 h-4 w-4 shrink-0 rounded-md bg-brand/10 flex items-center justify-center">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5 text-brand"><polyline points="20 6 9 17 4 12"/></svg>
+                  <div className="mt-0.5 h-4 w-4 shrink-0 rounded-md bg-[#0f172a]/8 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5 text-[#0f172a]"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
-                  <p className="text-xs text-ink leading-relaxed">{feat}</p>
+                  <p className="text-[12px] text-[#374151] leading-relaxed">{feat}</p>
                 </li>
               ))}
             </ul>
@@ -627,15 +671,13 @@ export default function IntegrationDetailPage() {
 
         {/* Right — Credentials */}
         {hasConfig && (
-          <div>
-            <div className="rounded-2xl border border-rule bg-white p-6">
-              <p className="text-xs font-semibold text-ink-muted uppercase tracking-wider mb-5">Credentials</p>
-              {slug === "google-sheets" ? (
-                <GoogleSheetsConfig />
-              ) : fields ? (
-                <CredentialsForm fields={fields} />
-              ) : null}
-            </div>
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-4">Credentials</p>
+            {slug === "google-sheets" ? (
+              <GoogleSheetsConfig />
+            ) : fields ? (
+              <CredentialsForm fields={fields} />
+            ) : null}
           </div>
         )}
       </div>

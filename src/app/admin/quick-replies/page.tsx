@@ -58,48 +58,45 @@ export default function QuickRepliesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas px-6 py-5 lg:px-8">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-ink">Quick Replies</h1>
-        <p className="mt-0.5 text-sm text-ink-muted">Canned responses agents can insert with the / shortcut.</p>
-      </div>
+    <div className="min-h-screen bg-white px-6 py-5 lg:px-8">
+      <p className="mb-5 text-[12.5px] text-[#64748b]">Canned responses agents can insert with the / shortcut.</p>
 
       {/* Create form */}
-      <form onSubmit={create} className="mb-8 rounded-2xl border border-rule bg-surface p-5">
-        <h2 className="mb-4 text-sm font-semibold text-ink">Add new quick reply</h2>
+      <form onSubmit={create} className="mb-6 rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+        <h2 className="mb-4 text-sm font-semibold text-[#0f172a]">Add new quick reply</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-ink">Shortcut</label>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold text-ink-muted">/</span>
+            <label className="mb-1.5 block text-xs font-medium text-[#374151]">Shortcut</label>
+            <div className="flex h-9 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 focus-within:border-[#94a3b8] transition">
+              <span className="text-sm font-semibold text-[#9ca3af]">/</span>
               <input
                 type="text" required value={shortcut}
                 onChange={(e) => setShortcut(e.target.value.toLowerCase().replace(/\s+/g, "_"))}
                 placeholder="thanks"
-                className="block w-full rounded-xl border border-rule bg-canvas px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30"
+                className="flex-1 bg-transparent text-sm text-[#0f172a] placeholder:text-[#9ca3af] focus:outline-none"
               />
             </div>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-ink">Message</label>
+            <label className="mb-1.5 block text-xs font-medium text-[#374151]">Message</label>
             <input
               type="text" required value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Thank you for your order! 🎉"
-              className="block w-full rounded-xl border border-rule bg-canvas px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30"
+              className="h-9 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-sm text-[#0f172a] placeholder:text-[#9ca3af] focus:border-[#94a3b8] focus:outline-none transition"
             />
           </div>
         </div>
-        {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+        {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
         <button type="submit" disabled={saving}
-          className="mt-4 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60">
+          className="mt-4 h-8 rounded-lg bg-[#0f172a] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1e293b] disabled:opacity-50">
           {saving ? "Saving…" : "Add quick reply"}
         </button>
       </form>
 
       {/* List */}
       {loading ? (
-        <div className="rounded-2xl border border-rule bg-surface overflow-hidden">
+        <div className="rounded-xl border border-[#e5e7eb] bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-rule bg-canvas">
@@ -122,7 +119,7 @@ export default function QuickRepliesPage() {
       ) : replies.length === 0 ? (
         <p className="text-sm text-ink-muted">No quick replies yet.</p>
       ) : (
-        <div className="rounded-2xl border border-rule bg-surface overflow-hidden">
+        <div className="rounded-xl border border-[#e5e7eb] bg-white overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-rule bg-canvas">
@@ -163,7 +160,7 @@ export default function QuickRepliesPage() {
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-3 font-mono text-xs text-brand font-semibold">/{r.shortcut}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-[#0f172a] font-semibold">/{r.shortcut}</td>
                       <td className="px-4 py-3 text-ink">{r.body}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">

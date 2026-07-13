@@ -104,13 +104,10 @@ export default function FlowsPage() {
     <div className="px-6 py-6 lg:px-8 w-full">
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Flow Builder</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Build WhatsApp conversations with tap buttons — no typing needed from customers.
-          </p>
-        </div>
+      <div className="flex items-start justify-between mb-6">
+        <p className="text-[12.5px] text-[#64748b]">
+          Build WhatsApp conversations with tap buttons — no typing needed from customers.
+        </p>
         <div className="flex items-center gap-2 shrink-0">
           {reloadMsg && (
             <span className={`text-xs font-medium px-3 py-1.5 rounded-lg ${reloadMsg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
@@ -124,7 +121,7 @@ export default function FlowsPage() {
             {reloading ? "Pushing…" : "Push to Bot"}
           </button>
           <button type="button" onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-dark transition">
+            className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-[#1e293b] transition">
             <IcPlus /> New Flow
           </button>
         </div>
@@ -133,7 +130,7 @@ export default function FlowsPage() {
       {/* New flow modal-style inline */}
       {showNew && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-surface rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 space-y-4">
+          <div className="bg-surface rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 space-y-4">
             <h2 className="text-lg font-bold text-ink">Create a new flow</h2>
             <p className="text-sm text-ink-muted">Give it a name. You can change everything inside the editor.</p>
             <input autoFocus value={newName}
@@ -158,7 +155,7 @@ export default function FlowsPage() {
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-2xl border border-rule bg-white overflow-hidden p-5 space-y-3">
+            <div key={i} className="rounded-xl border border-rule bg-white overflow-hidden p-5 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl animate-pulse bg-canvas shrink-0" />
                 <div className="space-y-2 flex-1">
@@ -178,7 +175,7 @@ export default function FlowsPage() {
       ) : flows.length === 0 ? (
         /* Empty state */
         <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <div className="h-16 w-16 rounded-2xl bg-brand/10 flex items-center justify-center text-brand">
+          <div className="h-16 w-16 rounded-xl bg-[#f6f8fa] flex items-center justify-center text-[#374151]">
             <IcFlow />
           </div>
           <div className="text-center space-y-1">
@@ -186,7 +183,7 @@ export default function FlowsPage() {
             <p className="text-sm text-ink-muted">Create your first flow to guide customers with tap buttons on WhatsApp.</p>
           </div>
           <button type="button" onClick={() => setShowNew(true)}
-            className="flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark transition">
+            className="flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#1e293b] transition">
             <IcPlus /> Create your first flow
           </button>
         </div>
@@ -252,16 +249,16 @@ function FlowCard({ flow, onToggle, onDelete, onClick }: {
 
   return (
     <div onClick={onClick}
-      className={`group relative rounded-2xl border bg-surface p-5 cursor-pointer transition-all hover:-translate-y-0.5 ${flow.isActive ? "border-rule" : "border-dashed border-rule opacity-60"}`}>
+      className={`group relative rounded-xl border bg-surface p-5 cursor-pointer transition-all hover:-translate-y-0.5 ${flow.isActive ? "border-rule" : "border-dashed border-rule opacity-60"}`}>
 
       {/* Top row */}
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="h-9 w-9 rounded-xl bg-brand/10 flex items-center justify-center text-brand shrink-0">
+        <div className="h-9 w-9 rounded-xl bg-[#f6f8fa] flex items-center justify-center text-[#374151] shrink-0">
           <IcFlow />
         </div>
         {/* Toggle */}
         <button type="button" onClick={onToggle}
-          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${flow.isActive ? "bg-brand" : "bg-rule"}`}>
+          className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${flow.isActive ? "bg-[#0f172a]" : "bg-[#e5e7eb]"}`}>
           <span className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${flow.isActive ? "translate-x-4" : ""}`} />
         </button>
       </div>
@@ -300,11 +297,11 @@ function FlowCard({ flow, onToggle, onDelete, onClick }: {
 function NewFlowCard({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick}
-      className="rounded-2xl border-2 border-dashed border-rule bg-transparent p-5 cursor-pointer hover:border-brand hover:bg-brand/5 transition-all group flex flex-col items-center justify-center gap-2 min-h-[160px]">
-      <div className="h-9 w-9 rounded-xl border-2 border-dashed border-rule group-hover:border-brand flex items-center justify-center text-ink-muted group-hover:text-brand transition">
+      className="rounded-xl border-2 border-dashed border-[#e5e7eb] bg-transparent p-5 cursor-pointer hover:border-[#0f172a] hover:bg-[#f6f8fa] transition-all group flex flex-col items-center justify-center gap-2 min-h-[160px]">
+      <div className="h-9 w-9 rounded-xl border-2 border-dashed border-[#e5e7eb] group-hover:border-[#0f172a] flex items-center justify-center text-[#9ca3af] group-hover:text-[#0f172a] transition">
         <IcPlus />
       </div>
-      <p className="text-sm font-medium text-ink-muted group-hover:text-brand transition">New flow</p>
+      <p className="text-[13px] font-medium text-[#64748b] group-hover:text-[#0f172a] transition">New flow</p>
     </button>
   );
 }
