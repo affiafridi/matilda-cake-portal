@@ -82,10 +82,10 @@ model Order {
   deliveryAddress String
   deliveryMapLink String?
   orderItems      String
-  cakeFlavor      CakeFlavor
+  cakeFlavor      CakeFlavor?
   cakeMessage     String?
   cakeSponge      String?
-  cakeSize        CakeSize
+  cakeSize        CakeSize?
   /// Required at the application layer when `cakeSize = CUSTOM`.
   customCakeSize  String?
   paymentMethod   PaymentMethod
@@ -96,6 +96,15 @@ model Order {
   orderStatus     OrderStatus          @default(RECEIVED)
   source          OrderSource
   notes           String?
+  /// Payment gateway columns — used for CCAvenue, Stripe, PayPal etc.
+  /// paymentGatewayOrderId: ID we generate and pass to the gateway (e.g. WA-1234567890)
+  /// paymentGatewayRef: transaction/payment ID returned by the gateway webhook
+  /// paymentGatewayStatus: raw status string from the gateway (e.g. "Success")
+  /// paidAt: timestamp when payment was confirmed via webhook
+  paymentGatewayOrderId String?   @unique
+  paymentGatewayRef     String?
+  paymentGatewayStatus  String?
+  paidAt                DateTime?
   /// Optional link to the operating branch the order is assigned to.
   branchId        String?
   /// Snapshot of the resolved branch label (e.g. "Dubai - Al Qouz") at order time.
@@ -236,6 +245,9 @@ enum CakeSize {
 enum PaymentMethod {
   CASH
   ONLINE
+  CCAVENUE
+  STRIPE
+  PAYPAL
 }
 
 enum PaymentStatus {
