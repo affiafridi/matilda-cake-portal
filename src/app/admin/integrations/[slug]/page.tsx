@@ -191,8 +191,10 @@ const FIELDS: Record<string, Field[]> = {
     { key: "wa_phone_number_id",     label: "Phone Number ID",     hint: "Found in Meta Business Suite → WhatsApp → API Setup" },
     { key: "wa_business_account_id", label: "Business Account ID", hint: "Found in Meta Business Suite → WhatsApp → API Setup" },
     { key: "wa_access_token",        label: "Access Token",        type: "password", hint: "Permanent token from Meta — never share this" },
-    { key: "wa_flow_id",             label: "WhatsApp Flow ID",           hint: "Flow ID from WhatsApp Manager → Flows (e.g. 1055868990348231)" },
-    { key: "flows_private_key",      label: "WhatsApp Flows Private Key", multiline: true, hint: "RSA private key (PEM format) — paste the full contents of flows_private.pem including the BEGIN/END lines" },
+  ],
+  "whatsapp-flows": [
+    { key: "wa_flow_id",        label: "Flow ID",          hint: "Copy from WhatsApp Manager → Account tools → Flows → your flow's Flow ID column" },
+    { key: "flows_private_key", label: "RSA Private Key",  multiline: true, hint: "Paste the full contents of flows_private.pem including the -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY----- lines" },
   ],
   "woocommerce": [
     { key: "wc_url",             label: "Store URL",       type: "url",      hint: "Your WordPress site, e.g. https://shop.yourstore.com" },
@@ -622,6 +624,7 @@ export default function IntegrationDetailPage() {
   }
 
   const fields = FIELDS[slug];
+  const flowsFields = FIELDS["whatsapp-flows"];
   const hasConfig = fields || slug === "google-sheets";
 
   return (
@@ -684,16 +687,38 @@ export default function IntegrationDetailPage() {
         </div>
 
         {/* Right — Credentials */}
-        {hasConfig && (
-          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-4">Credentials</p>
-            {slug === "google-sheets" ? (
-              <GoogleSheetsConfig />
-            ) : fields ? (
-              <CredentialsForm fields={fields} />
-            ) : null}
-          </div>
-        )}
+        <div className="space-y-4">
+          {hasConfig && (
+            <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-4">Credentials</p>
+              {slug === "google-sheets" ? (
+                <GoogleSheetsConfig />
+              ) : fields ? (
+                <CredentialsForm fields={fields} />
+              ) : null}
+            </div>
+          )}
+
+          {/* WhatsApp Flows block — only on whatsapp slug */}
+          {slug === "whatsapp" && (
+            <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="h-7 w-7 rounded-lg bg-[#25D366]/10 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <rect x="3" y="3" width="7" height="5" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
+                    <rect x="8" y="16" width="8" height="5" rx="1"/>
+                    <path d="M6.5 8v3a2 2 0 002 2h7a2 2 0 002-2V8M12 11v5"/>
+                  </svg>
+                </div>
+                <p className="text-[13px] font-bold text-[#0f172a]">WhatsApp Flows</p>
+              </div>
+              <p className="text-[12px] text-[#64748b] leading-relaxed mb-4">
+                WhatsApp Flows lets customers complete checkout, fill forms, and pick delivery slots — all inside WhatsApp without leaving the chat. Paste your Flow ID from Meta and the RSA private key to enable encrypted communication between Meta and this portal.
+              </p>
+              <CredentialsForm fields={flowsFields} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
