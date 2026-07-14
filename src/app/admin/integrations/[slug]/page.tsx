@@ -191,6 +191,7 @@ const FIELDS: Record<string, Field[]> = {
     { key: "wa_phone_number_id",     label: "Phone Number ID",     hint: "Found in Meta Business Suite → WhatsApp → API Setup" },
     { key: "wa_business_account_id", label: "Business Account ID", hint: "Found in Meta Business Suite → WhatsApp → API Setup" },
     { key: "wa_access_token",        label: "Access Token",        type: "password", hint: "Permanent token from Meta — never share this" },
+    { key: "wa_flow_id",             label: "WhatsApp Flow ID",           hint: "Flow ID from WhatsApp Manager → Flows (e.g. 1055868990348231)" },
     { key: "flows_private_key",      label: "WhatsApp Flows Private Key", multiline: true, hint: "RSA private key (PEM format) — paste the full contents of flows_private.pem including the BEGIN/END lines" },
   ],
   "woocommerce": [

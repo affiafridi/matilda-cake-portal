@@ -13,6 +13,7 @@ const INTEGRATION_KEYS = [
   "openai_api_key",
   "ccavenue_merchant_id", "ccavenue_access_code", "ccavenue_working_key", "ccavenue_website_url",
   "flows_private_key",
+  "wa_flow_id",
 ];
 
 async function canAccessIntegrations(user: { role: string } | null): Promise<boolean> {
@@ -37,7 +38,7 @@ export async function GET() {
         'google_oauth_client_id', 'google_oauth_client_secret',
         'openai_api_key',
         'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
-        'flows_private_key'
+        'flows_private_key', 'wa_flow_id'
       )
     `;
 
@@ -73,6 +74,7 @@ function envFallback(key: string): string {
     ccavenue_working_key:     process.env.CCAVENUE_WORKING_KEY,
     ccavenue_website_url:     process.env.CCAVENUE_WEBSITE_URL,
     flows_private_key:        process.env.WA_FLOWS_PRIVATE_KEY,
+    wa_flow_id:               process.env.WA_FLOW_ID,
   };
   return map[key] ?? "";
 }

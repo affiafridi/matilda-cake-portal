@@ -20,6 +20,7 @@ export type IntegrationSettings = {
   ccavenue_working_key:     string;
   ccavenue_website_url:     string;
   flows_private_key:        string;
+  wa_flow_id:               string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -38,6 +39,7 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "ccavenue_working_key",
   "ccavenue_website_url",
   "flows_private_key",
+  "wa_flow_id",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. Cached for 2 min. */
@@ -53,7 +55,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
           'bot_url', 'sync_secret', 'inbox_webhook_secret',
           'openai_api_key',
           'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
-          'flows_private_key'
+          'flows_private_key', 'wa_flow_id'
         )
       `;
       map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -75,6 +77,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
       ccavenue_working_key:   map["ccavenue_working_key"]   || process.env.CCAVENUE_WORKING_KEY          || "",
       ccavenue_website_url:   map["ccavenue_website_url"]   || process.env.CCAVENUE_WEBSITE_URL          || "",
       flows_private_key:      map["flows_private_key"]      || process.env.WA_FLOWS_PRIVATE_KEY          || "",
+      wa_flow_id:             map["wa_flow_id"]             || process.env.WA_FLOW_ID                    || "",
     };
   });
 }
