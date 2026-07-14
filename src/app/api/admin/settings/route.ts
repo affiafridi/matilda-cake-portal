@@ -56,6 +56,7 @@ const INTEGRATION_KEYS = [
   "ccavenue_access_code",
   "ccavenue_working_key",
   "ccavenue_website_url",
+  "flows_private_key",
 ];
 
 export async function POST(req: NextRequest) {

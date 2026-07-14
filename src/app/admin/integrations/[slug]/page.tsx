@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-type Field = { key: string; label: string; type?: "password" | "text" | "url"; hint?: string };
+type Field = { key: string; label: string; type?: "password" | "text" | "url"; hint?: string; multiline?: boolean };
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 type IntegrationMeta = {
@@ -191,6 +191,7 @@ const FIELDS: Record<string, Field[]> = {
     { key: "wa_phone_number_id",     label: "Phone Number ID",     hint: "Found in Meta Business Suite → WhatsApp → API Setup" },
     { key: "wa_business_account_id", label: "Business Account ID", hint: "Found in Meta Business Suite → WhatsApp → API Setup" },
     { key: "wa_access_token",        label: "Access Token",        type: "password", hint: "Permanent token from Meta — never share this" },
+    { key: "flows_private_key",      label: "WhatsApp Flows Private Key", multiline: true, hint: "RSA private key (PEM format) — paste the full contents of flows_private.pem including the BEGIN/END lines" },
   ],
   "woocommerce": [
     { key: "wc_url",             label: "Store URL",       type: "url",      hint: "Your WordPress site, e.g. https://shop.yourstore.com" },
@@ -426,7 +427,7 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
       .then((j) => {
         if (j.ok) {
           setValues(j.data);
-          setIsConfigured(fields.every((f) => j.data[f.key]?.trim()));
+          setIsConfigured(fields.filter((f) => !f.multiline).every((f) => j.data[f.key]?.trim()));
           setLoaded(true);
         }
       })
@@ -501,26 +502,35 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
       {fields.map((f) => (
         <div key={f.key}>
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-1.5">{f.label}</label>
-          <input
-            type={f.type === "password" ? "password" : f.type === "url" ? "url" : "text"}
-            value={values[f.key] ?? ""}
-            onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
-            placeholder={f.type === "password" ? "••••••••••••" : f.type === "url" ? "https://" : ""}
-            autoComplete="off"
-            className={inputCls}
-          />
+          {f.multiline ? (
+            <textarea
+              rows={6}
+              value={values[f.key] ?? ""}
+              onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
+              placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;...&#10;-----END RSA PRIVATE KEY-----"
+              autoComplete="off"
+              className={inputCls + " resize-y font-mono text-xs leading-relaxed"}
+            />
+          ) : (
+            <input
+              type={f.type === "password" ? "password" : f.type === "url" ? "url" : "text"}
+              value={values[f.key] ?? ""}
+              onChange={(e) => setValues((p) => ({ ...p, [f.key]: e.target.value }))}
+              placeholder={f.type === "password" ? "••••••••••••" : f.type === "url" ? "https://" : ""}
+              autoComplete="off"
+              className={inputCls}
+            />
+          )}
           {f.hint && <p className="mt-1.5 text-[11px] text-[#64748b]">{f.hint}</p>}
         </div>
       ))}
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#f1f5f9]">
-        {!isConfigured && (
-          <button onClick={save} disabled={saveState === "saving"}
-            className="h-9 flex items-center gap-2 rounded-lg bg-[#0f172a] px-5 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-50">
-            {saveState === "saving" && <Spinner />}
-            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : "Save credentials"}
-          </button>
-        )}
+        <button onClick={save} disabled={saveState === "saving"}
+          className="h-9 flex items-center gap-2 rounded-lg bg-[#0f172a] px-5 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-50">
+          {saveState === "saving" && <Spinner />}
+          {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : isConfigured ? "Update" : "Save credentials"}
+        </button>
         {isConfigured && (
           <button onClick={() => setShowDisconnect(true)}
             className="h-9 flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 text-[13px] font-semibold text-red-600 hover:bg-red-100 transition">

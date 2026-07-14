@@ -700,7 +700,7 @@ function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
   function delOpt(i: number) { onChange({ ...step, options: step.options.filter((_, j) => j !== i) }); }
 
   return (
-    <div className="flex flex-col border-l border-gray-200 bg-white shrink-0" style={{ width: 340 }}>
+    <div className="flex flex-col h-full border-l border-gray-200 bg-white shrink-0 overflow-hidden" style={{ width: 340 }}>
       <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0" style={{ borderTopColor: cfg.color, borderTopWidth: 3 }}>
         <cfg.ic size={16} className="text-gray-500 shrink-0" />
         <div className="flex-1 min-w-0">
@@ -1360,8 +1360,11 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
         try {
           const raw = localStorage.getItem(draftKey);
           if (raw) {
-            const draft = JSON.parse(raw) as { flow: Flow };
-            if (draft.flow) { f = normaliseFlow(draft.flow); setSaved(false); setAutoSavedAt(new Date()); }
+            const draft = JSON.parse(raw) as { flow: Flow; savedAt?: number };
+            const age = Date.now() - (draft.savedAt ?? 0);
+            // Only restore draft if it's less than 1 hour old — stale drafts silently overwrite server data
+            if (draft.flow && age < 60 * 60 * 1000) { f = normaliseFlow(draft.flow); setSaved(false); setAutoSavedAt(new Date()); }
+            else if (age >= 60 * 60 * 1000) { localStorage.removeItem(draftKey); }
           }
         } catch { /* ignore */ }
         setFlow(f); flowRef.current = f; setSelKeys(f.steps[0]?.stepKey ? [f.steps[0].stepKey] : []);
@@ -1816,7 +1819,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   saveRef.current = save;
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-full gap-3">
+    <div className="fixed inset-0 flex flex-col items-center justify-center gap-3" style={{ background: "#f3f5f7" }}>
       <svg className="animate-spin text-slate-400" width={32} height={32} viewBox="0 0 24 24" fill="none">
         <circle cx={12} cy={12} r={10} stroke="currentColor" strokeWidth={3} strokeOpacity={0.15}/>
         <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth={3} strokeLinecap="round"/>
@@ -1824,7 +1827,11 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
       <p className="text-sm text-gray-400">Loading flow...</p>
     </div>
   );
-  if (!flow)   return <div className="flex items-center justify-center h-full text-sm text-red-500">Flow not found.</div>;
+  if (!flow) return (
+    <div className="fixed inset-0 flex items-center justify-center text-sm text-red-500" style={{ background: "#f3f5f7" }}>
+      Flow not found.
+    </div>
+  );
 
   const selStep    = flow.steps.find((s) => s.stepKey === selKey) ?? null;
   const entryCount = flow.steps.filter((s) => s.isEntry).length;
@@ -1832,7 +1839,7 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
   const totalIssues = Array.from(flowIssues.values()).flat().length;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#f3f5f7" }}>
+    <div className="flex flex-col" style={{ background: "#f3f5f7", height: "100dvh", overflow: "hidden" }}>
       <div className="flex items-center gap-2.5 px-3 py-2.5 shrink-0 z-20" style={{ background: "transparent" }}>
         {/* Back + flow name — white pill */}
         <div className="flex items-center gap-2 bg-white rounded-2xl border border-gray-200 px-2 py-1.5 min-w-0">
@@ -1953,82 +1960,83 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
           { key: "ai_intent_info",    label: "Business Info",   desc: "Customer asks about hours, location, sizes, delivery" },
         ];
 
-        const INP2 = "w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[15px] text-gray-800 focus:outline-none focus:bg-white focus:border-slate-400 focus:ring-2 focus:ring-slate-100 placeholder:text-gray-300 transition";
+        const INP2 = "w-full rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] px-3.5 py-2.5 text-[13px] text-[#0f172a] focus:outline-none focus:bg-white focus:border-[#0f172a] placeholder:text-[#9ca3af] transition";
 
         return (
           <>
             {/* Backdrop */}
-            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setShowSet(false)} />
+            <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px]" onClick={() => setShowSet(false)} />
 
             {/* Right drawer */}
-            <div className="fixed inset-y-0 right-0 z-50 flex w-[820px] flex-col bg-white shadow-2xl border-l border-gray-200">
+            <div className="fixed inset-y-0 right-0 z-50 flex w-[780px] flex-col bg-white shadow-2xl border-l border-[#e5e7eb]">
 
-              {/* ── Header ── */}
-              <div className="flex items-center justify-between px-8 pt-7 pb-5 border-b border-gray-100 shrink-0">
-                <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#e5e7eb] shrink-0">
+                <div>
+                  <h2 className="text-[15px] font-bold text-[#0f172a]">Flow Settings</h2>
+                  <p className="text-[11px] text-[#64748b] mt-0.5">{flow.name}</p>
+                </div>
                 <button type="button" onClick={() => setShowSet(false)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition">
-                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] text-[#64748b] hover:bg-[#e5e7eb] transition">
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               </div>
 
-              {/* ── Tab bar ── */}
-              <div className="flex border-b border-gray-100 px-8 shrink-0">
+              {/* Tab bar */}
+              <div className="flex border-b border-[#e5e7eb] px-6 shrink-0">
                 {([
                   { id: "flow", label: "Flow" },
                   { id: "ai",   label: "AI Instructions" },
                 ] as const).map((t) => (
                   <button key={t.id} type="button" onClick={() => setSettingsTab(t.id)}
-                    className={["py-4 mr-7 text-sm font-medium border-b-2 -mb-px transition-colors",
-                      settingsTab === t.id
-                        ? "border-slate-700 text-slate-800"
-                        : "border-transparent text-gray-400 hover:text-gray-600",
+                    className={["py-3 mr-6 text-[13px] font-medium border-b-2 -mb-px transition-colors",
+                      settingsTab === t.id ? "border-[#0f172a] text-[#0f172a]" : "border-transparent text-[#9ca3af] hover:text-[#374151]",
                     ].join(" ")}>
                     {t.label}
                     {t.id === "ai" && aiSettings.openai_configured && (
-                      <span className="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 -translate-y-0.5" />
+                      <span className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 -translate-y-0.5" />
                     )}
                     {totalIssues > 0 && t.id === "flow" && (
-                      <span className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">{totalIssues}</span>
+                      <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">{totalIssues}</span>
                     )}
                   </button>
                 ))}
               </div>
 
-              {/* ── Scrollable body ── */}
+              {/* Scrollable body */}
               <div className="flex-1 overflow-y-auto">
 
-                {/* ── Flow tab ── */}
+                {/* Flow tab */}
                 {settingsTab === "flow" && (
-                  <div className="px-8 py-8 flex flex-col gap-8">
+                  <div className="px-6 py-6 flex flex-col gap-6">
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium text-gray-700">Description</label>
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">Description</label>
                       <input value={flow.description} onChange={(e) => upFlow({ description: e.target.value })}
                         placeholder="What does this flow do? e.g. Helps customers place cake orders"
                         className={INP2} />
-                      <p className="text-xs text-gray-400">Internal note — not shown to customers.</p>
+                      <p className="text-[11px] text-[#9ca3af]">Internal note — not shown to customers.</p>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">
                         Trigger Keywords
-                        <span className="font-normal text-gray-400 ml-1.5">— any of these start this flow</span>
+                        <span className="font-normal text-[#9ca3af] ml-1.5 normal-case">— any of these start this flow</span>
                       </label>
                       <div className={[
-                        "flex flex-wrap gap-2 rounded-xl border bg-gray-50 px-3.5 py-3 min-h-[52px] transition",
-                        "focus-within:bg-white focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-gray-100 border-gray-200",
+                        "flex flex-wrap gap-2 rounded-lg border bg-[#f6f8fa] px-3 py-2.5 min-h-[48px] transition",
+                        "focus-within:bg-white focus-within:border-[#0f172a] border-[#e5e7eb]",
                       ].join(" ")}>
                         {tags.map((t) => (
-                          <span key={t} className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium">
+                          <span key={t} className="inline-flex items-center gap-1 bg-white text-[#374151] border border-[#e5e7eb] rounded-md px-2.5 py-1 text-[12px] font-medium">
                             {t}
-                            <button type="button" onClick={() => removeTag(t)} className="text-slate-400 hover:text-red-400 transition leading-none">×</button>
+                            <button type="button" onClick={() => removeTag(t)} className="text-[#9ca3af] hover:text-red-400 transition leading-none ml-0.5">×</button>
                           </span>
                         ))}
                         {!flow.isFallback && (
                           <input
                             placeholder={tags.length === 0 ? "Type keyword + Enter  (e.g. order, menu, hi)" : "Add more…"}
-                            className="flex-1 min-w-[200px] text-sm bg-transparent focus:outline-none text-gray-700 placeholder:text-gray-300 py-0.5"
+                            className="flex-1 min-w-[180px] text-[13px] bg-transparent focus:outline-none text-[#374151] placeholder:text-[#9ca3af] py-0.5"
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(e.currentTarget.value); e.currentTarget.value = ""; }
                               if (e.key === "Backspace" && !e.currentTarget.value && tags.length) removeTag(tags[tags.length - 1]);
@@ -2038,91 +2046,89 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                           />
                         )}
                         {flow.isFallback && (
-                          <span className="text-sm text-gray-400 italic self-center">Not needed — this is the fallback flow</span>
+                          <span className="text-[12px] text-[#9ca3af] italic self-center">Not needed — this is the fallback flow</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-400">Paste a comma-separated list to add many at once.</p>
+                      <p className="text-[11px] text-[#9ca3af]">Paste a comma-separated list to add many at once.</p>
                     </div>
 
                   </div>
                 )}
 
-                {/* ── AI Instructions tab ── */}
+                {/* AI Instructions tab */}
                 {settingsTab === "ai" && (
-                  <div className="px-8 py-8 flex flex-col gap-8">
+                  <div className="px-6 py-6 flex flex-col gap-6">
 
                     {!aiLoaded ? (
-                      <div className="animate-pulse space-y-5">
-                        <div className="h-11 rounded-xl bg-gray-100" />
-                        <div className="flex gap-2"><div className="h-16 flex-1 rounded-xl bg-gray-100" /><div className="h-16 flex-1 rounded-xl bg-gray-100" /></div>
+                      <div className="animate-pulse space-y-4">
+                        <div className="h-10 rounded-lg bg-[#f1f5f9]" />
+                        <div className="flex gap-3"><div className="h-14 flex-1 rounded-lg bg-[#f1f5f9]" /><div className="h-14 flex-1 rounded-lg bg-[#f1f5f9]" /></div>
                         {[...Array(4)].map((_, i) => (
                           <div key={i} className="space-y-2">
-                            <div className="h-3 w-28 rounded-md bg-gray-100" />
-                            <div className="h-12 rounded-xl bg-gray-100" />
+                            <div className="h-3 w-24 rounded bg-[#f1f5f9]" />
+                            <div className="h-10 rounded-lg bg-[#f1f5f9]" />
                           </div>
                         ))}
                       </div>
 
                     ) : !aiSettings.openai_configured ? (
-                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 flex items-start gap-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-amber-600">
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-4">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5 text-amber-600">
                             <path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
                           </svg>
                         </div>
                         <div>
-                          <p className="text-base font-semibold text-amber-900 mb-1">OpenAI not configured</p>
-                          <p className="text-sm text-amber-700 leading-relaxed mb-4">Add your OpenAI API key in Integrations to enable AI Instructions.</p>
+                          <p className="text-[13px] font-semibold text-amber-900 mb-1">OpenAI not configured</p>
+                          <p className="text-[12px] text-amber-700 leading-relaxed mb-3">Add your OpenAI API key in Integrations to enable AI Instructions.</p>
                           <Link href="/admin/integrations/openai"
-                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700 transition">
-                            Integrations → OpenAI
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            className="inline-flex items-center gap-1 text-[12px] font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700 transition">
+                            Go to Integrations → OpenAI
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                           </Link>
                         </div>
                       </div>
 
                     ) : (
                       <>
-                        {/* ── Usage & Limits ── */}
+                        {/* Usage & Limits */}
                         {(() => {
-                          const tokenColor = aiSettings.ai_max_tokens <= 100 ? "text-emerald-600" : aiSettings.ai_max_tokens <= 250 ? "text-slate-700" : aiSettings.ai_max_tokens <= 400 ? "text-amber-500" : "text-red-500";
-                          const limitColor = aiSettings.ai_daily_limit <= 100 ? "text-amber-500" : aiSettings.ai_daily_limit <= 300 ? "text-slate-700" : "text-emerald-600";
+                          const tokenColor = aiSettings.ai_max_tokens <= 100 ? "text-emerald-600" : aiSettings.ai_max_tokens <= 250 ? "text-[#0f172a]" : aiSettings.ai_max_tokens <= 400 ? "text-amber-500" : "text-red-500";
+                          const limitColor = aiSettings.ai_daily_limit <= 100 ? "text-amber-500" : aiSettings.ai_daily_limit <= 300 ? "text-[#0f172a]" : "text-emerald-600";
                           return (
                             <div>
-                              <p className="text-sm font-semibold text-gray-700 mb-3">Usage &amp; Limits</p>
-                              <div className="rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+                              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-3">Usage &amp; Limits</p>
+                              <div className="rounded-xl border border-[#e5e7eb] overflow-hidden divide-y divide-[#f1f5f9]">
 
-                                {/* Max tokens */}
                                 <div className="px-5 py-4">
                                   <div className="flex items-center justify-between gap-4 mb-3">
                                     <div>
-                                      <p className="text-sm font-semibold text-gray-800">Max tokens per reply</p>
-                                      <p className="text-xs text-gray-400 mt-0.5">Shorter = cheaper &amp; faster. Longer = more detail.</p>
+                                      <p className="text-[13px] font-semibold text-[#0f172a]">Max tokens per reply</p>
+                                      <p className="text-[11px] text-[#9ca3af] mt-0.5">Shorter = cheaper &amp; faster. Longer = more detail.</p>
                                     </div>
-                                    <div className="flex items-baseline gap-1.5 shrink-0">
-                                      <span className={["text-2xl font-bold tabular-nums leading-none transition-colors", tokenColor].join(" ")}>{aiSettings.ai_max_tokens}</span>
-                                      <span className="text-xs text-gray-400">tokens</span>
+                                    <div className="flex items-baseline gap-1 shrink-0">
+                                      <span className={["text-xl font-bold tabular-nums leading-none transition-colors", tokenColor].join(" ")}>{aiSettings.ai_max_tokens}</span>
+                                      <span className="text-[11px] text-[#9ca3af]">tokens</span>
                                     </div>
                                   </div>
                                   <input type="range" min={50} max={500} step={10}
                                     value={aiSettings.ai_max_tokens}
                                     onChange={(e) => setAiSettings((s) => ({ ...s, ai_max_tokens: Number(e.target.value) }))}
-                                    className="w-full h-1.5 rounded-full cursor-pointer accent-slate-700 transition-all" />
-                                  <div className="flex justify-between text-xs mt-2">
-                                    <span className="text-emerald-500 font-medium">50 — brief</span>
-                                    <span className="text-slate-500 font-semibold">150 recommended</span>
-                                    <span className="text-red-400 font-medium">500 — detailed</span>
+                                    className="w-full h-1.5 rounded-full cursor-pointer accent-[#0f172a]" />
+                                  <div className="flex justify-between text-[11px] mt-2">
+                                    <span className="text-emerald-500">50 — brief</span>
+                                    <span className="text-[#64748b] font-semibold">150 recommended</span>
+                                    <span className="text-red-400">500 — detailed</span>
                                   </div>
                                 </div>
 
-                                {/* Daily limit */}
                                 <div className="px-5 py-4">
                                   <div className="flex items-center justify-between gap-4 mb-3">
                                     <div>
-                                      <p className="text-sm font-semibold text-gray-800">Daily request limit</p>
-                                      <p className="text-xs text-gray-400 mt-0.5">AI stops replying after this many calls. Resets at midnight.</p>
+                                      <p className="text-[13px] font-semibold text-[#0f172a]">Daily request limit</p>
+                                      <p className="text-[11px] text-[#9ca3af] mt-0.5">AI stops replying after this many calls. Resets at midnight.</p>
                                     </div>
-                                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 rounded-md px-2 py-0.5 uppercase tracking-wide shrink-0">
+                                    <span className="text-[10px] font-semibold text-[#64748b] bg-[#f6f8fa] border border-[#e5e7eb] rounded px-2 py-0.5 shrink-0">
                                       200 recommended
                                     </span>
                                   </div>
@@ -2130,19 +2136,18 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                                     <input type="range" min={50} max={1000} step={50}
                                       value={Math.min(aiSettings.ai_daily_limit, 1000)}
                                       onChange={(e) => setAiSettings((s) => ({ ...s, ai_daily_limit: Number(e.target.value) }))}
-                                      className="flex-1 h-1.5 rounded-full cursor-pointer accent-slate-700" />
+                                      className="flex-1 h-1.5 rounded-full cursor-pointer accent-[#0f172a]" />
                                     <div className="flex items-baseline gap-1 shrink-0">
-                                      <span className={["text-2xl font-bold tabular-nums leading-none transition-colors", limitColor].join(" ")}>{aiSettings.ai_daily_limit}</span>
-                                      <span className="text-xs text-gray-400">/day</span>
+                                      <span className={["text-xl font-bold tabular-nums leading-none transition-colors", limitColor].join(" ")}>{aiSettings.ai_daily_limit}</span>
+                                      <span className="text-[11px] text-[#9ca3af]">/day</span>
                                     </div>
                                   </div>
-                                  <div className="flex justify-between text-xs mt-2">
-                                    <span className="text-amber-500 font-medium">50 — low</span>
-                                    <span className="text-slate-500 font-semibold">200 recommended</span>
-                                    <span className="text-emerald-500 font-medium">1000 — high</span>
+                                  <div className="flex justify-between text-[11px] mt-2">
+                                    <span className="text-amber-500">50 — low</span>
+                                    <span className="text-[#64748b] font-semibold">200 recommended</span>
+                                    <span className="text-emerald-500">1000 — high</span>
                                   </div>
 
-                                  {/* Today's usage status */}
                                   {(() => {
                                     const used      = aiSettings.ai_usage_today;
                                     const limit     = aiSettings.ai_daily_limit;
@@ -2151,98 +2156,87 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                                     const barColor  = pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-400" : "bg-emerald-500";
                                     const textColor = pct >= 90 ? "text-red-600" : pct >= 70 ? "text-amber-600" : "text-emerald-600";
                                     return (
-                                      <div className="mt-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+                                      <div className="mt-4 rounded-lg bg-[#f6f8fa] border border-[#e5e7eb] px-4 py-3">
                                         <div className="flex items-center justify-between mb-2">
-                                          <p className="text-xs font-semibold text-gray-600">Today&apos;s Usage</p>
-                                          <p className="text-xs text-gray-400">Resets at midnight</p>
+                                          <p className="text-[11px] font-semibold text-[#374151]">Today&apos;s Usage</p>
+                                          <p className="text-[11px] text-[#9ca3af]">Resets at midnight</p>
                                         </div>
-                                        <div className="w-full h-2 rounded-full bg-gray-200 overflow-hidden">
-                                          <div className={["h-2 rounded-full transition-all", barColor].join(" ")} style={{ width: `${pct}%` }} />
+                                        <div className="w-full h-1.5 rounded-full bg-[#e5e7eb] overflow-hidden">
+                                          <div className={["h-1.5 rounded-full transition-all", barColor].join(" ")} style={{ width: `${pct}%` }} />
                                         </div>
                                         <div className="flex items-center justify-between mt-2">
-                                          <span className={["text-xs font-bold", textColor].join(" ")}>{used} used</span>
-                                          <span className="text-xs text-gray-400">{remaining} remaining of {limit}</span>
+                                          <span className={["text-[11px] font-bold", textColor].join(" ")}>{used} used</span>
+                                          <span className="text-[11px] text-[#9ca3af]">{remaining} remaining of {limit}</span>
                                         </div>
                                       </div>
                                     );
                                   })()}
                                 </div>
-
                               </div>
                             </div>
                           );
                         })()}
 
-                        {/* ── Knowledge sub-tabs ── */}
+                        {/* Knowledge sub-tabs */}
                         <div>
-                          <p className="text-sm font-medium text-gray-700 mb-3">Knowledge &amp; Behaviour</p>
-                          <div className="flex gap-1 rounded-xl bg-gray-100 p-1 mb-6">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-3">Knowledge &amp; Behaviour</p>
+                          <div className="flex gap-1 rounded-lg bg-[#f1f5f9] p-1 mb-5">
                             {([
                               { id: "fields", label: "Guided Fields",  desc: "Fill in simple fields" },
                               { id: "prompt", label: "Custom Prompt",  desc: "Write your own prompt" },
                             ] as const).map((t) => (
                               <button key={t.id} type="button" onClick={() => setKbTab(t.id)}
-                                className={["flex-1 flex flex-col items-center rounded-lg py-2.5 transition-all",
-                                  kbTab === t.id ? "bg-white shadow-sm" : "hover:bg-gray-50",
+                                className={["flex-1 flex flex-col items-center rounded-md py-2 transition-all",
+                                  kbTab === t.id ? "bg-white shadow-sm" : "hover:bg-[#f6f8fa]",
                                 ].join(" ")}>
-                                <span className={["text-sm font-medium", kbTab === t.id ? "text-gray-900" : "text-gray-400"].join(" ")}>{t.label}</span>
-                                <span className="text-xs text-gray-400 mt-0.5">{t.desc}</span>
+                                <span className={["text-[13px] font-medium", kbTab === t.id ? "text-[#0f172a]" : "text-[#9ca3af]"].join(" ")}>{t.label}</span>
+                                <span className="text-[11px] text-[#9ca3af] mt-0.5">{t.desc}</span>
                               </button>
                             ))}
                           </div>
 
-                          {/* Guided Fields */}
                           {kbTab === "fields" && (
-                            <div className="flex flex-col gap-8">
-                              <div className="grid grid-cols-2 gap-x-5 gap-y-5">
-                                {KB_FIELDS.map((f) => f.multiline ? (
-                                  <div key={f.key} className="col-span-2 flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-gray-700">{f.label}</label>
-                                    <textarea rows={3} value={aiSettings[f.key] as string}
-                                      onChange={(e) => setAiSettings((s) => ({ ...s, [f.key]: e.target.value }))}
-                                      placeholder={f.placeholder} className={INP2 + " resize-none"} />
-                                  </div>
-                                ) : (
-                                  <div key={f.key} className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-gray-700">{f.label}</label>
-                                    <input type="text" value={aiSettings[f.key] as string}
-                                      onChange={(e) => setAiSettings((s) => ({ ...s, [f.key]: e.target.value }))}
-                                      placeholder={f.placeholder} className={INP2} />
-                                  </div>
-                                ))}
-                              </div>
-
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                              {KB_FIELDS.map((f) => f.multiline ? (
+                                <div key={f.key} className="col-span-2 flex flex-col gap-1.5">
+                                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">{f.label}</label>
+                                  <textarea rows={3} value={aiSettings[f.key] as string}
+                                    onChange={(e) => setAiSettings((s) => ({ ...s, [f.key]: e.target.value }))}
+                                    placeholder={f.placeholder} className={INP2 + " resize-none"} />
+                                </div>
+                              ) : (
+                                <div key={f.key} className="flex flex-col gap-1.5">
+                                  <label className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">{f.label}</label>
+                                  <input type="text" value={aiSettings[f.key] as string}
+                                    onChange={(e) => setAiSettings((s) => ({ ...s, [f.key]: e.target.value }))}
+                                    placeholder={f.placeholder} className={INP2} />
+                                </div>
+                              ))}
                             </div>
                           )}
 
-                          {/* Custom Prompt */}
                           {kbTab === "prompt" && (
-                            <div className="flex flex-col gap-4">
-                              <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-gray-700">System Prompt</label>
-                                <textarea
-                                  rows={10}
-                                  value={aiSettings.ai_kb_prompt}
-                                  onChange={(e) => setAiSettings((s) => ({ ...s, ai_kb_prompt: e.target.value }))}
-                                  placeholder={buildCompiledPrompt(aiSettings)}
-                                  className={INP2 + " resize-none font-mono text-sm leading-relaxed"}
-                                />
-                                <p className="text-xs text-gray-400">Leave empty to auto-generate from Guided Fields. A saved prompt always takes priority.</p>
-                              </div>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">System Prompt</label>
+                              <textarea rows={10} value={aiSettings.ai_kb_prompt}
+                                onChange={(e) => setAiSettings((s) => ({ ...s, ai_kb_prompt: e.target.value }))}
+                                placeholder={buildCompiledPrompt(aiSettings)}
+                                className={INP2 + " resize-none font-mono text-[12px] leading-relaxed"} />
+                              <p className="text-[11px] text-[#9ca3af]">Leave empty to auto-generate from Guided Fields.</p>
                             </div>
                           )}
                         </div>
 
-                        {/* ── Intent toggles — always visible ── */}
+                        {/* Intent toggles */}
                         <div>
-                          <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center justify-between mb-3">
                             <div>
-                              <p className="text-sm font-medium text-gray-700">Handle AI Response by Type</p>
-                              <p className="text-xs text-gray-400 mt-0.5">AI detects intent and responds with the right type of reply.</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">Handle AI Response by Type</p>
+                              <p className="text-[11px] text-[#9ca3af] mt-0.5">AI detects intent and responds with the right type of reply.</p>
                             </div>
                             <button type="button"
                               onClick={() => setAiSettings((s) => ({ ...s, ai_intent_catalog: true, ai_intent_search: true, ai_intent_agent: true, ai_intent_info: true }))}
-                              className="shrink-0 ml-4 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg px-3 py-1.5 transition">
+                              className="text-[11px] font-semibold text-[#374151] bg-[#f6f8fa] border border-[#e5e7eb] rounded-lg px-3 py-1.5 hover:bg-[#e5e7eb] transition">
                               Enable all
                             </button>
                           </div>
@@ -2253,21 +2247,18 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                                 <button key={intent.key} type="button" role="switch" aria-checked={on}
                                   onClick={() => setAiSettings((s) => ({ ...s, [intent.key]: !s[intent.key] }))}
                                   className={["relative flex items-start gap-3 rounded-xl border p-4 text-left transition-all",
-                                    on ? "border-slate-300 bg-slate-50" : "border-gray-200 bg-gray-50 hover:bg-gray-100",
+                                    on ? "border-[#0f172a]/20 bg-[#f6f8fa]" : "border-[#e5e7eb] bg-white hover:bg-[#f6f8fa]",
                                   ].join(" ")}>
-                                  <span className="absolute top-3 right-3 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5 uppercase tracking-wide">
-                                    Recommended
-                                  </span>
-                                  <div className={["mt-0.5 relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors",
-                                    on ? "bg-[#34c759]" : "bg-gray-300",
+                                  <div className={["mt-0.5 relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors",
+                                    on ? "bg-[#0f172a]" : "bg-[#e5e7eb]",
                                   ].join(" ")}>
-                                    <span className={["inline-block h-4 w-4 transform rounded-full bg-white transition",
-                                      on ? "translate-x-4" : "translate-x-0",
+                                    <span className={["absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                                      on ? "translate-x-4" : "",
                                     ].join(" ")} />
                                   </div>
-                                  <div className="min-w-0 pr-14">
-                                    <p className={["text-sm font-semibold leading-tight", on ? "text-slate-800" : "text-gray-700"].join(" ")}>{intent.label}</p>
-                                    <p className="text-xs text-gray-400 mt-0.5 leading-snug">{intent.desc}</p>
+                                  <div className="min-w-0">
+                                    <p className={["text-[13px] font-semibold leading-tight", on ? "text-[#0f172a]" : "text-[#374151]"].join(" ")}>{intent.label}</p>
+                                    <p className="text-[11px] text-[#9ca3af] mt-0.5 leading-snug">{intent.desc}</p>
                                   </div>
                                 </button>
                               );
@@ -2280,22 +2271,20 @@ export default function FlowEditorPage({ params }: { params: Promise<{ id: strin
                 )}
               </div>
 
-              {/* ── Footer ── */}
-              <div className="shrink-0 border-t border-gray-100 px-8 py-5 flex items-center bg-white">
-                <div>
-                  {settingsTab === "ai" && aiSettings.openai_configured && (
-                    <button type="button" onClick={saveAi} disabled={aiSaving}
-                      className="flex items-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold px-5 py-2.5 hover:bg-brand-dark disabled:opacity-40 transition">
-                      {aiSaving && (
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
-                          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-                        </svg>
-                      )}
-                      {aiSaving ? "Saving…" : aiSaved ? "✓ Saved" : "Save AI Instructions"}
-                    </button>
-                  )}
-                </div>
+              {/* Footer */}
+              <div className="shrink-0 border-t border-[#e5e7eb] px-6 py-4 flex items-center bg-white">
+                {settingsTab === "ai" && aiSettings.openai_configured && (
+                  <button type="button" onClick={saveAi} disabled={aiSaving || !aiLoaded}
+                    className="flex items-center gap-2 rounded-lg bg-[#0f172a] text-white text-[13px] font-semibold px-5 py-2.5 hover:bg-[#1e293b] disabled:opacity-40 transition">
+                    {aiSaving && (
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.25"/>
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                    {aiSaving ? "Saving…" : aiSaved ? "✓ Saved" : "Save AI Instructions"}
+                  </button>
+                )}
               </div>
             </div>
           </>
