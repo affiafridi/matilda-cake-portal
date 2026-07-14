@@ -414,6 +414,7 @@ function GoogleSheetsConfig() {
 
 function CredentialsForm({ fields }: { fields: Field[] }) {
   const [values,         setValues]         = useState<Record<string, string>>({});
+  const [savedValues,    setSavedValues]    = useState<Record<string, string>>({});
   const [saveState,      setSaveState]      = useState<SaveState>("idle");
   const [loaded,         setLoaded]         = useState(false);
   const [isConfigured,   setIsConfigured]   = useState(false);
@@ -421,12 +422,15 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
   const [disconnecting,  setDisconnecting]  = useState(false);
   const router = useRouter();
 
+  const hasChanges = loaded && fields.some((f) => (values[f.key] ?? "") !== (savedValues[f.key] ?? ""));
+
   useEffect(() => {
     fetch("/api/admin/integrations")
       .then((r) => r.json())
       .then((j) => {
         if (j.ok) {
           setValues(j.data);
+          setSavedValues(j.data);
           setIsConfigured(fields.filter((f) => !f.multiline).every((f) => j.data[f.key]?.trim()));
           setLoaded(true);
         }
@@ -444,14 +448,11 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
           body: JSON.stringify({ key: f.key, value: values[f.key] ?? "" }),
         });
       }
-      const configured = fields.every((f) => values[f.key]?.trim());
+      setSavedValues({ ...values });
+      const configured = fields.filter((f) => !f.multiline).every((f) => values[f.key]?.trim());
       setIsConfigured(configured);
       setSaveState("saved");
-      if (configured) {
-        setTimeout(() => router.push("/admin/integrations"), 1000);
-      } else {
-        setTimeout(() => setSaveState("idle"), 2500);
-      }
+      setTimeout(() => setSaveState("idle"), 2500);
     } catch {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
@@ -526,11 +527,13 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
       ))}
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#f1f5f9]">
-        <button onClick={save} disabled={saveState === "saving"}
-          className="h-9 flex items-center gap-2 rounded-lg bg-[#0f172a] px-5 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-50">
-          {saveState === "saving" && <Spinner />}
-          {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : isConfigured ? "Update" : "Save credentials"}
-        </button>
+        {(hasChanges || saveState !== "idle") && (
+          <button onClick={save} disabled={saveState === "saving"}
+            className="h-9 flex items-center gap-2 rounded-lg bg-[#0f172a] px-5 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-50">
+            {saveState === "saving" && <Spinner />}
+            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved ✓" : saveState === "error" ? "Error — retry" : isConfigured ? "Update" : "Save credentials"}
+          </button>
+        )}
         {isConfigured && (
           <button onClick={() => setShowDisconnect(true)}
             className="h-9 flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-4 text-[13px] font-semibold text-red-600 hover:bg-red-100 transition">
