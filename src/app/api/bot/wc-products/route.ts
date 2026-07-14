@@ -90,7 +90,7 @@ async function enrichFromWC(
  * and strips any "-scaled" suffix from the base name.
  * Falls back to the original URL if it doesn't look like a WP upload.
  */
-function wpThumb(src: string, size = "300x300"): string {
+function wpThumb(src: string, size = "600x600"): string {
   if (!src) return src;
   try {
     const url  = new URL(src);
