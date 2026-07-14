@@ -17,18 +17,21 @@ export async function GET(req: NextRequest) {
     const secret = req.headers.get("x-inbox-secret");
     if (!secret || secret !== inbox_webhook_secret) return jsonError("Unauthorized", 401);
 
-    const flows = await prisma.botFlow.findMany({
-      where: { isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      include: {
-        steps: {
-          orderBy: { sortOrder: "asc" },
-          include: { options: { orderBy: { sortOrder: "asc" } } },
+    const [flows, { wa_flow_id }] = await Promise.all([
+      prisma.botFlow.findMany({
+        where: { isActive: true },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        include: {
+          steps: {
+            orderBy: { sortOrder: "asc" },
+            include: { options: { orderBy: { sortOrder: "asc" } } },
+          },
         },
-      },
-    });
+      }),
+      getIntegrations(),
+    ]);
 
-    return jsonOk(flows);
+    return jsonOk({ flows, wa_flow_id });
   } catch (err) {
     return handleApiError(err);
   }
