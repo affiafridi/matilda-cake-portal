@@ -661,10 +661,10 @@ export default function IntegrationDetailPage() {
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-w-5xl">
+      {/* Layout — 3 cols for whatsapp, 2 cols for others */}
+      <div className={`grid grid-cols-1 gap-5 max-w-6xl ${slug === "whatsapp" ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
 
-        {/* Left — About + What's included */}
+        {/* Col 1 — About + What's included */}
         <div className="space-y-4">
           <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-2">About</p>
@@ -686,39 +686,37 @@ export default function IntegrationDetailPage() {
           </div>
         </div>
 
-        {/* Right — Credentials */}
-        <div className="space-y-4">
-          {hasConfig && (
-            <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-4">Credentials</p>
-              {slug === "google-sheets" ? (
-                <GoogleSheetsConfig />
-              ) : fields ? (
-                <CredentialsForm fields={fields} />
-              ) : null}
-            </div>
-          )}
+        {/* Col 2 — Credentials */}
+        {hasConfig && (
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-4">Credentials</p>
+            {slug === "google-sheets" ? (
+              <GoogleSheetsConfig />
+            ) : fields ? (
+              <CredentialsForm fields={fields} />
+            ) : null}
+          </div>
+        )}
 
-          {/* WhatsApp Flows block — only on whatsapp slug */}
-          {slug === "whatsapp" && (
-            <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
-              <div className="flex items-center gap-2.5 mb-1">
-                <div className="h-7 w-7 rounded-lg bg-[#25D366]/10 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                    <rect x="3" y="3" width="7" height="5" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
-                    <rect x="8" y="16" width="8" height="5" rx="1"/>
-                    <path d="M6.5 8v3a2 2 0 002 2h7a2 2 0 002-2V8M12 11v5"/>
-                  </svg>
-                </div>
-                <p className="text-[13px] font-bold text-[#0f172a]">WhatsApp Flows</p>
+        {/* Col 3 — WhatsApp Flows (whatsapp only) */}
+        {slug === "whatsapp" && (
+          <div className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] p-5">
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="h-7 w-7 rounded-lg bg-[#25D366]/10 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <rect x="3" y="3" width="7" height="5" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
+                  <rect x="8" y="16" width="8" height="5" rx="1"/>
+                  <path d="M6.5 8v3a2 2 0 002 2h7a2 2 0 002-2V8M12 11v5"/>
+                </svg>
               </div>
-              <p className="text-[12px] text-[#64748b] leading-relaxed mb-4">
-                WhatsApp Flows lets customers complete checkout, fill forms, and pick delivery slots — all inside WhatsApp without leaving the chat. Paste your Flow ID from Meta and the RSA private key to enable encrypted communication between Meta and this portal.
-              </p>
-              <CredentialsForm fields={flowsFields} />
+              <p className="text-[13px] font-bold text-[#0f172a]">WhatsApp Flows</p>
             </div>
-          )}
-        </div>
+            <p className="text-[12px] text-[#64748b] leading-relaxed mb-4">
+              WhatsApp Flows lets customers complete checkout, pick delivery slots and fill forms — all inside WhatsApp without leaving the chat. Add your Flow ID and RSA private key to enable end-to-end encrypted communication between Meta and this portal.
+            </p>
+            <CredentialsForm fields={flowsFields} />
+          </div>
+        )}
       </div>
     </div>
   );
