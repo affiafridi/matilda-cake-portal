@@ -228,11 +228,13 @@ export default function InboxClient({
   initialConversations,
   agents,
   currentUserId,
+  isSuperAdmin,
   templateConfigured,
 }: {
   initialConversations: ConvSummary[];
   agents:               Agent[];
   currentUserId:        string;
+  isSuperAdmin:         boolean;
   templateConfigured:   boolean;
 }) {
   const searchParams = useSearchParams();
@@ -578,6 +580,16 @@ export default function InboxClient({
     } finally { setSavingNote(false); }
   }
 
+  async function deleteConv() {
+    if (!selectedId || !window.confirm("Delete this conversation and all its messages? This cannot be undone.")) return;
+    await fetch(`/api/inbox/conversations/${selectedId}`, { method: "DELETE" });
+    setConversations((p) => p.filter((c) => c.id !== selectedId));
+    setSelectedId(null);
+    setMessages([]);
+    setEvents([]);
+    setConvDetail(null);
+  }
+
   async function patchConv(patch: { status?: ConvStatus; assignedToId?: string | null; botPaused?: boolean; agentRequested?: boolean; tags?: string[] }) {
     if (!selectedId) return;
     await fetch(`/api/inbox/conversations/${selectedId}`, {
@@ -907,6 +919,16 @@ export default function InboxClient({
                     <option value="PENDING">Pending</option>
                     <option value="RESOLVED">Resolved</option>
                   </select>
+
+                  {/* Delete conversation — SUPER_ADMIN only */}
+                  {isSuperAdmin && (
+                    <button onClick={deleteConv} title="Delete conversation"
+                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600 transition">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path strokeLinecap="round" d="M9 6V4h6v2"/>
+                      </svg>
+                    </button>
+                  )}
 
                   {/* Right panel tabs */}
                   {(["contact", "bot"] as const).map((tab) => (

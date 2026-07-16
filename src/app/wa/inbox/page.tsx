@@ -38,5 +38,5 @@ export default async function InboxPage() {
     lastInboundAt:  c.lastInboundAt?.toISOString() ?? null,
   }));
 
-  return <InboxClient initialConversations={serialized} agents={agents} currentUserId={user.id} templateConfigured={templateConfigured} />;
+  return <InboxClient initialConversations={serialized} agents={agents} currentUserId={user.id} isSuperAdmin={user.role === "SUPER_ADMIN"} templateConfigured={templateConfigured} />;
 }

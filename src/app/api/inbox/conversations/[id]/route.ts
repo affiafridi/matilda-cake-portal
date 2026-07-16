@@ -60,6 +60,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 }
 
+/** DELETE /api/inbox/conversations/[id] — delete conversation + messages. SUPER_ADMIN only. */
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireRole(["SUPER_ADMIN"] as const);
+    void user;
+    const { id } = await params;
+
+    const conv = await prisma.conversation.findUnique({ where: { id }, select: { id: true } });
+    if (!conv) return jsonError("Conversation not found", 404);
+
+    await prisma.$transaction([
+      prisma.message.deleteMany({ where: { conversationId: id } }),
+      prisma.conversationEvent.deleteMany({ where: { conversationId: id } }),
+      prisma.conversation.delete({ where: { id } }),
+    ]);
+
+    return jsonOk({ ok: true });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
 /** PATCH /api/inbox/conversations/[id] — update status or assignment */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
