@@ -15,6 +15,23 @@ export async function GET(req: NextRequest) {
     const status     = searchParams.get("status") ?? "OPEN";
     const assignedTo = searchParams.get("assignedTo");
 
+    // Direct lookup by waId — used by Open Chat from customers table
+    const waId = searchParams.get("waId");
+    if (waId) {
+      const conv = await prisma.conversation.findUnique({
+        where: { waId: waId.replace(/^\+/, "") },
+        select: {
+          id: true, waId: true, customerName: true, status: true,
+          botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
+          unreadCount: true, lastMessageAt: true, lastMessageBody: true,
+          assignedTo: { select: { id: true, name: true } },
+          currentBotFlowId: true, currentBotFlowName: true, currentBotStepKey: true,
+          botContextVariables: true, lastBotActivityAt: true,
+        },
+      });
+      return jsonOk(conv ? [conv] : []);
+    }
+
     const where: Record<string, unknown> = {};
     if (status !== "ALL") where.status = status;
     if (assignedTo === "me")          where.assignedToId = actor.id;

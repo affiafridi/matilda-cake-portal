@@ -297,12 +297,23 @@ export default function InboxClient({
 
   // ── Auto-select conversation from ?waId= URL param ────────────────────────
   useEffect(() => {
-    if (!openWaId || conversations.length === 0 || selectedId) return;
+    if (!openWaId || selectedId) return;
+    // Try the already-loaded list first (instant)
     const norm = openWaId.replace(/^\+/, "");
     const match = conversations.find((c) => c.waId === norm || c.waId === openWaId);
-    if (match) setSelectedId(match.id);
+    if (match) { setSelectedId(match.id); return; }
+    // Not in current list — fetch it directly by waId
+    fetch(`/api/inbox/conversations?waId=${encodeURIComponent(norm)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok: boolean; data: ConvSummary[] }) => {
+        const conv = j.ok && j.data?.[0];
+        if (!conv) return;
+        setConversations((prev) => prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev]);
+        setSelectedId(conv.id);
+      })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openWaId, conversations]);
+  }, [openWaId]);
 
   // ── Toasts ────────────────────────────────────────────────────────────────
   function addToast(msg: string) {
