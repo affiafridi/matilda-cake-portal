@@ -363,9 +363,9 @@ export default function BotConfigPage() {
                   </>}
             </button>
             {/* Tooltip */}
-            <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block z-50 w-56 rounded-xl bg-ink px-3 py-2 text-[11px] text-white shadow-lg pointer-events-none">
+            <div className="absolute top-full right-0 mt-2 hidden group-hover:block z-50 w-56 rounded-xl bg-ink px-3 py-2 text-[11px] text-white shadow-lg pointer-events-none">
               Tells the bot to reload all settings from the database — categories, products, and flow config. Run this after making any changes here.
-              <div className="absolute top-full right-4 border-4 border-transparent border-t-ink" />
+              <div className="absolute bottom-full right-4 border-4 border-transparent border-b-ink" />
             </div>
           </div>
           <button type="button" onClick={saveProducts} disabled={!prodDirty || prodSaving}
