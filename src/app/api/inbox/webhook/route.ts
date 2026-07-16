@@ -168,6 +168,14 @@ export async function POST(req: NextRequest) {
       select: { id: true },
     });
 
+    // Check if agent is involved before upserting — unread count only increments
+    // when a human agent has taken over (botPaused) or the customer requested one.
+    const existingConv = await prisma.conversation.findUnique({
+      where:  { waId },
+      select: { agentRequested: true, botPaused: true },
+    });
+    const agentInvolved = existingConv ? (existingConv.agentRequested || existingConv.botPaused) : false;
+
     const conversation = await prisma.conversation.upsert({
       where:  { waId },
       create: {
@@ -178,7 +186,7 @@ export async function POST(req: NextRequest) {
         lastMessageAt:   msgTime,
         lastInboundAt:   msgTime,
         lastMessageBody: text ?? mediaType ?? null,
-        unreadCount:     1,
+        unreadCount:     0,
       },
       update: {
         customerName:    name || waId,
@@ -186,7 +194,7 @@ export async function POST(req: NextRequest) {
         lastMessageAt:   msgTime,
         lastInboundAt:   msgTime,
         lastMessageBody: text ?? mediaType ?? null,
-        unreadCount:     { increment: 1 },
+        ...(agentInvolved && { unreadCount: { increment: 1 } }),
         status:          "OPEN",
       },
     });

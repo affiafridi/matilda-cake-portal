@@ -73,11 +73,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
     await prisma.botFlow.update({
       where: { id: flowId },
       data: {
-        name:            body.name?.trim(),
-        description:     body.description?.trim() ?? null,
-        triggerKeywords: body.triggerKeywords?.trim() ?? "",
-        isActive:        body.isActive,
-        sortOrder:       body.sortOrder,
+        ...(body.name            !== undefined && { name:            body.name.trim() }),
+        ...(body.description     !== undefined && { description:     body.description.trim() || null }),
+        ...(body.triggerKeywords !== undefined && { triggerKeywords: body.triggerKeywords.trim() }),
+        ...(body.isActive        !== undefined && { isActive:        body.isActive }),
+        ...(body.sortOrder       !== undefined && { sortOrder:       body.sortOrder }),
       },
     });
 

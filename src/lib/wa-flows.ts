@@ -57,9 +57,8 @@ export function encryptFlowResponse(
   aesKey:   Buffer,
   iv:       Buffer,
 ): string {
-  // Flip the last byte of IV for response encryption (Meta spec)
-  const responseIv = Buffer.from(iv);
-  responseIv[responseIv.length - 1] ^= 0xff;
+  // Flip ALL bytes of IV for response encryption (Meta spec: XOR each byte with 0xFF)
+  const responseIv = Buffer.from(iv.map((b) => b ^ 0xff));
 
   const cipher = crypto.createCipheriv("aes-128-gcm", aesKey, responseIv);
   const encrypted = Buffer.concat([

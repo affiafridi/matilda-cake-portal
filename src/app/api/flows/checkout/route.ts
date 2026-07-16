@@ -58,15 +58,18 @@ export async function POST(req: NextRequest) {
     let decrypted;
     try {
       decrypted = decryptFlowRequest(body, flows_private_key);
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[flows/checkout] decryption error:", msg, "| key length:", flows_private_key.length, "| key start:", flows_private_key.slice(0, 40));
       return NextResponse.json({ error: "Decryption failed" }, { status: 400 });
     }
 
     const { payload, aesKey, iv } = decrypted;
 
-    // Health check from Meta
+    // Health check from Meta — response is just { data: { status: "active" } }
     if (payload.action === "ping") {
-      return sendEncrypted({ version: "3.0", screen: "SUCCESS", data: { status: "active" } }, aesKey, iv);
+      const encrypted = encryptFlowResponse({ data: { status: "active" } } as never, aesKey, iv);
+      return new NextResponse(encrypted, { status: 200, headers: { "Content-Type": "text/plain" } });
     }
 
     // Parse the flow token — bot encodes product + customer info here
