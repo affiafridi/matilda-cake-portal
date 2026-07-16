@@ -21,6 +21,7 @@ export type IntegrationSettings = {
   ccavenue_website_url:     string;
   flows_private_key:        string;
   wa_flow_id:               string;
+  wc_webhook_secret:        string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -40,6 +41,7 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "ccavenue_website_url",
   "flows_private_key",
   "wa_flow_id",
+  "wc_webhook_secret",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. Cached for 2 min. */
@@ -51,7 +53,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
         SELECT key, value FROM portal_settings
         WHERE key IN (
           'wa_access_token', 'wa_phone_number_id', 'wa_business_account_id',
-          'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
+          'wc_url', 'wc_consumer_key', 'wc_consumer_secret', 'wc_webhook_secret',
           'bot_url', 'sync_secret', 'inbox_webhook_secret',
           'openai_api_key',
           'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
@@ -78,6 +80,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
       ccavenue_website_url:   map["ccavenue_website_url"]   || process.env.CCAVENUE_WEBSITE_URL          || "",
       flows_private_key:      map["flows_private_key"]      || process.env.WA_FLOWS_PRIVATE_KEY          || "",
       wa_flow_id:             map["wa_flow_id"]             || process.env.WA_FLOW_ID                    || "",
+      wc_webhook_secret:      map["wc_webhook_secret"]      || process.env.WC_WEBHOOK_SECRET             || "",
     };
   });
 }

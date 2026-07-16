@@ -200,6 +200,7 @@ const FIELDS: Record<string, Field[]> = {
     { key: "wc_url",             label: "Store URL",       type: "url",      hint: "Your WordPress site, e.g. https://shop.yourstore.com" },
     { key: "wc_consumer_key",    label: "Consumer Key",    type: "password", hint: "WooCommerce → Settings → Advanced → REST API" },
     { key: "wc_consumer_secret", label: "Consumer Secret", type: "password", hint: "WooCommerce → Settings → Advanced → REST API" },
+    { key: "wc_webhook_secret",  label: "Webhook Secret",  type: "password", hint: "WooCommerce → Settings → Advanced → Webhooks → choose any secret — paste the same here" },
   ],
   "bot-server": [
     { key: "bot_url",              label: "Bot Server URL",       type: "url",      hint: "URL of your Python bot server" },
