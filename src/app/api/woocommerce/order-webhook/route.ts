@@ -56,11 +56,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // ── Match by wa_id in meta_data first ──────────────────────────────────
+    // ── Determine if this order came from WhatsApp ────────────────────────
+    // Check for wa_id meta (if bot appended ?wa_id= to checkout URL)
     const waIdMeta = order.meta_data?.find(
       (m) => m.key === "wa_id" || m.key === "_wc_order_attribution_wa_id",
     );
     const waIdRaw = waIdMeta?.value ? String(waIdMeta.value).replace(/^\+/, "") : null;
+
+    // WC 8.5+ order attribution captures utm_source automatically from the URL
+    const utmSource = order.meta_data?.find(
+      (m) => m.key === "_wc_order_attribution_utm_source",
+    )?.value;
+    const isFromWhatsApp = !!waIdRaw || String(utmSource ?? "").toLowerCase() === "whatsapp";
+
+    // If this order didn't come from WhatsApp at all, skip it
+    if (!isFromWhatsApp) return NextResponse.json({ ok: true });
 
     let lead = waIdRaw
       ? await prisma.whatsappLead.findFirst({
@@ -97,9 +107,9 @@ export async function POST(req: NextRequest) {
           updatedAt: new Date(),
         },
       });
-    } else if (waIdRaw || order.billing?.phone) {
-      // Create a new lead if we have any identifier — this covers customers who
-      // came via WC link without going through the bot's CLICKED event
+    } else {
+      // No existing lead — create one. This covers WhatsApp customers who went
+      // straight to the WC link without triggering the bot's CLICKED event.
       const cleanWaId = waIdRaw ?? normalizePhone(order.billing?.phone ?? "")[0] ?? "";
       if (cleanWaId) {
         await prisma.whatsappLead.create({
