@@ -40,16 +40,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    let order: WcOrder;
+    // Parse body — WC sends empty body or {"webhook_id":n} for test pings; handle gracefully
+    let order: Partial<WcOrder>;
     try {
-      order = JSON.parse(rawBody) as WcOrder;
+      order = rawBody ? JSON.parse(rawBody) as Partial<WcOrder> : {};
     } catch {
-      return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
+      return NextResponse.json({ ok: true }); // not JSON (ping/health-check) — just acknowledge
     }
 
     if (!order?.id) return NextResponse.json({ ok: true }); // not an order payload
 
-    const stage = wcStatusToLeadStage(order.status);
+    const stage = wcStatusToLeadStage(order.status ?? "");
     if (!stage) {
       // Unrecognised status — acknowledge and ignore
       return NextResponse.json({ ok: true });

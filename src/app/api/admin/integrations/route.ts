@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 const INTEGRATION_KEYS = [
   "wa_access_token", "wa_phone_number_id", "wa_business_account_id",
-  "wc_url", "wc_consumer_key", "wc_consumer_secret",
+  "wc_url", "wc_consumer_key", "wc_consumer_secret", "wc_webhook_secret",
   "bot_url", "sync_secret", "inbox_webhook_secret",
   "google_oauth_client_id", "google_oauth_client_secret",
   "openai_api_key",
@@ -33,7 +33,7 @@ export async function GET() {
       SELECT key, value FROM portal_settings
       WHERE key IN (
         'wa_access_token', 'wa_phone_number_id', 'wa_business_account_id',
-        'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
+        'wc_url', 'wc_consumer_key', 'wc_consumer_secret', 'wc_webhook_secret',
         'bot_url', 'sync_secret', 'inbox_webhook_secret',
         'google_oauth_client_id', 'google_oauth_client_secret',
         'openai_api_key',
@@ -75,6 +75,7 @@ function envFallback(key: string): string {
     ccavenue_website_url:     process.env.CCAVENUE_WEBSITE_URL,
     flows_private_key:        process.env.WA_FLOWS_PRIVATE_KEY,
     wa_flow_id:               process.env.WA_FLOW_ID,
+    wc_webhook_secret:        process.env.WC_WEBHOOK_SECRET,
   };
   return map[key] ?? "";
 }
