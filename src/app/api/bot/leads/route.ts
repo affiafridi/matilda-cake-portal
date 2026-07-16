@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getIntegrations } from "@/lib/integrations";
+import { requireRole } from "@/lib/auth/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 
 export const runtime = "nodejs";
@@ -35,10 +36,10 @@ export async function POST(req: NextRequest) {
     const cleanWaId  = waId.replace(/^\+/, "");
     const leadStage  = (stage && VALID_STAGES.includes(stage)) ? stage : "CLICKED";
 
-    // Upsert: find the most recent non-PAID lead for this waId and update it,
-    // or create a new one. This avoids duplicate leads for the same customer session.
+    // Upsert: find the most recent in-progress lead for this waId and update it,
+    // or create a new one. Exclude PAID/ABANDONED so returning customers get a fresh lead.
     const existing = await prisma.whatsappLead.findFirst({
-      where: { waId: cleanWaId, stage: { not: "PAID" } },
+      where: { waId: cleanWaId, stage: { notIn: ["PAID", "ABANDONED"] } },
       orderBy: { createdAt: "desc" },
     });
 
@@ -79,8 +80,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
+const ALLOWED_ROLES = ["SUPER_ADMIN", "ADMIN", "AGENT"] as const;
+
 export async function GET(req: NextRequest) {
   try {
+    await requireRole(ALLOWED_ROLES);
     const { searchParams } = req.nextUrl;
     const page   = Math.max(1, Number(searchParams.get("page")  ?? 1));
     const limit  = Math.min(50, Number(searchParams.get("limit") ?? 20));
@@ -115,6 +119,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    await requireRole(ALLOWED_ROLES);
     const body = await req.json() as { id: string; status?: string; stage?: string };
     const { id, status, stage } = body;
 

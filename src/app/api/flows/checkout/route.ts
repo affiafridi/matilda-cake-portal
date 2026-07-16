@@ -288,7 +288,7 @@ async function upsertLeadStage(
 ) {
   const cleanWaId = waId.replace(/^\+/, "");
   const existing  = await prisma.whatsappLead.findFirst({
-    where: { waId: cleanWaId, stage: { not: "PAID" } },
+    where: { waId: cleanWaId, stage: { notIn: ["PAID", "ABANDONED"] } },
     orderBy: { createdAt: "desc" },
   });
   if (existing) {
