@@ -118,6 +118,7 @@ function buildSystemPrompt(kb: Record<string, string>): string {
 }
 
 type ImageInput = { base64: string; mimeType: string };
+type AudioInput = { base64: string; mimeType: string };
 
 // Stable cache key for a message — images are not cached (too large + unique)
 function intentCacheKey(message: string): string {
@@ -263,9 +264,25 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { message: rawMessage, waId, image } = body as { message?: string; waId?: string; image?: ImageInput };
-    const message = rawMessage ?? "";
-    if (!message && !image) return NextResponse.json({ ok: false, error: "message or image is required" }, { status: 400 });
+    const { message: rawMessage, waId, image, audio } = body as { message?: string; waId?: string; image?: ImageInput; audio?: AudioInput };
+    let message = rawMessage ?? "";
+    if (!message && !image && !audio) return NextResponse.json({ ok: false, error: "message, image, or audio is required" }, { status: 400 });
+
+    // Transcribe audio via Whisper before intent classification
+    if (audio) {
+      const audioBuffer = Buffer.from(audio.base64, "base64");
+      const ext = audio.mimeType.split("/")[1]?.split(";")[0] ?? "ogg";
+      const formData = new FormData();
+      formData.append("file", new Blob([audioBuffer], { type: audio.mimeType }), `audio.${ext}`);
+      formData.append("model", "whisper-1");
+      const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openai_api_key}` },
+        body: formData,
+      });
+      const whisperJson = await whisperRes.json() as { text?: string };
+      message = (whisperJson.text ?? "").trim();
+    }
 
     // loadAiSettings() is now cached — no DB hit on warm requests
     const { kb, intents, customPrompt, maxTokens, dailyLimit } = await loadAiSettings();
