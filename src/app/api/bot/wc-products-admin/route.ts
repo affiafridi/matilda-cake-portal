@@ -65,16 +65,24 @@ export async function GET(req: NextRequest) {
       const maxOrder = dbRows.length > 0 ? Math.max(...dbRows.map((r) => r.sort_order)) + 1 : 0;
 
       for (const [i, p] of fetched.entries()) {
-        // Fetch variations for variable products
-        type WcVariation = { id: number; price: string; attributes: { name: string; option: string }[] };
-        let variations: WcVariation[] = [];
+        // Fetch variations for variable products — trim to only what the bot uses
+        type WcVariationRaw = { id: number; price: string; attributes: { name: string; option: string }[] };
+        type WcVariationTrimmed = { id: number; price: string; attributes: { name: string; option: string }[] };
+        let variations: WcVariationTrimmed[] = [];
         if (p.type === "variable") {
           try {
             const vRes = await fetch(
               `${wcBase}/wp-json/wc/v3/products/${p.id}/variations?per_page=50`,
               { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" }
             );
-            if (vRes.ok) variations = await vRes.json() as WcVariation[];
+            if (vRes.ok) {
+              const raw = await vRes.json() as WcVariationRaw[];
+              variations = raw.map((v) => ({
+                id:         v.id,
+                price:      v.price,
+                attributes: (v.attributes ?? []).map((a) => ({ name: a.name, option: a.option })),
+              }));
+            }
           } catch { /* ignore variation fetch failures */ }
         }
 
