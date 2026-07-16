@@ -102,6 +102,19 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Update lead stage: PAID on success, ABANDONED on abort/failure
+    try {
+      const leadByOrder = await prisma.whatsappLead.findFirst({
+        where: { orderId: order.id },
+      });
+      if (leadByOrder) {
+        await prisma.whatsappLead.update({
+          where: { id: leadByOrder.id },
+          data:  { stage: isSuccess ? "PAID" : "ABANDONED", updatedAt: new Date() },
+        });
+      }
+    } catch { /* don't fail the webhook for lead tracking */ }
+
     // Notify bot to send WhatsApp message to customer
     if (order.whatsappNumber && bot_url && inbox_webhook_secret) {
       const waId     = order.whatsappNumber;

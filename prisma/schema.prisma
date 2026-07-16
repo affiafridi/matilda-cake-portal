@@ -475,12 +475,18 @@ model WhatsappLead {
   phone        String
   orderDetails String   @db.Text
   source       String   @default("whatsapp")
-  status       String   @default("NEW") // NEW | CONTACTED | CONVERTED | LOST
+  stage        String   @default("CLICKED") // CLICKED | FLOW_STARTED | ORDER_CREATED | PAID | ABANDONED
+  status       String   @default("NEW")     // NEW | CONTACTED | CONVERTED | LOST  (manual CRM)
+  productName  String?
+  productPrice String?
+  orderId      String?  // links to Order.id after order is created
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([waId])
+  @@index([stage])
   @@index([status])
+  @@index([orderId])
   @@index([createdAt])
 }
 

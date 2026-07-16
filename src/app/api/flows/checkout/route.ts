@@ -96,6 +96,13 @@ export async function POST(req: NextRequest) {
 
     // ── INIT ────────────────────────────────────────────────────────────────
     if (payload.action === "INIT") {
+      // Track lead as FLOW_STARTED (fire-and-forget; don't fail the flow on error)
+      upsertLeadStage(tokenData.waId, "FLOW_STARTED", {
+        customerName: tokenData.customerName,
+        productName:  tokenData.productName,
+        productPrice: tokenData.productPrice,
+      }).catch(() => {});
+
       return sendEncrypted({
         version: "3.0",
         screen:  "ORDER",
@@ -216,6 +223,14 @@ export async function POST(req: NextRequest) {
 
         if (!order) throw new Error("Failed to create order");
 
+        // Track lead as ORDER_CREATED and link the order
+        upsertLeadStage(tokenData.waId, "ORDER_CREATED", {
+          orderId:      order.id,
+          customerName: d.name,
+          productName:  tokenData.productName,
+          productPrice: tokenData.productPrice,
+        }).catch(() => {});
+
         const paymentUrl = buildCCAvenueCheckoutUrl({
           orderId:        paymentGatewayOrderId,
           amount,
@@ -263,6 +278,47 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     return handleApiError(err);
+  }
+}
+
+async function upsertLeadStage(
+  waId: string,
+  stage: string,
+  extra: { customerName?: string; productName?: string; productPrice?: string; orderId?: string } = {},
+) {
+  const cleanWaId = waId.replace(/^\+/, "");
+  const existing  = await prisma.whatsappLead.findFirst({
+    where: { waId: cleanWaId, stage: { not: "PAID" } },
+    orderBy: { createdAt: "desc" },
+  });
+  if (existing) {
+    await prisma.whatsappLead.update({
+      where: { id: existing.id },
+      data: {
+        stage,
+        ...(extra.customerName && { customerName: extra.customerName }),
+        ...(extra.productName  && { productName:  extra.productName  }),
+        ...(extra.productPrice && { productPrice: extra.productPrice }),
+        ...(extra.orderId      && { orderId:      extra.orderId      }),
+        updatedAt: new Date(),
+      },
+    });
+  } else {
+    await prisma.whatsappLead.create({
+      data: {
+        id:           crypto.randomUUID(),
+        waId:         cleanWaId,
+        customerName: extra.customerName || cleanWaId,
+        phone:        cleanWaId,
+        orderDetails: extra.productName || "",
+        source:       "whatsapp_flow",
+        stage,
+        status:       "NEW",
+        productName:  extra.productName  || null,
+        productPrice: extra.productPrice || null,
+        orderId:      extra.orderId      || null,
+      },
+    });
   }
 }
 

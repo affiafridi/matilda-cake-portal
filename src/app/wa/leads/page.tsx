@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 
 type Lead = {
   id:           string;
@@ -9,18 +10,43 @@ type Lead = {
   phone:        string;
   orderDetails: string;
   source:       string;
+  stage:        string;
   status:       string;
+  productName:  string | null;
+  productPrice: string | null;
+  orderId:      string | null;
   createdAt:    string;
+  updatedAt:    string;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  NEW:       "bg-blue-50 text-blue-700 border-blue-200",
-  CONTACTED: "bg-amber-50 text-amber-700 border-amber-200",
+type FunnelCounts = Record<string, number>;
+
+const STAGES = ["CLICKED", "FLOW_STARTED", "ORDER_CREATED", "PAID", "ABANDONED"] as const;
+
+const STAGE_LABELS: Record<string, string> = {
+  CLICKED:       "Clicked",
+  FLOW_STARTED:  "Form Opened",
+  ORDER_CREATED: "Order Created",
+  PAID:          "Paid",
+  ABANDONED:     "Abandoned",
+};
+
+const STAGE_COLORS: Record<string, string> = {
+  CLICKED:       "bg-slate-50  text-slate-600  border-slate-200",
+  FLOW_STARTED:  "bg-blue-50   text-blue-700   border-blue-200",
+  ORDER_CREATED: "bg-amber-50  text-amber-700  border-amber-200",
+  PAID:          "bg-emerald-50 text-emerald-700 border-emerald-200",
+  ABANDONED:     "bg-red-50    text-red-600    border-red-200",
+};
+
+const CRM_STATUSES = ["NEW", "CONTACTED", "CONVERTED", "LOST"];
+
+const CRM_COLORS: Record<string, string> = {
+  NEW:       "bg-blue-50   text-blue-700   border-blue-200",
+  CONTACTED: "bg-amber-50  text-amber-700  border-amber-200",
   CONVERTED: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  LOST:      "bg-red-50 text-red-600 border-red-200",
+  LOST:      "bg-red-50    text-red-600    border-red-200",
 };
-
-const STATUS_OPTIONS = ["NEW", "CONTACTED", "CONVERTED", "LOST"];
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("en-AE", {
@@ -29,76 +55,113 @@ function fmtDate(iso: string) {
   });
 }
 
-export default function LeadsPage() {
-  const [leads,    setLeads]    = useState<Lead[]>([]);
-  const [total,    setTotal]    = useState(0);
-  const [page,     setPage]     = useState(1);
-  const [filter,   setFilter]   = useState("");
-  const [loading,  setLoading]  = useState(true);
-  const [updating, setUpdating] = useState<string | null>(null);
+function timeAgo(iso: string) {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 60)    return `${mins}m ago`;
+  if (mins < 1440)  return `${Math.floor(mins / 60)}h ago`;
+  return `${Math.floor(mins / 1440)}d ago`;
+}
 
-  const load = useCallback(async (p = 1, status = filter) => {
+export default function LeadsPage() {
+  const [leads,        setLeads]        = useState<Lead[]>([]);
+  const [total,        setTotal]        = useState(0);
+  const [page,         setPage]         = useState(1);
+  const [stageFilter,  setStageFilter]  = useState("");
+  const [loading,      setLoading]      = useState(true);
+  const [updatingId,   setUpdatingId]   = useState<string | null>(null);
+  const [funnelCounts, setFunnelCounts] = useState<FunnelCounts>({});
+
+  const load = useCallback(async (p = 1, stage = stageFilter) => {
     setLoading(true);
     const params = new URLSearchParams({ page: String(p), limit: "20" });
-    if (status) params.set("status", status);
+    if (stage) params.set("stage", stage);
     const r = await fetch(`/api/bot/leads?${params}`).then((r) => r.json());
-    if (r.ok) { setLeads(r.data.leads); setTotal(r.data.total); setPage(p); }
+    if (r.ok) {
+      setLeads(r.data.leads);
+      setTotal(r.data.total);
+      setPage(p);
+      setFunnelCounts(r.data.funnelCounts ?? {});
+    }
     setLoading(false);
-  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stageFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { load(1, filter); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(1, stageFilter); }, [stageFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function updateStatus(id: string, status: string) {
-    setUpdating(id);
+    setUpdatingId(id);
     await fetch("/api/bot/leads", {
-      method: "PATCH",
+      method:  "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status }),
+      body:    JSON.stringify({ id, status }),
     });
     setLeads((prev) => prev.map((l) => l.id === id ? { ...l, status } : l));
-    setUpdating(null);
+    setUpdatingId(null);
   }
 
-  const totalPages = Math.ceil(total / 20);
-
-  // Summary counts from current loaded data
-  const newCount       = leads.filter((l) => l.status === "NEW").length;
-  const convertedCount = leads.filter((l) => l.status === "CONVERTED").length;
+  const totalPages   = Math.ceil(total / 20);
+  const totalLeads   = STAGES.reduce((s, k) => s + (funnelCounts[k] ?? 0), 0);
+  const paidCount    = funnelCounts["PAID"] ?? 0;
+  const convRate     = totalLeads > 0 ? Math.round((paidCount / totalLeads) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-white">
 
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-4 lg:px-8">
-        <div className="flex items-center gap-3">
-          <p className="text-[12.5px] text-[#64748b]">
-            {total} lead{total !== 1 ? "s" : ""} from the WhatsApp order flow
-          </p>
-          {total > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">{newCount} New</span>
-              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">{convertedCount} Converted</span>
-            </div>
-          )}
+      <div className="px-6 pt-5 pb-4 lg:px-8 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-[12.5px] text-[#64748b]">
+              {total} lead{total !== 1 ? "s" : ""}{stageFilter ? ` · ${STAGE_LABELS[stageFilter] ?? stageFilter}` : ""}
+              {!stageFilter && totalLeads > 0 && (
+                <span className="ml-2 text-emerald-600 font-semibold">{convRate}% conversion</span>
+              )}
+            </p>
+          </div>
+
+          {/* Stage filter tabs */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
+            {(["", ...STAGES] as string[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStageFilter(s)}
+                className={[
+                  "rounded-md px-3 py-1.5 text-[12px] font-semibold transition-all duration-150",
+                  stageFilter === s
+                    ? "bg-white text-[#0f172a] shadow-sm shadow-black/8"
+                    : "text-[#64748b] hover:text-[#374151]",
+                ].join(" ")}
+              >
+                {s ? STAGE_LABELS[s] : "All"}
+                {funnelCounts[s] != null && (
+                  <span className="ml-1.5 text-[10px] opacity-60">{funnelCounts[s]}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* ── Status filter tabs ── */}
-        <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
-          {["", ...STATUS_OPTIONS].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={[
-                "rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-150",
-                filter === s
-                  ? "bg-white text-[#0f172a] shadow-sm shadow-black/8"
-                  : "text-[#64748b] hover:text-[#374151]",
-              ].join(" ")}
-            >
-              {s || "All"}
-            </button>
-          ))}
-        </div>
+        {/* Funnel bar */}
+        {!stageFilter && totalLeads > 0 && (
+          <div className="flex items-stretch gap-px rounded-xl overflow-hidden border border-[#e5e7eb]">
+            {STAGES.map((s, i) => {
+              const count = funnelCounts[s] ?? 0;
+              const pct   = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
+              return (
+                <button
+                  key={s}
+                  onClick={() => setStageFilter(s)}
+                  className="flex-1 flex flex-col items-center justify-center py-3 px-2 bg-[#f6f8fa] hover:bg-white transition-colors group"
+                >
+                  <span className="text-[18px] font-bold text-ink">{count}</span>
+                  <span className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide mt-0.5">{STAGE_LABELS[s]}</span>
+                  {i > 0 && (
+                    <span className="text-[10px] text-ink-muted/50 mt-0.5">{pct}%</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Table card ── */}
@@ -114,8 +177,9 @@ export default function LeadsPage() {
                     <div className="h-3 w-32 rounded bg-rule" />
                     <div className="h-2.5 w-48 rounded bg-rule" />
                   </div>
-                  <div className="h-3 w-24 rounded bg-rule" />
-                  <div className="h-7 w-24 rounded-lg bg-rule" />
+                  <div className="h-3 w-20 rounded bg-rule" />
+                  <div className="h-6 w-24 rounded-lg bg-rule" />
+                  <div className="h-6 w-20 rounded-lg bg-rule" />
                 </div>
               ))}
             </div>
@@ -127,7 +191,7 @@ export default function LeadsPage() {
               </svg>
               <p className="text-sm font-semibold text-ink-muted">No leads yet</p>
               <p className="text-xs text-ink-muted/60 mt-1 max-w-xs mx-auto">
-                Leads appear here when customers go through the WhatsApp order flow
+                Leads appear here when customers click the Order Today button in WhatsApp
               </p>
             </div>
           ) : (
@@ -137,9 +201,11 @@ export default function LeadsPage() {
                 <thead>
                   <tr className="border-b border-rule bg-[#f6f8fa]">
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Customer</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Order Details</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Product</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Stage</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">CRM Status</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Date</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Status</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-ink-muted uppercase tracking-wide">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-rule">
@@ -152,24 +218,54 @@ export default function LeadsPage() {
                           +{lead.phone}
                         </a>
                       </td>
-                      <td className="px-5 py-4 max-w-sm">
-                        <p className="text-xs text-ink-muted line-clamp-2 leading-relaxed">{lead.orderDetails}</p>
+                      <td className="px-5 py-4 max-w-[180px]">
+                        {lead.productName ? (
+                          <>
+                            <p className="text-xs font-medium text-ink truncate">{lead.productName}</p>
+                            {lead.productPrice && (
+                              <p className="text-xs text-ink-muted">AED {lead.productPrice}</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-xs text-ink-muted line-clamp-2">{lead.orderDetails || "—"}</p>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={[
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap",
+                          STAGE_COLORS[lead.stage] ?? "bg-canvas border-rule text-ink",
+                        ].join(" ")}>
+                          {STAGE_LABELS[lead.stage] ?? lead.stage}
+                        </span>
+                        <p className="text-[10px] text-ink-muted/60 mt-0.5">{timeAgo(lead.updatedAt)}</p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <select
+                          value={lead.status}
+                          disabled={updatingId === lead.id}
+                          onChange={(e) => updateStatus(lead.id, e.target.value)}
+                          className={[
+                            "text-xs font-semibold border rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none transition disabled:opacity-50",
+                            CRM_COLORS[lead.status] ?? "bg-canvas border-rule text-ink",
+                          ].join(" ")}
+                        >
+                          {CRM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
                       </td>
                       <td className="px-5 py-4 text-xs text-ink-muted whitespace-nowrap">
                         {fmtDate(lead.createdAt)}
                       </td>
                       <td className="px-5 py-4">
-                        <select
-                          value={lead.status}
-                          disabled={updating === lead.id}
-                          onChange={(e) => updateStatus(lead.id, e.target.value)}
-                          className={[
-                            "text-xs font-semibold border rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none transition disabled:opacity-50",
-                            STATUS_COLORS[lead.status] ?? "bg-canvas border-rule text-ink",
-                          ].join(" ")}
+                        <Link
+                          href={`/wa/inbox?waId=${encodeURIComponent(lead.waId)}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-[12px] font-semibold text-ink hover:bg-[#f6f8fa] transition-colors whitespace-nowrap"
                         >
-                          {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
+                          <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 text-brand">
+                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
+                            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+                          </svg>
+                          Open Chat
+                        </Link>
                       </td>
                     </tr>
                   ))}
@@ -186,20 +282,39 @@ export default function LeadsPage() {
                         <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
                           className="text-xs text-brand hover:underline">+{lead.phone}</a>
                       </div>
+                      <span className={[
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold shrink-0",
+                        STAGE_COLORS[lead.stage] ?? "",
+                      ].join(" ")}>
+                        {STAGE_LABELS[lead.stage] ?? lead.stage}
+                      </span>
+                    </div>
+                    {lead.productName && (
+                      <p className="text-xs font-medium text-ink">
+                        {lead.productName}
+                        {lead.productPrice && <span className="text-ink-muted font-normal"> · AED {lead.productPrice}</span>}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between gap-3">
                       <select
                         value={lead.status}
-                        disabled={updating === lead.id}
+                        disabled={updatingId === lead.id}
                         onChange={(e) => updateStatus(lead.id, e.target.value)}
                         className={[
                           "text-xs font-semibold border rounded-lg px-2 py-1 cursor-pointer focus:outline-none shrink-0",
-                          STATUS_COLORS[lead.status] ?? "",
+                          CRM_COLORS[lead.status] ?? "",
                         ].join(" ")}
                       >
-                        {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                        {CRM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
+                      <Link
+                        href={`/wa/inbox?waId=${encodeURIComponent(lead.waId)}`}
+                        className="text-[11px] font-semibold text-brand hover:underline"
+                      >
+                        Open Chat →
+                      </Link>
                     </div>
-                    <p className="text-xs text-ink-muted leading-relaxed line-clamp-3">{lead.orderDetails}</p>
-                    <p className="text-[11px] text-ink-muted/60">{fmtDate(lead.createdAt)}</p>
+                    <p className="text-[10px] text-ink-muted/60">{fmtDate(lead.createdAt)}</p>
                   </div>
                 ))}
               </div>

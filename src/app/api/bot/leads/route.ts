@@ -7,6 +7,9 @@ import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const VALID_STAGES  = ["CLICKED", "FLOW_STARTED", "ORDER_CREATED", "PAID", "ABANDONED"];
+const VALID_STATUSES = ["NEW", "CONTACTED", "CONVERTED", "LOST"];
+
 export async function POST(req: NextRequest) {
   try {
     const { inbox_webhook_secret } = await getIntegrations();
@@ -16,29 +19,59 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { waId, customerName, phone, orderDetails, source } = body as {
+    const { waId, customerName, phone, orderDetails, source, stage, productName, productPrice } = body as {
       waId?:         string;
       customerName?: string;
       phone?:        string;
       orderDetails?: string;
       source?:       string;
+      stage?:        string;
+      productName?:  string;
+      productPrice?: string;
     };
 
-    if (!waId || !orderDetails) {
-      return jsonError("waId and orderDetails are required", 400);
-    }
+    if (!waId) return jsonError("waId is required", 400);
 
-    const lead = await prisma.whatsappLead.create({
-      data: {
-        id:           crypto.randomUUID(),
-        waId:         waId.replace(/^\+/, ""),
-        customerName: customerName || waId,
-        phone:        (phone || waId).replace(/^\+/, ""),
-        orderDetails,
-        source:       source || "whatsapp",
-        status:       "NEW",
-      },
+    const cleanWaId  = waId.replace(/^\+/, "");
+    const leadStage  = (stage && VALID_STAGES.includes(stage)) ? stage : "CLICKED";
+
+    // Upsert: find the most recent non-PAID lead for this waId and update it,
+    // or create a new one. This avoids duplicate leads for the same customer session.
+    const existing = await prisma.whatsappLead.findFirst({
+      where: { waId: cleanWaId, stage: { not: "PAID" } },
+      orderBy: { createdAt: "desc" },
     });
+
+    let lead;
+    if (existing) {
+      lead = await prisma.whatsappLead.update({
+        where: { id: existing.id },
+        data: {
+          stage:       leadStage,
+          ...(customerName   && { customerName }),
+          ...(phone          && { phone: phone.replace(/^\+/, "") }),
+          ...(orderDetails   && { orderDetails }),
+          ...(productName    && { productName }),
+          ...(productPrice   && { productPrice }),
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      lead = await prisma.whatsappLead.create({
+        data: {
+          id:           crypto.randomUUID(),
+          waId:         cleanWaId,
+          customerName: customerName || cleanWaId,
+          phone:        (phone || cleanWaId).replace(/^\+/, ""),
+          orderDetails: orderDetails || "",
+          source:       source || "whatsapp",
+          stage:        leadStage,
+          status:       "NEW",
+          productName:  productName || null,
+          productPrice: productPrice || null,
+        },
+      });
+    }
 
     return jsonOk({ id: lead.id });
   } catch (err) {
@@ -52,10 +85,13 @@ export async function GET(req: NextRequest) {
     const page   = Math.max(1, Number(searchParams.get("page")  ?? 1));
     const limit  = Math.min(50, Number(searchParams.get("limit") ?? 20));
     const status = searchParams.get("status") ?? undefined;
+    const stage  = searchParams.get("stage")  ?? undefined;
 
-    const where = status ? { status } : {};
+    const where: Record<string, unknown> = {};
+    if (status) where.status = status;
+    if (stage)  where.stage  = stage;
 
-    const [leads, total] = await Promise.all([
+    const [leads, total, funnelRaw] = await Promise.all([
       prisma.whatsappLead.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -63,9 +99,15 @@ export async function GET(req: NextRequest) {
         take:    limit,
       }),
       prisma.whatsappLead.count({ where }),
+      // Always count all stages regardless of active filter
+      prisma.whatsappLead.groupBy({ by: ["stage"], _count: { id: true } }),
     ]);
 
-    return jsonOk({ leads, total, page, limit });
+    const funnelCounts = Object.fromEntries(
+      VALID_STAGES.map((s) => [s, funnelRaw.find((r) => r.stage === s)?._count.id ?? 0])
+    );
+
+    return jsonOk({ leads, total, page, limit, funnelCounts });
   } catch (err) {
     return handleApiError(err);
   }
@@ -73,11 +115,22 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, status } = await req.json() as { id: string; status: string };
-    const VALID = ["NEW", "CONTACTED", "CONVERTED", "LOST"];
-    if (!id || !VALID.includes(status)) return jsonError("Invalid request", 400);
+    const body = await req.json() as { id: string; status?: string; stage?: string };
+    const { id, status, stage } = body;
 
-    await prisma.whatsappLead.update({ where: { id }, data: { status, updatedAt: new Date() } });
+    if (!id) return jsonError("id is required", 400);
+    if (status && !VALID_STATUSES.includes(status)) return jsonError("Invalid status", 400);
+    if (stage  && !VALID_STAGES.includes(stage))    return jsonError("Invalid stage",  400);
+    if (!status && !stage) return jsonError("status or stage is required", 400);
+
+    await prisma.whatsappLead.update({
+      where: { id },
+      data: {
+        ...(status && { status }),
+        ...(stage  && { stage }),
+        updatedAt: new Date(),
+      },
+    });
     return jsonOk({ ok: true });
   } catch (err) {
     return handleApiError(err);
