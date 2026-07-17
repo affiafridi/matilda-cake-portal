@@ -1,5 +1,6 @@
 import "server-only";
 import type {
+  WooCategory,
   WooProductSummary,
   WooVariation,
   WooVariationAttribute,
@@ -127,6 +128,56 @@ export async function getProductVariations(
       attributes,
     };
   });
+}
+
+// ---------- Categories ----------
+
+type RawCategory = {
+  id: number;
+  name: string;
+  count: number;
+};
+
+export async function searchCategories(
+  query: string,
+  limit = 8,
+): Promise<WooCategory[]> {
+  const params = new URLSearchParams({
+    search:   query,
+    per_page: String(limit),
+    orderby:  "count",
+    order:    "desc",
+    hide_empty: "true",
+  });
+  const cats = await wooFetch<RawCategory[]>(
+    `/wp-json/wc/v3/products/categories?${params.toString()}`,
+  );
+  return cats.map((c) => ({
+    id:    c.id,
+    name:  decodeEntities(c.name ?? ""),
+    count: c.count ?? 0,
+  }));
+}
+
+export async function getProductsByCategory(
+  categoryId: number,
+  limit = 20,
+): Promise<WooProductSummary[]> {
+  const params = new URLSearchParams({
+    category: String(categoryId),
+    per_page: String(limit),
+    status:   "publish",
+  });
+  const products = await wooFetch<RawProduct[]>(
+    `/wp-json/wc/v3/products?${params.toString()}`,
+  );
+  return products.map((p) => ({
+    id:     p.id,
+    name:   decodeEntities(p.name ?? ""),
+    price:  p.price ?? "",
+    type:   p.type ?? "simple",
+    images: (p.images ?? []).slice(0, 1).map((img) => ({ id: img.id, src: img.src })),
+  }));
 }
 
 export { WooConfigError, WooApiError };

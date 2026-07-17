@@ -2,6 +2,7 @@
 
 import React, { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import ProductPicker from "./ProductPicker";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -230,12 +231,14 @@ export default function InboxClient({
   currentUserId,
   isSuperAdmin,
   templateConfigured,
+  wcConfigured,
 }: {
   initialConversations: ConvSummary[];
   agents:               Agent[];
   currentUserId:        string;
   isSuperAdmin:         boolean;
   templateConfigured:   boolean;
+  wcConfigured:         boolean;
 }) {
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
@@ -260,6 +263,7 @@ export default function InboxClient({
   const [replyTab,     setReplyTab]     = useState<"reply" | "note">("reply");
   const [replyText,    setReplyText]    = useState("");
   const [sending,      setSending]      = useState(false);
+  const [showProductPicker, setShowProductPicker] = useState(false);
   const [sendError,    setSendError]    = useState<string | null>(null);
   const [uploadingMedia,   setUploadingMedia]   = useState(false);
   const [sendingTemplate,  setSendingTemplate]  = useState(false);
@@ -1313,6 +1317,17 @@ export default function InboxClient({
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                       </button>
 
+                      {/* Send product card button — only shown when WooCommerce is configured */}
+                      {wcConfigured && (
+                        <button type="button" onClick={() => setShowProductPicker(true)}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
+                          title="Send product card">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                          </svg>
+                        </button>
+                      )}
+
                       {/* Unified compose box — WhatsApp white pill */}
                       <div className="flex-1 rounded-[24px] bg-white shadow-sm overflow-hidden">
 
@@ -1616,6 +1631,15 @@ export default function InboxClient({
             </div>
           )}
         </div>
+      )}
+
+      {/* Product Picker modal */}
+      {showProductPicker && selected && (
+        <ProductPicker
+          conversationId={selected.id}
+          onClose={() => setShowProductPicker(false)}
+          onSent={(_count) => setShowProductPicker(false)}
+        />
       )}
     </div>
   );

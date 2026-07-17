@@ -20,6 +20,12 @@ export type WooVariationAttribute = {
   option: string;
 };
 
+export type WooCategory = {
+  id: number;
+  name: string;
+  count: number;
+};
+
 export type WooVariation = {
   id: number;
   /** Decimal string from WooCommerce, e.g. "120.00". */

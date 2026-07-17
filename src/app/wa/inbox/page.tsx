@@ -8,7 +8,7 @@ export default async function InboxPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const [conversations, agents, templateRow] = await Promise.all([
+  const [conversations, agents, templateRow, wcRow] = await Promise.all([
     prisma.conversation.findMany({
       where:   { status: "OPEN", OR: [{ botPaused: true }, { agentRequested: true }] },
       orderBy: { lastMessageAt: "desc" },
@@ -28,9 +28,13 @@ export default async function InboxPage() {
     prisma.$queryRaw<{ value: string }[]>`
       SELECT value FROM portal_settings WHERE key = 'inbox_template_name' LIMIT 1
     `,
+    prisma.$queryRaw<{ value: string }[]>`
+      SELECT value FROM portal_settings WHERE key = 'wc_url' LIMIT 1
+    `,
   ]);
 
   const templateConfigured = !!(templateRow[0]?.value?.trim());
+  const wcConfigured       = !!(wcRow[0]?.value?.trim());
 
   const serialized = conversations.map((c) => ({
     ...c,
@@ -38,5 +42,5 @@ export default async function InboxPage() {
     lastInboundAt:  c.lastInboundAt?.toISOString() ?? null,
   }));
 
-  return <InboxClient initialConversations={serialized} agents={agents} currentUserId={user.id} isSuperAdmin={user.role === "SUPER_ADMIN"} templateConfigured={templateConfigured} />;
+  return <InboxClient initialConversations={serialized} agents={agents} currentUserId={user.id} isSuperAdmin={user.role === "SUPER_ADMIN"} templateConfigured={templateConfigured} wcConfigured={wcConfigured} />;
 }
