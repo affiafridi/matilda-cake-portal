@@ -231,11 +231,21 @@ export default function LeadsPage() {
 
                     {/* Customer */}
                     <td className="px-4 py-2.5">
-                      <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">{lead.customerName}</p>
-                      <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
-                        className="text-[11px] text-[#64748b] hover:text-brand transition-colors">
-                        +{lead.phone}
-                      </a>
+                      {(() => {
+                        const digits = lead.customerName?.replace(/\D/g, "");
+                        const isPhoneFallback = !lead.customerName || digits === lead.phone || lead.customerName === lead.waId || lead.customerName === lead.phone || /^\d{7,}$/.test(lead.customerName.trim());
+                        return (
+                          <>
+                            <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">
+                              {isPhoneFallback ? "Unknown" : lead.customerName}
+                            </p>
+                            <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
+                              className="text-[11px] text-[#64748b] hover:text-brand transition-colors">
+                              +{lead.phone}
+                            </a>
+                          </>
+                        );
+                      })()}
                     </td>
 
                     {/* Product */}
@@ -254,13 +264,15 @@ export default function LeadsPage() {
 
                     {/* Stage */}
                     <td className="px-4 py-2.5">
-                      <span className={[
-                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
-                        STAGE_COLORS[lead.stage] ?? "bg-[#f1f5f9] border-[#e2e8f0] text-[#64748b]",
-                      ].join(" ")}>
-                        {STAGE_LABELS[lead.stage] ?? lead.stage}
-                      </span>
-                      <p className="text-[10px] text-[#94a3b8] mt-0.5">{timeAgo(lead.updatedAt)}</p>
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        <span className={[
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                          STAGE_COLORS[lead.stage] ?? "bg-[#f1f5f9] border-[#e2e8f0] text-[#64748b]",
+                        ].join(" ")}>
+                          {STAGE_LABELS[lead.stage] ?? lead.stage}
+                        </span>
+                        <span className="text-[10px] text-[#94a3b8]">{timeAgo(lead.updatedAt)}</span>
+                      </div>
                     </td>
 
                     {/* CRM Status */}
@@ -307,7 +319,14 @@ export default function LeadsPage() {
                 <div key={lead.id} className="px-4 py-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">{lead.customerName}</p>
+                      {(() => {
+                        const isPhoneFallback = !lead.customerName || lead.customerName === lead.waId || lead.customerName === lead.phone || /^\d{7,}$/.test(lead.customerName.trim());
+                        return (
+                          <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">
+                            {isPhoneFallback ? "Unknown" : lead.customerName}
+                          </p>
+                        );
+                      })()}
                       <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
                         className="text-[11px] text-[#64748b]">+{lead.phone}</a>
                     </div>
