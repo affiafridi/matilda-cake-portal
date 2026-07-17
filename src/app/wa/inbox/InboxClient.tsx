@@ -1223,6 +1223,25 @@ export default function InboxClient({
                                   </a>
                                 );
 
+                                // Product card sent from portal
+                                if (m.body?.startsWith("[Product] ")) {
+                                  const raw       = m.body.slice(10); // strip "[Product] "
+                                  const dotIdx    = raw.lastIndexOf(" · ");
+                                  const label     = dotIdx !== -1 ? raw.slice(0, dotIdx) : raw;
+                                  const price     = dotIdx !== -1 ? raw.slice(dotIdx + 3) : null;
+                                  return (
+                                    <div className="w-[200px] overflow-hidden rounded-xl border border-white/20 bg-white/10 text-left">
+                                      <div className="px-3 py-2.5">
+                                        <p className="text-[12px] font-semibold leading-tight opacity-95">{label}</p>
+                                        {price && <p className="mt-0.5 text-[11px] opacity-75">💰 {price}</p>}
+                                      </div>
+                                      <div className="border-t border-white/15 px-3 py-1.5 text-center text-[11px] font-semibold opacity-80">
+                                        ↗ Order Today
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
                                 // Plain text
                                 return <p className="whitespace-pre-wrap">{m.body}</p>;
                               })()}

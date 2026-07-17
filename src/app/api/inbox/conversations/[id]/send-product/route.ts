@@ -9,6 +9,10 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED = ["SUPER_ADMIN", "ADMIN", "AGENT"] as const;
 
+// WhatsApp needs this gap between CTA-URL interactive messages to the same
+// recipient — shorter gaps cause all but the last to be silently dropped.
+const SEND_GAP_MS = 1500;
+
 type ProductItem = {
   productId:        number;
   productName:      string;
@@ -19,20 +23,49 @@ type ProductItem = {
 };
 
 function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+async function postToWhatsApp(
+  wa_phone_number_id: string,
+  wa_access_token:    string,
+  waId:               string,
+  interactive:        Record<string, unknown>,
+): Promise<string> {
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${wa_phone_number_id}/messages`,
+    {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${wa_access_token}` },
+      body:    JSON.stringify({ messaging_product: "whatsapp", to: waId, type: "interactive", interactive }),
+    },
+  );
+
+  const json = await res.json().catch(() => ({})) as {
+    messages?: { id: string }[];
+    error?:    { message: string; code?: number };
+  };
+
+  if (!json.messages?.[0]?.id) {
+    const errMsg = json.error?.message ?? `WhatsApp API ${res.status}`;
+    throw new Error(errMsg);
+  }
+
+  return json.messages[0].id;
 }
 
 async function sendOneCard(
-  item:              ProductItem,
-  conversation:      { id: string; waId: string },
-  actorId:           string,
+  item:               ProductItem,
+  conversation:       { id: string; waId: string },
+  actorId:            string,
   wa_phone_number_id: string,
-  wa_access_token:   string,
-  baseWc:            string,
-  origin:            string,
+  wa_access_token:    string,
+  baseWc:             string,
+  origin:             string,
 ) {
   const { productId, productName, productPrice, productImageUrl, variationId, variationName } = item;
 
+  // Build WC checkout URL
   const checkoutParams = new URLSearchParams({
     "add-to-cart": String(productId),
     quantity:      "1",
@@ -43,6 +76,7 @@ async function sendOneCard(
   if (variationId) checkoutParams.set("variation_id", String(variationId));
   const checkoutUrl = `${baseWc}/checkout/?${checkoutParams.toString()}`;
 
+  // Wrap in click-tracking redirect
   const trackingUrl =
     `${origin}/api/track/wc-click` +
     `?waId=${encodeURIComponent(conversation.waId)}` +
@@ -51,36 +85,37 @@ async function sendOneCard(
   const displayName = variationName ? `${productName} — ${variationName}` : productName;
   const bodyText    = productPrice ? `${displayName}\n💰 ${productPrice}` : displayName;
 
-  const interactive: Record<string, unknown> = {
-    type: "cta_url",
-    body: { text: bodyText },
+  // Build interactive payload — with image header when available
+  const interactiveWithImage: Record<string, unknown> = {
+    type:   "cta_url",
+    header: productImageUrl ? { type: "image", image: { link: productImageUrl } } : undefined,
+    body:   { text: bodyText },
     action: { name: "cta_url", parameters: { display_text: "Order Today", url: trackingUrl } },
   };
-  if (productImageUrl) {
-    interactive.header = { type: "image", image: { link: productImageUrl } };
+  // Remove undefined keys — WhatsApp API rejects unknown nullish fields
+  if (!interactiveWithImage.header) delete interactiveWithImage.header;
+
+  let waMessageId: string;
+  try {
+    waMessageId = await postToWhatsApp(wa_phone_number_id, wa_access_token, conversation.waId, interactiveWithImage);
+  } catch (firstErr) {
+    // If we had an image header and the send failed, retry without it.
+    // Meta's servers can't always reach WooCommerce image URLs (CDN/auth issues).
+    if (productImageUrl) {
+      console.warn(`[send-product] image send failed for "${displayName}", retrying without image:`, firstErr);
+      const interactiveNoImage: Record<string, unknown> = {
+        type:   "cta_url",
+        body:   { text: bodyText },
+        action: { name: "cta_url", parameters: { display_text: "Order Today", url: trackingUrl } },
+      };
+      waMessageId = await postToWhatsApp(wa_phone_number_id, wa_access_token, conversation.waId, interactiveNoImage);
+    } else {
+      throw firstErr;
+    }
   }
 
-  const waRes = await fetch(
-    `https://graph.facebook.com/v20.0/${wa_phone_number_id}/messages`,
-    {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${wa_access_token}` },
-      body:    JSON.stringify({ messaging_product: "whatsapp", to: conversation.waId, type: "interactive", interactive }),
-    },
-  );
-
-  const waJson = await waRes.json().catch(() => ({})) as {
-    messages?: { id: string }[];
-    error?:    { message: string };
-  };
-
-  if (!waJson.messages?.[0]?.id) {
-    throw new Error(waJson.error?.message ?? "WhatsApp send failed");
-  }
-
-  const waMessageId = waJson.messages[0].id;
-  const now         = new Date();
-  const savedBody   = `[Product] ${displayName}${productPrice ? ` · ${productPrice}` : ""}`;
+  const now       = new Date();
+  const savedBody = `[Product] ${displayName}${productPrice ? ` · ${productPrice}` : ""}`;
 
   await prisma.$transaction([
     prisma.message.create({
@@ -112,8 +147,8 @@ async function sendOneCard(
  * POST /api/inbox/conversations/[id]/send-product
  *
  * Accepts a single item OR an array of items.
- * When multiple items are provided they are sent one by one with a 600ms gap
- * so WhatsApp doesn't rate-limit and messages arrive in order.
+ * Items are sent sequentially with a 1500 ms gap — WhatsApp silently drops
+ * earlier CTA-URL interactive messages when they arrive faster than this.
  *
  * Body (single):  { productId, productName, productPrice?, productImageUrl?, variationId?, variationName? }
  * Body (bulk):    { items: ProductItem[] }
@@ -126,11 +161,7 @@ export async function POST(
     const actor = await requireRole(ALLOWED);
     const { id } = await params;
 
-    const body = await req.json().catch(() => ({})) as
-      | ProductItem
-      | { items: ProductItem[] };
-
-    // Normalise to array
+    const body = await req.json().catch(() => ({})) as ProductItem | { items: ProductItem[] };
     const items: ProductItem[] = "items" in body ? body.items : [body as ProductItem];
 
     if (!items.length) return jsonError("No items provided", 400);
@@ -153,18 +184,18 @@ export async function POST(
     if (!baseWc) return jsonError("WooCommerce URL not configured", 500);
 
     const origin = req.nextUrl.origin;
-
     const failed: string[] = [];
+
     for (let i = 0; i < items.length; i++) {
-      if (i > 0) await sleep(600);
+      if (i > 0) await sleep(SEND_GAP_MS);
       try {
         await sendOneCard(items[i], conversation, actor.id, wa_phone_number_id, wa_access_token, baseWc, origin);
       } catch (err) {
-        const name = items[i].variationName
+        const label = items[i].variationName
           ? `${items[i].productName} — ${items[i].variationName}`
           : items[i].productName;
-        failed.push(name);
-        console.error(`[send-product] failed for "${name}":`, err);
+        failed.push(label);
+        console.error(`[send-product] failed for "${label}":`, err);
       }
     }
 
