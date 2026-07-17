@@ -15,11 +15,13 @@ type Lead = {
   productName:  string | null;
   productPrice: string | null;
   orderId:      string | null;
+  campaignId:   string | null;
   createdAt:    string;
   updatedAt:    string;
 };
 
-type FunnelCounts = Record<string, number>;
+type FunnelCounts   = Record<string, number>;
+type OrderCounts    = Record<string, number>;
 
 const STAGES = ["CLICKED", "FLOW_STARTED", "ORDER_CREATED", "PAID", "ABANDONED"] as const;
 
@@ -79,6 +81,7 @@ export default function LeadsPage() {
   const [loading,      setLoading]      = useState(true);
   const [updatingId,   setUpdatingId]   = useState<string | null>(null);
   const [funnelCounts, setFunnelCounts] = useState<FunnelCounts>({});
+  const [orderCounts,  setOrderCounts]  = useState<OrderCounts>({});
 
   const load = useCallback(async (p = 1, stage = stageFilter) => {
     setLoading(true);
@@ -90,6 +93,7 @@ export default function LeadsPage() {
       setTotal(r.data.total);
       setPage(p);
       setFunnelCounts(r.data.funnelCounts ?? {});
+      setOrderCounts(r.data.orderCounts   ?? {});
     }
     setLoading(false);
   }, [stageFilter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -234,11 +238,19 @@ export default function LeadsPage() {
                       {(() => {
                         const digits = lead.customerName?.replace(/\D/g, "");
                         const isPhoneFallback = !lead.customerName || digits === lead.phone || lead.customerName === lead.waId || lead.customerName === lead.phone || /^\d{7,}$/.test(lead.customerName.trim());
+                        const orders = orderCounts[lead.waId] ?? 0;
                         return (
                           <>
-                            <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">
-                              {isPhoneFallback ? "Unknown" : lead.customerName}
-                            </p>
+                            <div className="flex items-center gap-1.5 leading-tight">
+                              <p className="text-[13px] font-semibold text-[#0f172a]">
+                                {isPhoneFallback ? "Unknown" : lead.customerName}
+                              </p>
+                              {orders > 0 && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-0 text-[10px] font-bold text-emerald-700 whitespace-nowrap">
+                                  {orders} {orders === 1 ? "order" : "orders"}
+                                </span>
+                              )}
+                            </div>
                             <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
                               className="text-[11px] text-[#64748b] hover:text-brand transition-colors">
                               +{lead.phone}
@@ -259,6 +271,14 @@ export default function LeadsPage() {
                         </>
                       ) : (
                         <p className="text-[12px] text-[#94a3b8] truncate">{lead.orderDetails || "—"}</p>
+                      )}
+                      {lead.campaignId && (
+                        <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0 text-[10px] font-semibold text-violet-700">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5 shrink-0">
+                            <path d="M22 8a.76.76 0 000-.21v-.08a.77.77 0 00-.07-.16.35.35 0 00-.05-.08l-.1-.13-.08-.06-.12-.09-9-5a1 1 0 00-1 0l-9 5-.09.07-.11.08a.41.41 0 00-.07.11.39.39 0 00-.08.1.59.59 0 00-.06.16.3.3 0 000 .1A.76.76 0 002 8v8a1 1 0 00.52.87l9 5a.75.75 0 00.13.06h.1a1.06 1.06 0 00.5 0h.1l.14-.06 9-5A1 1 0 0022 16z"/>
+                          </svg>
+                          {lead.campaignId}
+                        </span>
                       )}
                     </td>
 
@@ -321,10 +341,18 @@ export default function LeadsPage() {
                     <div>
                       {(() => {
                         const isPhoneFallback = !lead.customerName || lead.customerName === lead.waId || lead.customerName === lead.phone || /^\d{7,}$/.test(lead.customerName.trim());
+                        const orders = orderCounts[lead.waId] ?? 0;
                         return (
-                          <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">
-                            {isPhoneFallback ? "Unknown" : lead.customerName}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-[13px] font-semibold text-[#0f172a] leading-tight">
+                              {isPhoneFallback ? "Unknown" : lead.customerName}
+                            </p>
+                            {orders > 0 && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-1.5 py-0 text-[10px] font-bold text-emerald-700 whitespace-nowrap">
+                                {orders} {orders === 1 ? "order" : "orders"}
+                              </span>
+                            )}
+                          </div>
                         );
                       })()}
                       <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer"
@@ -342,6 +370,14 @@ export default function LeadsPage() {
                       {lead.productName}
                       {lead.productPrice && <span className="text-[#94a3b8]"> · {lead.productPrice}</span>}
                     </p>
+                  )}
+                  {lead.campaignId && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0 text-[10px] font-semibold text-violet-700">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5 shrink-0">
+                        <path d="M22 8a.76.76 0 000-.21v-.08a.77.77 0 00-.07-.16.35.35 0 00-.05-.08l-.1-.13-.08-.06-.12-.09-9-5a1 1 0 00-1 0l-9 5-.09.07-.11.08a.41.41 0 00-.07.11.39.39 0 00-.08.1.59.59 0 00-.06.16.3.3 0 000 .1A.76.76 0 002 8v8a1 1 0 00.52.87l9 5a.75.75 0 00.13.06h.1a1.06 1.06 0 00.5 0h.1l.14-.06 9-5A1 1 0 0022 16z"/>
+                      </svg>
+                      {lead.campaignId}
+                    </span>
                   )}
                   <div className="flex items-center justify-between gap-2">
                     <select

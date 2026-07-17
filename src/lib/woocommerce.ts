@@ -133,8 +133,9 @@ export async function getProductVariations(
 // ---------- Categories ----------
 
 type RawCategory = {
-  id: number;
-  name: string;
+  id:    number;
+  name:  string;
+  slug:  string;
   count: number;
 };
 
@@ -155,6 +156,7 @@ export async function searchCategories(
   return cats.map((c) => ({
     id:    c.id,
     name:  decodeEntities(c.name ?? ""),
+    slug:  c.slug ?? "",
     count: c.count ?? 0,
   }));
 }

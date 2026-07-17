@@ -85,6 +85,256 @@ function MiniBar({ delivered, read, total }: { delivered: number; read: number; 
   );
 }
 
+// ── Link Generator tab ───────────────────────────────────────────────────
+
+type SearchResult = {
+  id:    number;
+  name:  string;
+  slug:  string;
+  type:  "product" | "category";
+  price?: string;
+};
+
+function LinkGeneratorTab() {
+  const [campaignName, setCampaignName] = useState("");
+  const [query,        setQuery]        = useState("");
+  const [results,      setResults]      = useState<SearchResult[]>([]);
+  const [searching,    setSearching]    = useState(false);
+  const [selected,     setSelected]     = useState<SearchResult | null>(null);
+  const [wcBase,         setWcBase]         = useState("");
+  const [wcUnconfigured, setWcUnconfigured] = useState(false);
+  const [copied,         setCopied]         = useState(false);
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef  = useRef<HTMLDivElement>(null);
+
+  // Load WC base URL once
+  useEffect(() => {
+    fetch("/api/woocommerce/config")
+      .then(r => r.json())
+      .then(j => {
+        if (j.ok && j.data?.wc_url) setWcBase(j.data.wc_url);
+        else setWcUnconfigured(true);
+      })
+      .catch(() => setWcUnconfigured(true));
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setResults([]);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  async function search(q: string) {
+    if (q.length < 2) { setResults([]); return; }
+    setSearching(true);
+    try {
+      const [pRes, cRes] = await Promise.all([
+        fetch(`/api/woocommerce/products/search?q=${encodeURIComponent(q)}`).then(r => r.json()),
+        fetch(`/api/woocommerce/categories/search?q=${encodeURIComponent(q)}`).then(r => r.json()),
+      ]);
+      const products: SearchResult[] = (pRes.data ?? []).map((p: { id: number; name: string; price?: string }) => ({
+        id: p.id, name: p.name, slug: "", type: "product" as const, price: p.price,
+      }));
+      const categories: SearchResult[] = (cRes.data ?? []).map((c: { id: number; name: string; slug: string }) => ({
+        id: c.id, name: c.name, slug: c.slug, type: "category" as const,
+      }));
+      setResults([...categories, ...products]);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function handleQuery(v: string) {
+    setQuery(v);
+    setSelected(null);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => search(v), 350);
+  }
+
+  function select(r: SearchResult) {
+    setSelected(r);
+    setQuery(r.name);
+    setResults([]);
+  }
+
+  const slug = campaignName.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+  const generatedUrl = selected && wcBase && slug
+    ? selected.type === "product"
+      ? `${wcBase}/checkout/?add-to-cart=${selected.id}&utm_source=whatsapp&utm_medium=campaign&utm_campaign=${slug}&wa_id=`
+      : `${wcBase}/product-category/${selected.slug}/?utm_source=whatsapp&utm_medium=campaign&utm_campaign=${slug}&wa_id=`
+    : "";
+
+  function copyUrl() {
+    if (!generatedUrl) return;
+    navigator.clipboard.writeText(generatedUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="space-y-5">
+
+      {wcUnconfigured && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-700">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          WooCommerce is not configured. Go to Settings → Integrations to add your store URL.
+        </div>
+      )}
+
+      {/* Info banner */}
+      <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3.5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <div className="text-[12.5px] text-blue-700 leading-relaxed">
+          <p className="font-semibold mb-0.5">How to use</p>
+          <p>Generate a tracking link for your WhatsApp campaign. Copy it and paste into your Meta template as a <strong>Dynamic URL</strong> — the <code className="rounded bg-blue-100 px-1 py-0.5 text-[11px]">wa_id=</code> at the end is the dynamic suffix filled per recipient by the bot.</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 space-y-4">
+
+        {/* Campaign name */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1.5">
+            Campaign Name
+          </label>
+          <input
+            type="text"
+            value={campaignName}
+            onChange={e => setCampaignName(e.target.value)}
+            placeholder="e.g. Eid Sale 2025"
+            className="w-full rounded-lg border border-[#e5e7eb] bg-[#f8fafc] px-3 py-2.5 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition"
+          />
+          {slug && (
+            <p className="mt-1 text-[11px] text-[#94a3b8]">Slug: <span className="font-mono">{slug}</span></p>
+          )}
+        </div>
+
+        {/* Product / category search */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1.5">
+            Search Product or Category
+          </label>
+          <div className="relative" ref={dropdownRef}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              value={query}
+              onChange={e => handleQuery(e.target.value)}
+              placeholder="Type to search…"
+              className="w-full rounded-lg border border-[#e5e7eb] bg-[#f8fafc] pl-9 pr-3 py-2.5 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition"
+            />
+            {searching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="h-3.5 w-3.5 animate-spin text-[#9ca3af]" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/>
+                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75"/>
+                </svg>
+              </div>
+            )}
+
+            {/* Dropdown */}
+            {results.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-lg">
+                {results.map(r => (
+                  <button
+                    key={`${r.type}-${r.id}`}
+                    onClick={() => select(r)}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8fafc] transition-colors"
+                  >
+                    {/* Label badge */}
+                    <span className={[
+                      "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                      r.type === "category"
+                        ? "bg-violet-50 text-violet-700 border border-violet-200"
+                        : "bg-emerald-50 text-emerald-700 border border-emerald-200",
+                    ].join(" ")}>
+                      {r.type === "category" ? "Category" : "Product"}
+                    </span>
+                    <span className="flex-1 truncate text-[13px] font-medium text-[#0f172a]">{r.name}</span>
+                    {r.price && <span className="shrink-0 text-[12px] text-[#64748b]">{r.price}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Selected pill */}
+          {selected && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className={[
+                "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                selected.type === "category"
+                  ? "bg-violet-50 text-violet-700 border border-violet-200"
+                  : "bg-emerald-50 text-emerald-700 border border-emerald-200",
+              ].join(" ")}>
+                {selected.type === "category" ? "Category" : "Product"}
+              </span>
+              <span className="text-[13px] font-medium text-[#0f172a]">{selected.name}</span>
+              <button onClick={() => { setSelected(null); setQuery(""); }}
+                className="ml-auto text-[11px] text-[#94a3b8] hover:text-red-500 transition-colors">
+                ✕ Clear
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Generated URL */}
+        {generatedUrl && (
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-[#64748b] mb-1.5">
+              Generated Tracking URL
+            </label>
+            <div className="flex items-stretch gap-2">
+              <div className="flex-1 min-w-0 rounded-lg border border-[#e5e7eb] bg-[#f8fafc] px-3 py-2.5 overflow-x-auto">
+                <p className="whitespace-nowrap font-mono text-[11.5px] text-[#374151]">{generatedUrl}</p>
+              </div>
+              <button
+                onClick={copyUrl}
+                className={[
+                  "shrink-0 rounded-lg border px-4 py-2.5 text-[12px] font-semibold transition-all",
+                  copied
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f8fafc]",
+                ].join(" ")}
+              >
+                {copied ? "✓ Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="mt-2 space-y-1 text-[11.5px] text-[#64748b]">
+              <p>① Paste this as the <strong>Website URL</strong> in your Meta template button (Dynamic URL type)</p>
+              <p>② Set <strong>Example URL Suffix</strong> to any valid phone number e.g. <span className="font-mono">971501234567</span></p>
+              <p>③ Bot fills <code className="rounded bg-[#f1f5f9] px-1 py-0.5 text-[10px]">wa_id=</code> automatically per recipient at send time</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state nudge */}
+        {!generatedUrl && (
+          <div className="rounded-lg border border-dashed border-[#e5e7eb] bg-[#f8fafc] px-4 py-6 text-center text-[12px] text-[#94a3b8]">
+            Fill in the campaign name and select a product or category to generate your link
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Scheduled tab ────────────────────────────────────────────────────────
 
 type Scheduled = {
@@ -204,8 +454,10 @@ function ScheduledTab() {
 function CampaignsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<"history" | "scheduled">(
-    searchParams.get("tab") === "scheduled" ? "scheduled" : "history"
+  const [activeTab, setActiveTab] = useState<"history" | "scheduled" | "link-generator">(
+    searchParams.get("tab") === "scheduled" ? "scheduled"
+    : searchParams.get("tab") === "link-generator" ? "link-generator"
+    : "history"
   );
 
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
@@ -267,8 +519,9 @@ function CampaignsPage() {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] p-0.5">
             {([
-              { key: "history",   label: "History",   icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> },
-              { key: "scheduled", label: "Scheduled", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg> },
+              { key: "history",        label: "History",        icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> },
+              { key: "scheduled",      label: "Scheduled",      icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4"/></svg> },
+              { key: "link-generator", label: "Link Generator", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg> },
             ] as const).map((t) => (
               <button key={t.key} onClick={() => setActiveTab(t.key)}
                 className={["flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-semibold transition-all duration-150",
@@ -322,7 +575,8 @@ function CampaignsPage() {
 
       <div className="px-6 pb-8 lg:px-8 space-y-5 mt-4">
 
-        {activeTab === "scheduled" && <ScheduledTab />}
+        {activeTab === "scheduled"      && <ScheduledTab />}
+        {activeTab === "link-generator" && <LinkGeneratorTab />}
 
         {activeTab === "history" && <>
 

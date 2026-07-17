@@ -65,6 +65,9 @@ async function sendOneCard(
 ) {
   const { productId, productName, productPrice, productImageUrl, variationId, variationName } = item;
 
+  const displayName = variationName ? `${productName} — ${variationName}` : productName;
+  const bodyText    = productPrice ? `${displayName}\n💰 ${productPrice}` : displayName;
+
   // Build WC checkout URL
   const checkoutParams = new URLSearchParams({
     "add-to-cart": String(productId),
@@ -80,10 +83,8 @@ async function sendOneCard(
   const trackingUrl =
     `${origin}/api/track/wc-click` +
     `?waId=${encodeURIComponent(conversation.waId)}` +
-    `&url=${encodeURIComponent(checkoutUrl)}`;
-
-  const displayName = variationName ? `${productName} — ${variationName}` : productName;
-  const bodyText    = productPrice ? `${displayName}\n💰 ${productPrice}` : displayName;
+    `&url=${encodeURIComponent(checkoutUrl)}` +
+    `&product=${encodeURIComponent(displayName)}`;
 
   // Build interactive payload — with image header when available
   const interactiveWithImage: Record<string, unknown> = {

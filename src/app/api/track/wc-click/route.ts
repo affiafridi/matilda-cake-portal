@@ -24,8 +24,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const waId = searchParams.get("waId") ?? "";
-  const url  = searchParams.get("url")  ?? "";
+  const waId    = searchParams.get("waId")    ?? "";
+  const url     = searchParams.get("url")     ?? "";
+  const product = searchParams.get("product") ?? "";
 
   // Validate redirect target — must start with the configured WC store URL
   const { wc_url } = await getIntegrations();
@@ -54,10 +55,15 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: "desc" },
       })
       .then(async (existing) => {
+        const productName = product ? product.slice(0, 200) : undefined;
         if (existing) {
           await prisma.whatsappLead.update({
             where: { id: existing.id },
-            data:  { stage: "CLICKED", updatedAt: new Date() },
+            data:  {
+              stage:     "CLICKED",
+              updatedAt: new Date(),
+              ...(productName && { productName }),
+            },
           });
         } else {
           await prisma.whatsappLead.create({
@@ -70,6 +76,7 @@ export async function GET(req: NextRequest) {
               source:       "woocommerce",
               stage:        "CLICKED",
               status:       "NEW",
+              ...(productName && { productName }),
             },
           });
         }

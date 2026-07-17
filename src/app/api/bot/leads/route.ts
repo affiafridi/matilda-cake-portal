@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
     if (status) where.status = status;
     if (stage)  where.stage  = stage;
 
-    const [leads, total, funnelRaw] = await Promise.all([
+    const [leads, total, funnelRaw, paidByCustomer] = await Promise.all([
       prisma.whatsappLead.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -105,13 +105,19 @@ export async function GET(req: NextRequest) {
       prisma.whatsappLead.count({ where }),
       // Always count all stages regardless of active filter
       prisma.whatsappLead.groupBy({ by: ["stage"], _count: { id: true } }),
+      // Count PAID leads per customer (= orders placed)
+      prisma.whatsappLead.groupBy({ by: ["waId"], where: { stage: "PAID" }, _count: { id: true } }),
     ]);
 
     const funnelCounts = Object.fromEntries(
       VALID_STAGES.map((s) => [s, funnelRaw.find((r) => r.stage === s)?._count.id ?? 0])
     );
 
-    return jsonOk({ leads, total, page, limit, funnelCounts });
+    const orderCounts = Object.fromEntries(
+      paidByCustomer.map((r) => [r.waId, r._count.id])
+    );
+
+    return jsonOk({ leads, total, page, limit, funnelCounts, orderCounts });
   } catch (err) {
     return handleApiError(err);
   }

@@ -480,6 +480,7 @@ model WhatsappLead {
   productName  String?
   productPrice String?
   orderId      String?  // links to Order.id after order is created
+  campaignId   String?  // utm_campaign value from WooCommerce order attribution
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -487,6 +488,7 @@ model WhatsappLead {
   @@index([stage])
   @@index([status])
   @@index([orderId])
+  @@index([campaignId])
   @@index([createdAt])
 }
 

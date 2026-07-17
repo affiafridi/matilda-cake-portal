@@ -21,8 +21,9 @@ export type WooVariationAttribute = {
 };
 
 export type WooCategory = {
-  id: number;
-  name: string;
+  id:    number;
+  name:  string;
+  slug:  string;
   count: number;
 };
 

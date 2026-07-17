@@ -100,6 +100,8 @@ export async function POST(req: NextRequest) {
     const productName  = order.line_items?.[0]?.name ?? null;
     const productPrice = order.total ?? null;
     const customerName = [order.billing?.first_name, order.billing?.last_name].filter(Boolean).join(" ") || null;
+    const campaignRaw  = order.meta_data?.find((m) => m.key === "_wc_order_attribution_utm_campaign")?.value;
+    const campaignId   = campaignRaw ? String(campaignRaw) : null;
 
     if (lead) {
       // Update existing lead
@@ -110,6 +112,7 @@ export async function POST(req: NextRequest) {
           ...(customerName  && { customerName }),
           ...(productName   && { productName  }),
           ...(productPrice  && { productPrice }),
+          ...(campaignId    && { campaignId   }),
           updatedAt: new Date(),
         },
       });
@@ -130,6 +133,7 @@ export async function POST(req: NextRequest) {
             status:       "NEW",
             productName:  productName  || null,
             productPrice: productPrice || null,
+            campaignId:   campaignId   || null,
           },
         });
       }
