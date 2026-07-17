@@ -183,7 +183,11 @@ export async function POST(
     const baseWc = (wc_url || "").replace(/\/$/, "");
     if (!baseWc) return jsonError("WooCommerce URL not configured", 500);
 
-    const origin = req.nextUrl.origin;
+    // req.nextUrl.origin returns the internal localhost address on Cloud Run.
+    // Use the forwarded headers set by the load balancer to get the real public URL.
+    const proto  = req.headers.get("x-forwarded-proto") ?? "https";
+    const host   = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.hostname;
+    const origin = `${proto}://${host}`;
     const failed: string[] = [];
 
     for (let i = 0; i < items.length; i++) {
