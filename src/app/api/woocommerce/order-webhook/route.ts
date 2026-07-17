@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getIntegrations } from "@/lib/integrations";
 import { handleApiError } from "@/lib/api/http";
@@ -32,12 +32,18 @@ export async function POST(req: NextRequest) {
     const rawBody  = await req.text();
     const sig      = req.headers.get("x-wc-webhook-signature") ?? "";
 
-    if (wc_webhook_secret) {
-      const expected = createHmac("sha256", wc_webhook_secret).update(rawBody).digest("base64");
-      if (sig !== expected) {
-        console.warn("[wc-webhook] Invalid signature");
-        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-      }
+    if (!wc_webhook_secret) {
+      console.warn("[wc-webhook] wc_webhook_secret not configured — rejecting request");
+      return NextResponse.json({ ok: false, error: "Webhook secret not configured" }, { status: 401 });
+    }
+
+    const expected    = createHmac("sha256", wc_webhook_secret).update(rawBody).digest("base64");
+    const sigBuf      = Buffer.from(sig,      "base64");
+    const expectedBuf = Buffer.from(expected, "base64");
+    const sigValid    = sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf);
+    if (!sig || !sigValid) {
+      console.warn("[wc-webhook] Invalid signature");
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
     // Parse body — WC sends empty body or {"webhook_id":n} for test pings; handle gracefully

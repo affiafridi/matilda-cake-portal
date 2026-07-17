@@ -210,7 +210,7 @@ export default async function DashboardPage({
             <p className="mt-0.5 text-[12.5px] text-[#64748b]">{rangeLabel} · Here&apos;s your overview</p>
           </div>
           <Suspense fallback={<div className="h-9 w-80 animate-pulse rounded-lg bg-[#f3f4f6]" />}>
-            <DashboardFilters branches={branches?.map((b) => ({ id: b.id, name: b.name }))} />
+            <DashboardFilters branches={showPortal ? branches?.map((b) => ({ id: b.id, name: b.name })) : undefined} />
           </Suspense>
         </div>
 
