@@ -208,10 +208,12 @@ async function resolveIgName(psid: string): Promise<string> {
     const { instagram_page_access_token } = await getIntegrations();
     if (!instagram_page_access_token) return `IG User ${psid.slice(-6)}`;
     const res = await fetch(
-      `${IG_API}/${psid}?fields=name&access_token=${instagram_page_access_token}`,
+      `${IG_API}/${psid}?fields=name,username`,
+      { headers: { Authorization: `Bearer ${instagram_page_access_token}` } },
     );
-    const data = await res.json() as { name?: string };
-    return data.name || `IG User ${psid.slice(-6)}`;
+    const data = await res.json() as { name?: string; username?: string };
+    // Prefer username (e.g. "matildacakesdubai"), fall back to name, then generic
+    return data.username || data.name || `IG User ${psid.slice(-6)}`;
   } catch {
     return `IG User ${psid.slice(-6)}`;
   }

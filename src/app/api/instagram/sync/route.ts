@@ -32,9 +32,11 @@ export async function POST() {
       return NextResponse.json({ ok: false, error: meData.error?.message ?? "Token invalid", tokenPrefix: instagram_page_access_token.slice(0, 10) }, { status: 400 });
     }
 
-    // Fetch conversations from Instagram Graph API
+    const igUserId = meData.id ?? "";
+
+    // Fetch conversations using the Instagram user ID directly
     const convRes = await fetch(
-      `${IG_API}/me/conversations?platform=instagram&fields=id,participants,messages{id,message,from,created_time}&limit=50`,
+      `${IG_API}/${igUserId}/conversations?platform=instagram&fields=id,participants,messages{id,message,from,created_time}&limit=50`,
       { headers: igHeaders }
     );
     const convData = await convRes.json() as IgConversationsResponse;
@@ -42,17 +44,28 @@ export async function POST() {
     if (!convRes.ok || convData.error) {
       return NextResponse.json({ ok: false, error: convData.error?.message ?? "Failed to fetch conversations" }, { status: 400 });
     }
-    const pageId = meData.id ?? "";
 
     let imported = 0;
 
     for (const igConv of convData.data ?? []) {
       // Find the customer participant (not the page itself)
-      const customer = igConv.participants?.data?.find((p) => p.id !== pageId);
+      const customer = igConv.participants?.data?.find((p) => p.id !== igUserId);
       if (!customer) continue;
 
       const waId = `ig_${customer.id}`;
-      const customerName = customer.name || `IG User ${customer.id.slice(-6)}`;
+
+      // Fetch username/name from Instagram API — participants list often lacks this
+      let customerName = customer.name || "";
+      if (!customerName) {
+        try {
+          const uRes = await fetch(`${IG_API}/${customer.id}?fields=name,username`, {
+            headers: { Authorization: `Bearer ${instagram_page_access_token}` },
+          });
+          const uData = await uRes.json() as { name?: string; username?: string };
+          customerName = uData.username || uData.name || "";
+        } catch { /* ignore */ }
+      }
+      customerName = customerName || `IG User ${customer.id.slice(-6)}`;
 
       // Get all messages sorted oldest first
       const messages = [...(igConv.messages?.data ?? [])].reverse();
@@ -87,7 +100,7 @@ export async function POST() {
         const exists = await prisma.message.findFirst({ where: { waMessageId: msg.id } });
         if (exists) continue;
 
-        const isFromPage = msg.from?.id === pageId;
+        const isFromPage = msg.from?.id === igUserId;
         await prisma.message.create({
           data: {
             id:             crypto.randomUUID(),
