@@ -266,7 +266,15 @@ export default function LeadsPage() {
                         <>
                           <p className="text-[12px] font-medium text-[#0f172a] truncate leading-tight">{lead.productName}</p>
                           {lead.productPrice && (
-                            <p className="text-[11px] text-[#64748b]">{lead.productPrice}</p>
+                            <p className="text-[11px] text-[#64748b]">
+                              AED {lead.productPrice}
+                              {lead.orderId && (
+                                <span className="ml-1.5 text-[#94a3b8]">· #{lead.orderId}</span>
+                              )}
+                            </p>
+                          )}
+                          {!lead.productPrice && lead.orderId && (
+                            <p className="text-[11px] text-[#94a3b8]">Order #{lead.orderId}</p>
                           )}
                         </>
                       ) : (
@@ -340,7 +348,8 @@ export default function LeadsPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       {(() => {
-                        const isPhoneFallback = !lead.customerName || lead.customerName === lead.waId || lead.customerName === lead.phone || /^\d{7,}$/.test(lead.customerName.trim());
+                        const digits = lead.customerName?.replace(/\D/g, "");
+                        const isPhoneFallback = !lead.customerName || digits === lead.phone || lead.customerName === lead.waId || lead.customerName === lead.phone || /^\d{7,}$/.test(lead.customerName.trim());
                         const orders = orderCounts[lead.waId] ?? 0;
                         return (
                           <div className="flex items-center gap-1.5">
@@ -368,7 +377,8 @@ export default function LeadsPage() {
                   {lead.productName && (
                     <p className="text-[12px] text-[#374151]">
                       {lead.productName}
-                      {lead.productPrice && <span className="text-[#94a3b8]"> · {lead.productPrice}</span>}
+                      {lead.productPrice && <span className="text-[#94a3b8]"> · AED {lead.productPrice}</span>}
+                      {lead.orderId && <span className="text-[#94a3b8]"> · #{lead.orderId}</span>}
                     </p>
                   )}
                   {lead.campaignId && (

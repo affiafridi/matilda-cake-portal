@@ -139,28 +139,41 @@ async function classifyIntent(
   }
 
   const available: string[] = [];
-  if (enabledIntents.search)  available.push('"product_search" — customer is looking for or asking about a specific product or item');
-  if (enabledIntents.catalog) available.push('"catalog" — customer wants to browse the menu, categories, or full product list');
-  available.push('"order" — customer explicitly wants to place or confirm an order right now');
-  if (enabledIntents.agent)   available.push('"agent" — customer wants to talk to a human or get support');
-  if (enabledIntents.info)    available.push('"info" — customer is asking a factual question about the business with no product or menu mention');
-  available.push('"unknown" — greeting, thank you, or off-topic');
+  if (enabledIntents.search)  available.push('"product_search" — customer mentions any specific product, food item, flavour, design, or occasion (e.g. birthday, wedding, anniversary)');
+  if (enabledIntents.catalog) available.push('"catalog" — customer wants to browse, see options, or asks what is available without naming something specific');
+  available.push('"order" — customer explicitly says they want to order or place an order right now');
+  if (enabledIntents.agent)   available.push('"agent" — customer asks for a human, support, or help from a person');
+  if (enabledIntents.info)    available.push('"info" — customer asks a factual question about hours, location, delivery, pricing, or policies — with NO product or menu mention');
+  available.push('"unknown" — ONLY for pure greetings (hi, hello, salam), thank-you messages, or single-word replies with no request');
 
   const promptText = [
     "Using the business context in the system prompt, classify the customer message into exactly one intent.",
     "Respond with JSON only. No explanation.",
     image ? "The customer has also sent an image — use its contents to help classify." : "",
     "",
-    "Rules:",
-    "- Use catalog when the customer asks about categories, menu, or products in general",
-    "- Use product_search when a specific product, type, or occasion is mentioned (or when the image shows a product/design they want)",
-    "- Use order only when the customer explicitly says they want to place an order",
-    "- Use info for business questions (hours, location, delivery) with no product mention",
+    "Classification rules (apply in order, stop at first match):",
+    "1. If the message mentions ANY specific food, cake, product, flavour, design, size, or occasion → product_search",
+    "2. If the message asks to see the menu, what is available, what you have, your products, or wants to browse → catalog",
+    "3. If the message explicitly says 'I want to order' or 'place an order' → order",
+    "4. If the message asks for a human agent or support → agent",
+    "5. If the message asks a factual business question (hours, location, delivery) with NO product mention → info",
+    "6. Only use unknown if the message is PURELY a greeting (hi, hello, thanks, ok, bye) with absolutely no request",
+    "",
+    "Examples:",
+    '  "show me your cakes" → catalog',
+    '  "what do you have" → catalog',
+    '  "do you have chocolate cake" → product_search, query: "chocolate cake"',
+    '  "I want something for a birthday" → product_search, query: "birthday cake"',
+    '  "what flavours do you have" → product_search, query: "flavours"',
+    '  "how much does a cake cost" → info',
+    '  "what are your opening hours" → info',
+    '  "hi" → unknown',
+    '  "thanks" → unknown',
     "",
     "Available intents:",
     ...available.map((a) => `- ${a}`),
     "",
-    `If intent is "product_search", include a "query" field with the clean search term extracted from the message and/or image.`,
+    `If intent is "product_search", include a "query" field with the clean search term (what the customer wants to find).`,
     "",
     message ? `Customer message: "${message}"` : `Customer sent an image with no text.`,
     "",
@@ -280,8 +293,13 @@ export async function POST(req: NextRequest) {
         headers: { Authorization: `Bearer ${openai_api_key}` },
         body: formData,
       });
-      const whisperJson = await whisperRes.json() as { text?: string };
+      const whisperJson = await whisperRes.json() as { text?: string; error?: { message: string } };
       message = (whisperJson.text ?? "").trim();
+      // If transcription returned nothing (silent audio, noise), tell the bot so it
+      // can prompt the customer to speak again — don't classify an empty string.
+      if (!message) {
+        return NextResponse.json({ ok: true, waId, type: "text", reply: "" });
+      }
     }
 
     // loadAiSettings() is now cached — no DB hit on warm requests
@@ -306,7 +324,14 @@ export async function POST(req: NextRequest) {
       response = { type: "product_search", query: query ?? message };
 
     } else if (intent === "unknown") {
-      response = { type: "text", reply: "" };
+      // Pure greetings/thanks return empty so the bot can handle them natively.
+      // But if the message has real content (>4 words or >20 chars) the model may
+      // have misfired — fall back to catalog so the customer sees something useful.
+      const wordCount = message.trim().split(/\s+/).length;
+      const isSubstantive = wordCount > 4 || message.trim().length > 20;
+      response = (intents.catalog && isSubstantive)
+        ? { type: "catalog" }
+        : { type: "text", reply: "" };
 
     } else {
       const withinLimit = await checkAndIncrementUsage(dailyLimit);

@@ -78,14 +78,25 @@ export async function POST(req: NextRequest) {
     // If this order didn't come from WhatsApp at all, skip it
     if (!isFromWhatsApp) return NextResponse.json({ ok: true });
 
-    let lead = waIdRaw
-      ? await prisma.whatsappLead.findFirst({
-          where:   { waId: waIdRaw, stage: { notIn: ["PAID", "ABANDONED"] } },
-          orderBy: { createdAt: "desc" },
-        })
-      : null;
+    const wcOrderId = String(order.id);
 
-    // ── Fallback: match by billing phone ───────────────────────────────────
+    // ── Find existing lead ─────────────────────────────────────────────────
+    // 1. Check by WC order ID first — avoids duplicate PAID leads when WC
+    //    fires multiple webhooks for status transitions (pending → processing → completed)
+    let lead = await prisma.whatsappLead.findFirst({
+      where:   { orderId: wcOrderId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // 2. Match by waId (open lead not yet linked to this order)
+    if (!lead && waIdRaw) {
+      lead = await prisma.whatsappLead.findFirst({
+        where:   { waId: waIdRaw, stage: { notIn: ["PAID", "ABANDONED"] } },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    // 3. Fallback: match by billing phone
     if (!lead && order.billing?.phone) {
       const phones = normalizePhone(order.billing.phone);
       for (const phone of phones) {
@@ -104,11 +115,13 @@ export async function POST(req: NextRequest) {
     const campaignId   = campaignRaw ? String(campaignRaw) : null;
 
     if (lead) {
-      // Update existing lead
+      // Update existing lead — always stamp orderId so future webhook calls
+      // for this same WC order are deduplicated via lookup #1 above
       await prisma.whatsappLead.update({
         where: { id: lead.id },
         data: {
           stage,
+          orderId: wcOrderId,
           ...(customerName  && { customerName }),
           ...(productName   && { productName  }),
           ...(productPrice  && { productPrice }),
@@ -131,6 +144,7 @@ export async function POST(req: NextRequest) {
             source:       "woocommerce",
             stage,
             status:       "NEW",
+            orderId:      wcOrderId,
             productName:  productName  || null,
             productPrice: productPrice || null,
             campaignId:   campaignId   || null,

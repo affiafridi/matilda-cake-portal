@@ -3,6 +3,7 @@
 import React, { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductPicker from "./ProductPicker";
+import VoiceRecorder from "./VoiceRecorder";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -274,6 +275,10 @@ export default function InboxClient({
   // Notes
   const [noteText,   setNoteText]   = useState("");
   const [savingNote, setSavingNote] = useState(false);
+
+  // Voice recorder overlay
+  const [showVoice,  setShowVoice]  = useState(false);
+  const [sendingVoice, setSendingVoice] = useState(false);
 
   // Quick replies
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
@@ -568,6 +573,23 @@ export default function InboxClient({
     } finally { setUploadingMedia(false); }
   }
 
+  async function sendVoice(blob: Blob) {
+    if (!selectedId || sendingVoice) return;
+    setSendingVoice(true); setSendError(null);
+    try {
+      const ext  = blob.type.includes("ogg") ? "ogg" : "webm";
+      const fd   = new FormData();
+      fd.append("file", blob, `voice-message.${ext}`);
+      const res  = await fetch(`/api/inbox/conversations/${selectedId}/reply-media`, { method: "POST", body: fd });
+      const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
+      if (!json?.ok) { setSendError(json?.error ?? "Failed to send"); setSendingVoice(false); return; }
+      setShowVoice(false);
+      const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
+      const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
+      if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
+    } finally { setSendingVoice(false); }
+  }
+
   async function sendTemplate() {
     if (!selectedId || sendingTemplate) return;
     setSendingTemplate(true); setTemplateError(null);
@@ -634,6 +656,7 @@ export default function InboxClient({
     setReplyText(""); setQrQuery(null); setSendError(null);
     if (textareaRef.current) textareaRef.current.style.height = "38px";
     setShowTagPicker(false); setReplyTab("reply");
+    setShowVoice(false);
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -1197,10 +1220,28 @@ export default function InboxClient({
                                 );
 
                                 // Audio / voice
-                                if (m.mediaUrl && (m.mediaType === "audio")) return (
-                                  <div>
-                                    <audio src={m.mediaUrl} controls className="max-w-[260px]" />
-                                    {m.body && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                if (m.mediaUrl && m.mediaType === "audio") return (
+                                  <div className="flex items-center gap-2.5 min-w-[200px]">
+                                    <div className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-full", isOut ? "bg-[#00a884]/20" : "bg-gray-100"].join(" ")}>
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={["h-4 w-4", isOut ? "text-[#00a884]" : "text-gray-500"].join(" ")}>
+                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                      </svg>
+                                    </div>
+                                    <audio src={m.mediaUrl} controls style={{ height: "32px", flex: 1, accentColor: "#00a884" }} />
+                                  </div>
+                                );
+
+                                // Outbound voice message (no mediaUrl stored — sent via portal)
+                                if (!m.mediaUrl && m.mediaType === "audio") return (
+                                  <div className="flex items-center gap-2 min-w-[160px]">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#00a884]/20">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#00a884]">
+                                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                                      </svg>
+                                    </div>
+                                    <span className="text-[12px] opacity-75">Voice message</span>
                                   </div>
                                 );
 
@@ -1323,77 +1364,95 @@ export default function InboxClient({
                   )}
 
                   {replyTab === "reply" ? (
-                    <div className="flex items-end gap-2">
-                      <input ref={fileInputRef} type="file" className="hidden" multiple
-                        accept="image/*,video/*,audio/*,application/pdf"
-                        onChange={(e) => { if (e.target.files?.length) stageMedia(e.target.files); e.target.value = ""; }}
-                      />
-
-                      {/* Attach button */}
-                      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
-                        title="Attach images or files">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                      </button>
-
-                      {/* Send product card button — only shown when WooCommerce is configured */}
-                      {wcConfigured && (
-                        <button type="button" onClick={() => setShowProductPicker(true)}
-                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
-                          title="Send product card">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-                          </svg>
-                        </button>
-                      )}
-
-                      {/* Unified compose box — WhatsApp white pill */}
-                      <div className="flex-1 rounded-[24px] bg-white shadow-sm overflow-hidden">
-
-                        {/* File thumbnails row */}
-                        {pendingMedia.length > 0 && (
-                          <div className="flex flex-wrap gap-2 px-3 pt-3">
-                            {pendingMedia.map((item, idx) => (
-                              <div key={idx} className="relative group">
-                                {item.previewUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={item.previewUrl} alt="preview" className="h-16 w-16 rounded-xl object-cover border border-gray-200" />
-                                ) : (
-                                  <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-1">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                    <span className="truncate text-[9px] text-gray-400 w-full text-center px-1">{item.file.name.split(".").pop()?.toUpperCase()}</span>
-                                  </div>
-                                )}
-                                <button type="button" onClick={() => removePendingMedia(idx)}
-                                  className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gray-700 text-white opacity-0 group-hover:opacity-100 transition">
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        <textarea ref={textareaRef} rows={1} value={replyText}
-                          onChange={(e) => handleReplyChange(e.target.value)}
-                          onKeyDown={handleReplyKeyDown}
-                          placeholder={pendingMedia.length > 0 ? "Add a caption… (optional)" : "Type a message"}
-                          className="w-full resize-none bg-transparent px-4 py-2.5 text-sm text-[#111b21] placeholder:text-[#8696a0] focus:outline-none overflow-y-auto"
-                          style={{ lineHeight: "1.5", height: "38px" }}
+                    <>
+                      {showVoice ? (
+                        <VoiceRecorder
+                          sending={sendingVoice}
+                          onSend={(blob) => sendVoice(blob)}
+                          onCancel={() => setShowVoice(false)}
                         />
-                      </div>
+                      ) : (
+                        <div className="flex items-end gap-2">
+                          <input ref={fileInputRef} type="file" className="hidden" multiple
+                            accept="image/*,video/*,audio/*,application/pdf"
+                            onChange={(e) => { if (e.target.files?.length) stageMedia(e.target.files); e.target.value = ""; }}
+                          />
 
-                      {/* Send button — WhatsApp green */}
-                      <button type="button"
-                        onClick={() => pendingMedia.length > 0 ? void sendMedia() : void sendReply()}
-                        disabled={(uploadingMedia || sending) || (pendingMedia.length === 0 && !replyText.trim())}
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition hover:bg-[#00916e] disabled:cursor-not-allowed disabled:opacity-40">
-                        {(sending || uploadingMedia) ? (
-                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                        ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        )}
-                      </button>
-                    </div>
+                          {/* Attach */}
+                          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
+                            title="Attach images or files">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                          </button>
+
+                          {/* Product card */}
+                          {wcConfigured && (
+                            <button type="button" onClick={() => setShowProductPicker(true)}
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
+                              title="Send product card">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                              </svg>
+                            </button>
+                          )}
+
+                          {/* Compose pill */}
+                          <div className="flex-1 rounded-[24px] bg-white shadow-sm overflow-hidden">
+                            {pendingMedia.length > 0 && (
+                              <div className="flex flex-wrap gap-2 px-3 pt-3">
+                                {pendingMedia.map((item, idx) => (
+                                  <div key={idx} className="relative group">
+                                    {item.previewUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img src={item.previewUrl} alt="preview" className="h-16 w-16 rounded-xl object-cover border border-gray-200" />
+                                    ) : (
+                                      <div className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-1">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5 text-gray-400"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        <span className="truncate text-[9px] text-gray-400 w-full text-center px-1">{item.file.name.split(".").pop()?.toUpperCase()}</span>
+                                      </div>
+                                    )}
+                                    <button type="button" onClick={() => removePendingMedia(idx)}
+                                      className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-gray-700 text-white opacity-0 group-hover:opacity-100 transition">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <textarea ref={textareaRef} rows={1} value={replyText}
+                              onChange={(e) => handleReplyChange(e.target.value)}
+                              onKeyDown={handleReplyKeyDown}
+                              placeholder={pendingMedia.length > 0 ? "Add a caption… (optional)" : "Type a message"}
+                              className="w-full resize-none bg-transparent px-4 py-2.5 text-sm text-[#111b21] placeholder:text-[#8696a0] focus:outline-none overflow-y-auto"
+                              style={{ lineHeight: "1.5", height: "38px" }}
+                            />
+                          </div>
+
+                          {/* Mic (idle) → send (typing) */}
+                          {!replyText.trim() && pendingMedia.length === 0 ? (
+                            <button type="button" onClick={() => setShowVoice(true)}
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition hover:bg-[#00916e]"
+                              title="Record voice message">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+                              </svg>
+                            </button>
+                          ) : (
+                            <button type="button"
+                              onClick={() => pendingMedia.length > 0 ? void sendMedia() : void sendReply()}
+                              disabled={(uploadingMedia || sending) || (pendingMedia.length === 0 && !replyText.trim())}
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition hover:bg-[#00916e] disabled:cursor-not-allowed disabled:opacity-40">
+                              {(sending || uploadingMedia) ? (
+                                <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     /* Note input */
                     <form onSubmit={saveNote} className="flex flex-col gap-2">
