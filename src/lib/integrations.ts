@@ -22,6 +22,8 @@ export type IntegrationSettings = {
   flows_private_key:        string;
   wa_flow_id:               string;
   wc_webhook_secret:        string;
+  instagram_page_access_token: string;
+  instagram_verify_token:      string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -42,6 +44,8 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "flows_private_key",
   "wa_flow_id",
   "wc_webhook_secret",
+  "instagram_page_access_token",
+  "instagram_verify_token",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. Cached for 2 min. */
@@ -57,7 +61,8 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
           'bot_url', 'sync_secret', 'inbox_webhook_secret',
           'openai_api_key',
           'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
-          'flows_private_key', 'wa_flow_id'
+          'flows_private_key', 'wa_flow_id',
+          'instagram_page_access_token', 'instagram_verify_token'
         )
       `;
       map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
@@ -80,7 +85,9 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
       ccavenue_website_url:   map["ccavenue_website_url"]   || process.env.CCAVENUE_WEBSITE_URL          || "",
       flows_private_key:      map["flows_private_key"]      || process.env.WA_FLOWS_PRIVATE_KEY          || "",
       wa_flow_id:             map["wa_flow_id"]             || process.env.WA_FLOW_ID                    || "",
-      wc_webhook_secret:      map["wc_webhook_secret"]      || process.env.WC_WEBHOOK_SECRET             || "",
+      wc_webhook_secret:           map["wc_webhook_secret"]           || process.env.WC_WEBHOOK_SECRET             || "",
+      instagram_page_access_token: map["instagram_page_access_token"] || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN   || "",
+      instagram_verify_token:      map["instagram_verify_token"]      || process.env.INSTAGRAM_VERIFY_TOKEN        || "",
     };
   });
 }

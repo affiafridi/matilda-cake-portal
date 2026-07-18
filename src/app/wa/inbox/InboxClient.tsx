@@ -13,6 +13,7 @@ type ConvSummary = {
   id:              string;
   waId:            string;
   customerName:    string;
+  channel:         string;
   status:          ConvStatus;
   botPaused:       boolean;
   agentRequested:  boolean;
@@ -233,6 +234,7 @@ export default function InboxClient({
   isSuperAdmin,
   templateConfigured,
   wcConfigured,
+  igConfigured,
 }: {
   initialConversations: ConvSummary[];
   agents:               Agent[];
@@ -240,9 +242,11 @@ export default function InboxClient({
   isSuperAdmin:         boolean;
   templateConfigured:   boolean;
   wcConfigured:         boolean;
+  igConfigured:         boolean;
 }) {
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
+  const [activeChannel, setActiveChannel] = useState<"whatsapp" | "instagram">("whatsapp");
   const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("all");
   const [search,        setSearch]        = useState("");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
@@ -517,8 +521,12 @@ export default function InboxClient({
     e?.preventDefault();
     if (!selectedId || !replyText.trim() || sending) return;
     setSending(true); setSendError(null);
+    const isIg   = selected?.channel === "instagram";
+    const replyUrl = isIg
+      ? `/api/instagram/conversations/${selectedId}/reply`
+      : `/api/inbox/conversations/${selectedId}/reply`;
     try {
-      const res  = await fetch(`/api/inbox/conversations/${selectedId}/reply`, {
+      const res  = await fetch(replyUrl, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: replyText }),
       });
@@ -683,6 +691,9 @@ export default function InboxClient({
   };
 
   const filtered = conversations.filter((c) => {
+    // Channel tab filter
+    const ch = c.channel ?? "whatsapp";
+    if (ch !== activeChannel) return false;
     let pass = true;
     if (view === "unassigned") pass = !c.assignedTo;
     else if (view === "mine")  pass = c.assignedTo?.id === currentUserId;
@@ -736,6 +747,68 @@ export default function InboxClient({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Channel tabs — WhatsApp / Instagram */}
+        <div className="flex border-b border-gray-100 px-3 pb-2 gap-2">
+          {/* WhatsApp tab */}
+          <button
+            onClick={() => { setActiveChannel("whatsapp"); setSelectedId(null); setMessages([]); setConvDetail(null); }}
+            className={["flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold transition",
+              activeChannel === "whatsapp"
+                ? "bg-[#00a884]/10 text-[#00a884]"
+                : "text-gray-500 hover:bg-gray-50",
+            ].join(" ")}>
+            {/* WhatsApp icon */}
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.554 4.117 1.522 5.848L.057 23.535a.5.5 0 0 0 .611.61l5.788-1.519A11.94 11.94 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.896 0-3.67-.516-5.191-1.416l-.373-.22-3.867 1.015 1.033-3.763-.241-.389A9.96 9.96 0 0 1 2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+            </svg>
+            WhatsApp
+            {conversations.filter((c) => (c.channel ?? "whatsapp") === "whatsapp").length > 0 && (
+              <span className={["rounded-full px-1.5 py-0.5 text-[9px] font-bold",
+                activeChannel === "whatsapp" ? "bg-[#00a884]/20 text-[#00a884]" : "bg-gray-100 text-gray-500",
+              ].join(" ")}>
+                {conversations.filter((c) => (c.channel ?? "whatsapp") === "whatsapp").length}
+              </span>
+            )}
+          </button>
+
+          {/* Instagram tab */}
+          <button
+            onClick={() => {
+              if (!igConfigured) return;
+              setActiveChannel("instagram"); setSelectedId(null); setMessages([]); setConvDetail(null);
+            }}
+            title={!igConfigured ? "Instagram not configured — add token in Settings" : undefined}
+            className={["flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold transition",
+              !igConfigured
+                ? "text-gray-300 cursor-not-allowed"
+                : activeChannel === "instagram"
+                  ? "bg-[#E1306C]/10 text-[#E1306C]"
+                  : "text-gray-500 hover:bg-gray-50",
+            ].join(" ")}>
+            {!igConfigured ? (
+              /* Lock icon */
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            ) : (
+              /* Instagram icon */
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+            )}
+            Instagram
+            {igConfigured && conversations.filter((c) => c.channel === "instagram").length > 0 && (
+              <span className={["rounded-full px-1.5 py-0.5 text-[9px] font-bold",
+                activeChannel === "instagram" ? "bg-[#E1306C]/20 text-[#E1306C]" : "bg-gray-100 text-gray-500",
+              ].join(" ")}>
+                {conversations.filter((c) => c.channel === "instagram").length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Nav sections */}

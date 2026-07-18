@@ -14,6 +14,8 @@ const INTEGRATION_KEYS = [
   "ccavenue_merchant_id", "ccavenue_access_code", "ccavenue_working_key", "ccavenue_website_url",
   "flows_private_key",
   "wa_flow_id",
+  "instagram_page_access_token",
+  "instagram_verify_token",
 ];
 
 async function canAccessIntegrations(user: { role: string } | null): Promise<boolean> {
@@ -38,7 +40,8 @@ export async function GET() {
         'google_oauth_client_id', 'google_oauth_client_secret',
         'openai_api_key',
         'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
-        'flows_private_key', 'wa_flow_id'
+        'flows_private_key', 'wa_flow_id',
+        'instagram_page_access_token', 'instagram_verify_token'
       )
     `;
 
@@ -75,7 +78,9 @@ function envFallback(key: string): string {
     ccavenue_website_url:     process.env.CCAVENUE_WEBSITE_URL,
     flows_private_key:        process.env.WA_FLOWS_PRIVATE_KEY,
     wa_flow_id:               process.env.WA_FLOW_ID,
-    wc_webhook_secret:        process.env.WC_WEBHOOK_SECRET,
+    wc_webhook_secret:           process.env.WC_WEBHOOK_SECRET,
+    instagram_page_access_token: process.env.INSTAGRAM_PAGE_ACCESS_TOKEN,
+    instagram_verify_token:      process.env.INSTAGRAM_VERIFY_TOKEN,
   };
   return map[key] ?? "";
 }

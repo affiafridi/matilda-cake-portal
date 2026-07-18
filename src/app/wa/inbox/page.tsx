@@ -8,13 +8,13 @@ export default async function InboxPage() {
   const user = await getCurrentUser();
   if (!user) return null;
 
-  const [conversations, agents, templateRow, wcRow] = await Promise.all([
+  const [conversations, agents, templateRow, wcRow, igRow] = await Promise.all([
     prisma.conversation.findMany({
       where:   { status: "OPEN", OR: [{ botPaused: true }, { agentRequested: true }] },
       orderBy: { lastMessageAt: "desc" },
       take: 100,
       select: {
-        id: true, waId: true, customerName: true, status: true,
+        id: true, waId: true, customerName: true, channel: true, status: true,
         botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
         unreadCount: true, lastMessageAt: true, lastMessageBody: true,
         assignedTo: { select: { id: true, name: true } },
@@ -31,10 +31,14 @@ export default async function InboxPage() {
     prisma.$queryRaw<{ value: string }[]>`
       SELECT value FROM portal_settings WHERE key = 'wc_url' LIMIT 1
     `,
+    prisma.$queryRaw<{ value: string }[]>`
+      SELECT value FROM portal_settings WHERE key = 'instagram_page_access_token' LIMIT 1
+    `,
   ]);
 
   const templateConfigured = !!(templateRow[0]?.value?.trim());
   const wcConfigured       = !!(wcRow[0]?.value?.trim());
+  const igConfigured       = !!(igRow[0]?.value?.trim());
 
   const serialized = conversations.map((c) => ({
     ...c,
@@ -42,5 +46,15 @@ export default async function InboxPage() {
     lastInboundAt:  c.lastInboundAt?.toISOString() ?? null,
   }));
 
-  return <InboxClient initialConversations={serialized} agents={agents} currentUserId={user.id} isSuperAdmin={user.role === "SUPER_ADMIN"} templateConfigured={templateConfigured} wcConfigured={wcConfigured} />;
+  return (
+    <InboxClient
+      initialConversations={serialized}
+      agents={agents}
+      currentUserId={user.id}
+      isSuperAdmin={user.role === "SUPER_ADMIN"}
+      templateConfigured={templateConfigured}
+      wcConfigured={wcConfigured}
+      igConfigured={igConfigured}
+    />
+  );
 }

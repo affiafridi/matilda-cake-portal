@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       const conv = await prisma.conversation.findUnique({
         where: { waId: waId.replace(/^\+/, "") },
         select: {
-          id: true, waId: true, customerName: true, status: true,
+          id: true, waId: true, customerName: true, channel: true, status: true,
           botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
           unreadCount: true, lastMessageAt: true, lastMessageBody: true,
           assignedTo: { select: { id: true, name: true } },
@@ -32,8 +32,11 @@ export async function GET(req: NextRequest) {
       return jsonOk(conv ? [conv] : []);
     }
 
+    const channel = searchParams.get("channel") ?? "whatsapp";
+
     const where: Record<string, unknown> = {};
     if (status !== "ALL") where.status = status;
+    if (channel !== "all") where.channel = channel;
     if (assignedTo === "me")          where.assignedToId = actor.id;
     else if (assignedTo === "unassigned") where.assignedToId = null;
 
@@ -52,6 +55,7 @@ export async function GET(req: NextRequest) {
         id:              true,
         waId:            true,
         customerName:    true,
+        channel:         true,
         status:          true,
         botPaused:       true,
         agentRequested:  true,

@@ -299,6 +299,9 @@ model Conversation {
   notes           InternalNote[]
   events          ConversationEvent[]
 
+  // Channel: "whatsapp" | "instagram"
+  channel             String             @default("whatsapp")
+
   // Bot context — updated by bot via webhook as it processes steps
   currentBotFlowId    Int?
   currentBotFlowName  String?
