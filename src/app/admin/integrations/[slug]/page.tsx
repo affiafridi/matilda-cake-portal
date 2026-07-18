@@ -477,10 +477,14 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
     setSaveState("saving");
     try {
       for (const f of fields) {
+        // Strip whitespace from credential fields to prevent corrupt token saves
+        const val = f.type === "password" || f.key.includes("token") || f.key.includes("key") || f.key.includes("secret")
+          ? (values[f.key] ?? "").replace(/\s/g, "")
+          : (values[f.key] ?? "");
         await fetch("/api/admin/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: f.key, value: values[f.key] ?? "" }),
+          body: JSON.stringify({ key: f.key, value: val }),
         });
       }
       setSavedValues({ ...values });
@@ -631,6 +635,7 @@ export default function IntegrationDetailPage() {
       "ccavenue":     ["ccavenue_merchant_id", "ccavenue_access_code", "ccavenue_working_key"],
       "stripe":       ["stripe_secret_key"],
       "paypal":       ["paypal_client_id", "paypal_client_secret"],
+      "instagram":    ["instagram_page_access_token"],
     };
     const keys = required[slug];
     if (!keys) { setStatusLoaded(true); return; }

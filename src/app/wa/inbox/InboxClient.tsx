@@ -247,6 +247,7 @@ export default function InboxClient({
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
   const [activeChannel, setActiveChannel] = useState<"whatsapp" | "instagram">("whatsapp");
+  const [igSyncing, setIgSyncing] = useState(false);
   const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("all");
   const [search,        setSearch]        = useState("");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
@@ -339,7 +340,7 @@ export default function InboxClient({
   useEffect(() => {
     async function fetchConvs() {
       try {
-        const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all`, { cache: "no-store" });
+        const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all&channel=all`, { cache: "no-store" });
         const json = await res.json().catch(() => null) as { ok: boolean; data: ConvSummary[] } | null;
         if (!json?.ok) return;
         const newConvs = json.data;
@@ -359,7 +360,7 @@ export default function InboxClient({
       } catch { /* network */ }
     }
     fetchConvs();
-    const t = setInterval(fetchConvs, 4000);
+    const t = setInterval(fetchConvs, 15000);
 
     // Immediately re-fetch when the tab becomes visible again (browser throttles
     // setInterval in background tabs, so the list can be stale when switching back)
@@ -515,6 +516,22 @@ export default function InboxClient({
       if (e.key === "Escape") { setQrQuery(null); return; }
     }
     if (e.key === "Enter" && !e.shiftKey && qrQuery === null) { e.preventDefault(); void sendReply(); }
+  }
+
+  async function syncInstagram() {
+    if (igSyncing) return;
+    setIgSyncing(true);
+    try {
+      const res = await fetch("/api/instagram/sync", { method: "POST" });
+      const j = await res.json() as { ok: boolean; imported?: number; error?: string };
+      if (j.ok) {
+        const r = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all&channel=all`, { cache: "no-store" });
+        const d = await r.json() as { ok: boolean; data: ConvSummary[] };
+        if (d.ok) setConversations(d.data);
+      }
+    } finally {
+      setIgSyncing(false);
+    }
   }
 
   async function sendReply(e?: FormEvent) {
@@ -681,13 +698,14 @@ export default function InboxClient({
     setLightboxIdx(idx >= 0 ? idx : 0);
   }
 
+  const channelConvs = conversations.filter((c) => (c.channel ?? "whatsapp") === activeChannel);
   const counts = {
-    unassigned: conversations.filter((c) => !c.assignedTo).length,
-    mine:       conversations.filter((c) => c.assignedTo?.id === currentUserId).length,
-    all:        conversations.length,
-    open:       conversations.filter((c) => c.status === "OPEN").length,
-    resolved:   conversations.filter((c) => c.status === "RESOLVED").length,
-    paused:     conversations.filter((c) => c.botPaused).length,
+    unassigned: channelConvs.filter((c) => !c.assignedTo).length,
+    mine:       channelConvs.filter((c) => c.assignedTo?.id === currentUserId).length,
+    all:        channelConvs.length,
+    open:       channelConvs.filter((c) => c.status === "OPEN").length,
+    resolved:   channelConvs.filter((c) => c.status === "RESOLVED").length,
+    paused:     channelConvs.filter((c) => c.botPaused).length,
   };
 
   const filtered = conversations.filter((c) => {
@@ -801,6 +819,17 @@ export default function InboxClient({
               </svg>
             )}
             Instagram
+            {igConfigured && activeChannel === "instagram" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); syncInstagram(); }}
+                title="Sync Instagram conversations"
+                className="ml-1 rounded p-0.5 hover:bg-[#E1306C]/10 transition"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={["h-3 w-3", igSyncing ? "animate-spin" : ""].join(" ")}>
+                  <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                </svg>
+              </button>
+            )}
             {igConfigured && conversations.filter((c) => c.channel === "instagram").length > 0 && (
               <span className={["rounded-full px-1.5 py-0.5 text-[9px] font-bold",
                 activeChannel === "instagram" ? "bg-[#E1306C]/20 text-[#E1306C]" : "bg-gray-100 text-gray-500",
