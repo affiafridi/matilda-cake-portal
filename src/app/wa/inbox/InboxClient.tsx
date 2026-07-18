@@ -247,7 +247,8 @@ export default function InboxClient({
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
   const [activeChannel, setActiveChannel] = useState<"whatsapp" | "instagram">("whatsapp");
-  const [igSyncing, setIgSyncing] = useState(false);
+  const [igSyncing,    setIgSyncing]    = useState(false);
+  const [igBotEnabled, setIgBotEnabled] = useState(true);
   const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("all");
   const [search,        setSearch]        = useState("");
   const [selectedId,    setSelectedId]    = useState<string | null>(null);
@@ -369,6 +370,14 @@ export default function InboxClient({
 
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Load Instagram bot enabled setting ───────────────────────────────────
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((j) => { if (j.instagram_bot_enabled !== undefined) setIgBotEnabled(j.instagram_bot_enabled !== false && j.instagram_bot_enabled !== "false"); })
+      .catch(() => {});
   }, []);
 
   // ── Load messages + notes ─────────────────────────────────────────────────
@@ -523,15 +532,30 @@ export default function InboxClient({
     setIgSyncing(true);
     try {
       const res = await fetch("/api/instagram/sync", { method: "POST" });
-      const j = await res.json() as { ok: boolean; imported?: number; error?: string };
+      const j = await res.json() as { ok: boolean; imported?: number; error?: string; needsAppReview?: boolean };
       if (j.ok) {
         const r = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all&channel=all`, { cache: "no-store" });
         const d = await r.json() as { ok: boolean; data: ConvSummary[] };
         if (d.ok) setConversations(d.data);
+        addToast(`Synced ${j.imported ?? 0} Instagram conversation(s)`);
+      } else if (j.needsAppReview) {
+        addToast("Instagram history needs Meta App Review. New messages arrive automatically via webhook.");
+      } else {
+        addToast(j.error ?? "Sync failed");
       }
     } finally {
       setIgSyncing(false);
     }
+  }
+
+  async function toggleIgBot() {
+    const next = !igBotEnabled;
+    setIgBotEnabled(next);
+    await fetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "instagram_bot_enabled", value: String(next) }),
+    }).catch(() => setIgBotEnabled(!next)); // revert on error
   }
 
   async function sendReply(e?: FormEvent) {
@@ -884,6 +908,27 @@ export default function InboxClient({
             </button>
           ))}
           <div className="mx-4 my-3 h-px bg-gray-100" />
+
+          {/* Global Instagram bot toggle */}
+          {activeChannel === "instagram" && igConfigured && (
+            <div className="mx-3 mb-3 flex items-center justify-between rounded-xl border border-[#E1306C]/20 bg-[#E1306C]/5 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4 text-[#E1306C]"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                <span className="text-[12px] font-semibold text-[#E1306C]">Instagram Bot</span>
+              </div>
+              <button
+                onClick={() => toggleIgBot()}
+                className={["relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200",
+                  igBotEnabled ? "bg-[#E1306C]" : "bg-gray-300",
+                ].join(" ")}
+                title={igBotEnabled ? "Bot is ON — click to disable" : "Bot is OFF — click to enable"}
+              >
+                <span className={["pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200",
+                  igBotEnabled ? "translate-x-4" : "translate-x-0",
+                ].join(" ")} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Conversation list */}

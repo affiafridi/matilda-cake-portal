@@ -42,7 +42,16 @@ export async function POST() {
     const convData = await convRes.json() as IgConversationsResponse;
 
     if (!convRes.ok || convData.error) {
-      return NextResponse.json({ ok: false, error: convData.error?.message ?? "Failed to fetch conversations" }, { status: 400 });
+      const msg = convData.error?.message ?? "Failed to fetch conversations";
+      // #298 = Meta requires App Review for reading conversation history
+      const needsReview = msg.includes("298") || msg.includes("read_mailbox") || msg.includes("extended permission");
+      return NextResponse.json({
+        ok: false,
+        error: needsReview
+          ? "Meta requires App Review approval to fetch conversation history. New messages arriving via webhook will still appear automatically."
+          : msg,
+        needsAppReview: needsReview,
+      }, { status: 400 });
     }
 
     let imported = 0;

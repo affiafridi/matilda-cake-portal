@@ -17,7 +17,8 @@ export async function GET() {
       WHERE key IN (
         'woo_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
         'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url', 'inbox_template_name',
-        'contact_phone', 'contact_email', 'contact_website', 'contact_welcome_image', 'contact_team_numbers'
+        'contact_phone', 'contact_email', 'contact_website', 'contact_welcome_image', 'contact_team_numbers',
+        'instagram_bot_enabled'
       )
     `;
 
@@ -39,6 +40,7 @@ export async function GET() {
       contact_website:       map["contact_website"]       ?? "",
       contact_welcome_image: map["contact_welcome_image"] ?? "",
       contact_team_numbers:  map["contact_team_numbers"]  ?? "",
+      instagram_bot_enabled: (map["instagram_bot_enabled"] ?? "true") === "true",
     });
   } catch (err) {
     return handleApiError(err);
@@ -72,6 +74,7 @@ export async function POST(req: NextRequest) {
       "primary_color", "accent_color", "sidebar_color", "logo_url",
       "inbox_template_name",
       "contact_phone", "contact_email", "contact_website", "contact_welcome_image", "contact_team_numbers",
+      "instagram_bot_enabled",
       ...INTEGRATION_KEYS,
     ];
     if (!allowed.includes(body.key)) return jsonError("Invalid key", 400);

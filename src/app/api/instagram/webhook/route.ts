@@ -109,7 +109,12 @@ export async function POST(req: NextRequest) {
 
         // Auto-reply via AI (non-blocking — don't let it delay the 200 response)
         if (text && !conversation.botPaused) {
-          triggerAiReply(conversation.id, waId, senderId, text).catch(() => {});
+          // Check global Instagram bot toggle
+          prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'instagram_bot_enabled' LIMIT 1`
+            .then((rows) => {
+              const enabled = (rows[0]?.value ?? "true") !== "false";
+              if (enabled) triggerAiReply(conversation!.id, waId, senderId, text).catch(() => {});
+            }).catch(() => triggerAiReply(conversation!.id, waId, senderId, text).catch(() => {}));
         }
       }
     }
