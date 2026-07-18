@@ -1136,7 +1136,9 @@ export default function InboxClient({
             <div className="relative flex-1 flex flex-col min-h-0">
               {/* Merged message + event feed */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
-                style={{ background: "#efeae2", backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")` }}>
+                style={selected?.channel === "instagram"
+                  ? { background: "#fafafa" }
+                  : { background: "#efeae2", backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")` }}>
                 {loadingMsgs && messages.length === 0 && (
                   <div className="flex items-center justify-center py-16">
                     <svg className="h-5 w-5 animate-spin text-gray-300" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
@@ -1212,12 +1214,13 @@ export default function InboxClient({
 
                     const msgIndex = messages.indexOf(m);
                     const isOut = m.direction === "OUTBOUND";
+                    const isIgConv = selected?.channel === "instagram";
                     const showAvatar = !isOut && (msgIndex === messages.length - 1 || messages[msgIndex + 1]?.direction !== "INBOUND");
                     return (
                       <Fragment key={`msg-${m.id}`}>
                         {showSep && (
                           <div className="flex justify-center py-2">
-                            <span className="rounded-lg bg-[#d1f4cc]/80 backdrop-blur-sm px-3 py-1 text-[11px] font-medium text-[#54656f] shadow-sm">{dayLabel(m.createdAt)}</span>
+                            <span className={["rounded-lg backdrop-blur-sm px-3 py-1 text-[11px] font-medium shadow-sm", isIgConv ? "bg-[#E1306C]/10 text-[#E1306C]" : "bg-[#d1f4cc]/80 text-[#54656f]"].join(" ")}>{dayLabel(m.createdAt)}</span>
                           </div>
                         )}
                         <div className={["flex items-end gap-1.5 mb-0.5", isOut ? "justify-end" : "justify-start"].join(" ")}>
@@ -1232,7 +1235,9 @@ export default function InboxClient({
                             )}
                             <div className={["relative px-3 py-2 text-[13.5px] leading-relaxed shadow-sm",
                               isOut
-                                ? "rounded-[18px] rounded-br-[4px] bg-[#d9fdd3] text-[#111b21]"
+                                ? isIgConv
+                                  ? "rounded-[18px] rounded-br-[4px] bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045] text-white"
+                                  : "rounded-[18px] rounded-br-[4px] bg-[#d9fdd3] text-[#111b21]"
                                 : "rounded-[18px] rounded-bl-[4px] bg-white text-[#111b21]",
                             ].join(" ")}>
                               {(() => {

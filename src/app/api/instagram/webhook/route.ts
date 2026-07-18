@@ -39,61 +39,73 @@ export async function POST(req: NextRequest) {
         // Skip echoes (messages sent by the page itself) and non-message events
         if (!senderId || !msg || msg.is_echo) continue;
 
-        const text      = msg.text ?? null;
-        const mediaUrl  = extractMediaUrl(msg);
-        const mediaType = extractMediaType(msg);
+        const text        = msg.text ?? null;
+        const attachments = msg.attachments ?? [];
 
-        if (!text && !mediaUrl) continue;
+        if (!text && attachments.length === 0) continue;
 
-        // Instagram conversations use "ig_<psid>" as waId to avoid conflicts with WA phone numbers
         const waId = `ig_${senderId}`;
+        const now  = new Date();
 
-        // Upsert conversation
-        const now = new Date();
         let conversation = await prisma.conversation.findUnique({ where: { waId } });
-
         if (!conversation) {
-          // Resolve display name — IG API can return it but requires an extra call; use PSID for now
           const customerName = await resolveIgName(senderId);
           conversation = await prisma.conversation.create({
             data: {
-              id:           crypto.randomUUID(),
+              id:              crypto.randomUUID(),
               waId,
               customerName,
-              channel:      "instagram",
-              status:       "OPEN",
-              lastMessageAt: now,
+              channel:         "instagram",
+              status:          "OPEN",
+              lastMessageAt:   now,
               lastMessageBody: text ?? "(media)",
-              lastInboundAt: now,
-              unreadCount:  1,
+              lastInboundAt:   now,
+              unreadCount:     1,
             },
           });
         } else {
           await prisma.conversation.update({
             where: { id: conversation.id },
             data: {
-              lastMessageAt:  now,
+              lastMessageAt:   now,
               lastMessageBody: text ?? "(media)",
-              lastInboundAt:  now,
-              unreadCount:    { increment: 1 },
-              status:         "OPEN",
+              lastInboundAt:   now,
+              unreadCount:     { increment: 1 },
+              status:          "OPEN",
             },
           });
         }
 
-        // Store message
-        await prisma.message.create({
-          data: {
-            id:             crypto.randomUUID(),
-            conversationId: conversation.id,
-            waMessageId:    msg.mid ?? null,
-            direction:      "INBOUND",
-            body:           text,
-            mediaUrl,
-            mediaType,
-            createdAt:      now,
-          },
-        });
+        // Store text as one message
+        if (text) {
+          await prisma.message.create({
+            data: {
+              id:             crypto.randomUUID(),
+              conversationId: conversation.id,
+              waMessageId:    msg.mid ?? null,
+              direction:      "INBOUND",
+              body:           text,
+              createdAt:      now,
+            },
+          });
+        }
+
+        // Store each attachment as a separate message so all images show
+        for (let i = 0; i < attachments.length; i++) {
+          const att = attachments[i];
+          await prisma.message.create({
+            data: {
+              id:             crypto.randomUUID(),
+              conversationId: conversation.id,
+              waMessageId:    msg.mid ? `${msg.mid}_att${i}` : null,
+              direction:      "INBOUND",
+              body:           null,
+              mediaUrl:       att.payload?.url ?? null,
+              mediaType:      att.type ?? "image",
+              createdAt:      new Date(now.getTime() + i),
+            },
+          });
+        }
 
         // Auto-reply via AI (non-blocking — don't let it delay the 200 response)
         if (text && !conversation.botPaused) {
@@ -213,10 +225,7 @@ function extractMediaUrl(msg: IgMessage): string | null {
 function extractMediaType(msg: IgMessage): string | null {
   const type = msg.attachments?.[0]?.type;
   if (!type) return null;
-  if (type === "image")  return "image/jpeg";
-  if (type === "audio")  return "audio/ogg";
-  if (type === "video")  return "video/mp4";
-  return type;
+  return type; // keep as "image", "audio", "video" — matches renderer expectations
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -225,6 +234,7 @@ type IgMessage = {
   text?: string;
   is_echo?: boolean;
   attachments?: { type: string; payload: { url: string } }[];
+  // Instagram sends each image as a separate message event, but sometimes batches them
 };
 
 type IgWebhookPayload = {
