@@ -28,23 +28,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { instagram_page_access_token } = await getIntegrations();
     if (!instagram_page_access_token) return jsonError("Instagram token not configured", 500);
 
-    // waId is stored as "ig_<psid>" — extract the raw PSID for the API call
-    const igUserId = conversation.waId.replace(/^ig_/, "");
+    const igHeaders = { "Content-Type": "application/json", "Authorization": `Bearer ${instagram_page_access_token}` };
 
-    const igRes = await fetch("https://graph.facebook.com/v20.0/me/messages", {
+    // Get own IG user ID to use explicit endpoint instead of /me
+    const meRes  = await fetch("https://graph.facebook.com/v20.0/me?fields=id", { headers: igHeaders });
+    const meData = await meRes.json().catch(() => ({})) as { id?: string; error?: { message: string } };
+    if (!meRes.ok || !meData.id) {
+      return jsonError(meData.error?.message ?? "Invalid Instagram token", 502);
+    }
+
+    // waId is stored as "ig_<psid>" — extract the raw PSID for the recipient
+    const recipientId = conversation.waId.replace(/^ig_/, "");
+
+    const igRes = await fetch(`https://graph.facebook.com/v20.0/${meData.id}/messages`, {
       method:  "POST",
-      headers: {
-        "Content-Type":  "application/json",
-        "Authorization": `Bearer ${instagram_page_access_token}`,
-      },
+      headers: igHeaders,
       body: JSON.stringify({
-        recipient: { id: igUserId },
+        recipient: { id: recipientId },
         message:   { text },
       }),
     });
 
-    const igJson = await igRes.json().catch(() => ({})) as { message_id?: string; error?: { message: string } };
-    if (!igRes.ok) {
+    const igJson = await igRes.json().catch(() => ({})) as { message_id?: string; error?: { message: string; code?: number } };
+    if (!igRes.ok || igJson.error) {
+      console.error("[ig-reply]", igJson.error);
       return jsonError(igJson.error?.message ?? "Instagram API error", 502);
     }
 

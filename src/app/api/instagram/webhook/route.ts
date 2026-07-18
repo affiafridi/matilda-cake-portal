@@ -197,9 +197,14 @@ async function triggerAiReply(
 
 // ── Send Instagram message ─────────────────────────────────────────────────
 async function sendIgMessage(recipientId: string, text: string, accessToken: string) {
-  return fetch(`${IG_API}/me/messages`, {
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
+  // Get own IG user ID for explicit endpoint
+  const meRes  = await fetch(`${IG_API}/me?fields=id`, { headers });
+  const meData = await meRes.json().catch(() => ({})) as { id?: string };
+  const igId   = meData.id ?? "me";
+  return fetch(`${IG_API}/${igId}/messages`, {
     method:  "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    headers,
     body:    JSON.stringify({
       recipient: { id: recipientId },
       message:   { text },
