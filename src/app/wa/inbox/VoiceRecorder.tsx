@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 
 type Phase = "recording" | "paused" | "preview";
-type Mode  = "recorder" | "filepicker";
 
 type Props = {
   sending:  boolean;
@@ -12,12 +11,11 @@ type Props = {
 };
 
 export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
-  const [mode,       setMode]       = useState<Mode>("recorder");
   const [phase,      setPhase]      = useState<Phase>("recording");
   const [seconds,    setSeconds]    = useState(0);
   const [blob,       setBlob]       = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [fileName,   setFileName]   = useState<string | null>(null);
+  const [micFailed,  setMicFailed]  = useState(false);
 
   const recorderRef  = useRef<MediaRecorder | null>(null);
   const streamRef    = useRef<MediaStream | null>(null);
@@ -47,7 +45,7 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
         audioCtxRef.current = audioCtx;
         const source   = audioCtx.createMediaStreamSource(stream);
         const analyser = audioCtx.createAnalyser();
-        analyser.fftSize             = 128;
+        analyser.fftSize              = 128;
         analyser.smoothingTimeConstant = 0.6;
         source.connect(analyser);
         analyserRef.current = analyser;
@@ -80,8 +78,8 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
         startTimer();
         drawWaveform();
       } catch {
-        // Mic denied or unavailable — silently fall back to file picker
-        if (!dead) setMode("filepicker");
+        // Mic unavailable — stay in recording UI but mark failed so we show upload fallback
+        if (!dead) setMicFailed(true);
       }
     })();
 
@@ -120,19 +118,16 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
       const W = safeCanvas.width;
       const H = safeCanvas.height;
       safeCtx.clearRect(0, 0, W, H);
-      const BAR_COUNT = 28;
-      const BAR_W     = 3;
-      const GAP       = 2.5;
-      const totalW    = BAR_COUNT * (BAR_W + GAP) - GAP;
-      const startX    = (W - totalW) / 2;
+      const BAR_COUNT = 28, BAR_W = 3, GAP = 2.5;
+      const totalW = BAR_COUNT * (BAR_W + GAP) - GAP;
+      const startX = (W - totalW) / 2;
       for (let i = 0; i < BAR_COUNT; i++) {
         const binIdx = Math.floor(Math.pow(i / BAR_COUNT, 0.8) * data.length);
         const value  = data[binIdx] / 255;
         const barH   = Math.max(3, value * H * 0.88);
         const x      = startX + i * (BAR_W + GAP);
         const y      = (H - barH) / 2;
-        const alpha  = phaseRef.current === "paused" ? 0.35 : 0.55 + value * 0.45;
-        safeCtx.globalAlpha = alpha;
+        safeCtx.globalAlpha = phaseRef.current === "paused" ? 0.35 : 0.55 + value * 0.45;
         safeCtx.fillStyle   = phaseRef.current === "paused" ? "#94a3b8" : "#00a884";
         safeCtx.beginPath();
         if (safeCtx.roundRect) safeCtx.roundRect(x, y, BAR_W, barH, BAR_W / 2);
@@ -213,96 +208,22 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
     if (blob) onSend(blob);
   }
 
-  // ── File picker actions ───────────────────────────────────────────────────
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
     setBlob(file);
     setPreviewUrl(url);
-    setFileName(file.name);
     setPhase("preview");
+    // reset input so same file can be re-selected
+    e.target.value = "";
   }
 
   function fmt(s: number) {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
 
-  // ── File picker mode ──────────────────────────────────────────────────────
-  if (mode === "filepicker") {
-    return (
-      <div className="flex w-full items-center gap-2">
-        {/* Cancel */}
-        <button type="button" onClick={handleCancel}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-red-50 hover:text-red-500"
-          title="Cancel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
-        </button>
-
-        {phase === "preview" && previewUrl ? (
-          /* Preview pill for uploaded file */
-          <div className="flex flex-1 min-w-0 items-center gap-2.5 rounded-[24px] bg-white shadow-sm px-3 py-1.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#00a884]/15">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-[#00a884]">
-                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              </svg>
-            </div>
-            <audio src={previewUrl} controls className="flex-1 min-w-0" style={{ height: "28px", accentColor: "#00a884" }} />
-            {fileName && <span className="shrink-0 max-w-[80px] truncate text-[10px] text-[#94a3b8]">{fileName}</span>}
-          </div>
-        ) : (
-          /* Upload pill */
-          <button type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-1 min-w-0 items-center gap-3 rounded-[24px] bg-white shadow-sm px-4 h-10 text-left transition hover:bg-gray-50">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#00a884]/10">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-[#00a884]">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <span className="flex-1 text-[12.5px] text-[#54656f]">Tap to upload audio file</span>
-            <span className="shrink-0 text-[10px] text-[#94a3b8]">mp3 · m4a · ogg · wav</span>
-          </button>
-        )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-
-        {/* Send button — only after file chosen */}
-        {phase === "preview" && (
-          <button type="button"
-            onClick={handleSend}
-            disabled={sending || !blob}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white shadow-sm transition hover:bg-[#00916e] disabled:opacity-40"
-            title="Send voice message">
-            {sending ? (
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <line x1="22" y1="2" x2="11" y2="13"/>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            )}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // ── Recorder mode ─────────────────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex w-full items-center gap-2">
 
@@ -317,6 +238,7 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
 
       {/* Main pill */}
       {phase === "preview" ? (
+        /* Preview */
         <div className="flex flex-1 min-w-0 items-center gap-2.5 rounded-[24px] bg-white shadow-sm px-3 py-1.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#00a884]/15">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-[#00a884]">
@@ -327,9 +249,30 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
           {previewUrl && (
             <audio src={previewUrl} controls className="flex-1 min-w-0" style={{ height: "28px", accentColor: "#00a884" }} />
           )}
-          <span className="shrink-0 font-mono text-[11px] text-[#54656f] tabular-nums">{fmt(seconds)}</span>
+          {!micFailed && (
+            <span className="shrink-0 font-mono text-[11px] text-[#54656f] tabular-nums">{fmt(seconds)}</span>
+          )}
         </div>
+      ) : micFailed ? (
+        /* Mic unavailable — show inline upload fallback */
+        <button type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex flex-1 min-w-0 items-center gap-3 rounded-[24px] bg-white shadow-sm px-4 h-10 text-left transition hover:bg-gray-50">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-amber-500">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+          </div>
+          <span className="flex-1 text-[12.5px] text-[#54656f]">Mic unavailable — tap to upload audio</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#94a3b8]">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </button>
       ) : (
+        /* Live recording / paused */
         <div className="flex flex-1 min-w-0 items-center gap-3 rounded-[24px] bg-white shadow-sm px-4 h-10">
           {phase === "recording" ? (
             <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500 animate-pulse" />
@@ -349,8 +292,16 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
         </div>
       )}
 
-      {/* Pause / Resume */}
-      {phase !== "preview" && (
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      {/* Pause / Resume — only during live recording phases */}
+      {phase !== "preview" && !micFailed && (
         <button type="button"
           onClick={phase === "recording" ? handlePause : handleResume}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
@@ -368,28 +319,30 @@ export default function VoiceRecorder({ sending, onSend, onCancel }: Props) {
         </button>
       )}
 
-      {/* Stop → Send */}
-      <button type="button"
-        onClick={phase === "preview" ? handleSend : handleStop}
-        disabled={sending}
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white shadow-sm transition hover:bg-[#00916e] disabled:opacity-40"
-        title={phase === "preview" ? "Send voice message" : "Stop recording"}>
-        {sending ? (
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-          </svg>
-        ) : phase === "preview" ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        ) : (
-          <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
-            <rect x="4" y="4" width="16" height="16" rx="2"/>
-          </svg>
-        )}
-      </button>
+      {/* Stop → Send (hidden when mic failed and no file chosen yet) */}
+      {(phase === "preview" || !micFailed) && (
+        <button type="button"
+          onClick={phase === "preview" ? handleSend : handleStop}
+          disabled={sending || (phase === "preview" && !blob)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white shadow-sm transition hover:bg-[#00916e] disabled:opacity-40"
+          title={phase === "preview" ? "Send voice message" : "Stop recording"}>
+          {sending ? (
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+            </svg>
+          ) : phase === "preview" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+              <rect x="4" y="4" width="16" height="16" rx="2"/>
+            </svg>
+          )}
+        </button>
+      )}
     </div>
   );
 }
