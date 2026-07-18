@@ -33,6 +33,9 @@ export async function POST() {
     }
 
     const igUserId = meData.id ?? "";
+    if (!igUserId) {
+      return NextResponse.json({ ok: false, error: "Could not resolve Instagram user ID from token" }, { status: 400 });
+    }
 
     // Fetch conversations using the Instagram user ID directly
     const convRes = await fetch(

@@ -1147,8 +1147,8 @@ export default function InboxClient({
                 </div>
               )}
 
-              {/* 24h window closed banner */}
-              {windowClosed && (
+              {/* 24h window closed banner — WhatsApp only */}
+              {windowClosed && selected?.channel !== "instagram" && (
                 <div className="mt-3 rounded-xl bg-red-50 border border-red-100 px-3.5 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1530,15 +1530,17 @@ export default function InboxClient({
                             onChange={(e) => { if (e.target.files?.length) stageMedia(e.target.files); e.target.value = ""; }}
                           />
 
-                          {/* Attach */}
-                          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
-                            title="Attach images or files">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                          </button>
+                          {/* Attach — WhatsApp only */}
+                          {selected?.channel !== "instagram" && (
+                            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
+                              title="Attach images or files">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                            </button>
+                          )}
 
-                          {/* Product card */}
-                          {wcConfigured && (
+                          {/* Product card — WhatsApp only */}
+                          {wcConfigured && selected?.channel !== "instagram" && (
                             <button type="button" onClick={() => setShowProductPicker(true)}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
                               title="Send product card">
@@ -1580,8 +1582,8 @@ export default function InboxClient({
                             />
                           </div>
 
-                          {/* Mic (idle) → send (typing) */}
-                          {!replyText.trim() && pendingMedia.length === 0 ? (
+                          {/* Mic (idle, WhatsApp only) → send (typing) */}
+                          {!replyText.trim() && pendingMedia.length === 0 && selected?.channel !== "instagram" ? (
                             <button type="button" onClick={() => setShowVoice(true)}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition hover:bg-[#00916e]"
                               title="Record voice message">

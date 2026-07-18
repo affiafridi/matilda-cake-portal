@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
               body:           null,
               mediaUrl:       att.payload?.url ?? null,
               mediaType:      att.type ?? "image",
-              createdAt:      new Date(now.getTime() + i),
+              createdAt:      new Date(now.getTime() + i + 1),
             },
           });
         }
@@ -227,17 +227,6 @@ async function resolveIgName(psid: string): Promise<string> {
   } catch {
     return `IG User ${psid.slice(-6)}`;
   }
-}
-
-// ── Media helpers ──────────────────────────────────────────────────────────
-function extractMediaUrl(msg: IgMessage): string | null {
-  return msg.attachments?.[0]?.payload?.url ?? null;
-}
-
-function extractMediaType(msg: IgMessage): string | null {
-  const type = msg.attachments?.[0]?.type;
-  if (!type) return null;
-  return type; // keep as "image", "audio", "video" — matches renderer expectations
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
