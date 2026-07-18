@@ -562,7 +562,7 @@ export default function InboxClient({
     e?.preventDefault();
     if (!selectedId || !replyText.trim() || sending) return;
     setSending(true); setSendError(null);
-    const isIg   = selected?.channel === "instagram";
+    const isIg   = isIgSelected;
     const replyUrl = isIg
       ? `/api/instagram/conversations/${selectedId}/reply`
       : `/api/inbox/conversations/${selectedId}/reply`;
@@ -711,6 +711,8 @@ export default function InboxClient({
   // ── Derived ───────────────────────────────────────────────────────────────
   const selected      = convDetail ?? conversations.find((c) => c.id === selectedId) ?? null;
   const windowClosed  = is24hWindowClosed(selected?.lastInboundAt ?? null);
+  // Detect Instagram by channel field OR waId prefix (for legacy rows created before channel was set)
+  const isIgSelected  = selected?.channel === "instagram" || (selected?.waId?.startsWith("ig_") ?? false);
 
   // All image URLs in current conversation (for lightbox navigation)
   const convImages = messages
@@ -1148,7 +1150,7 @@ export default function InboxClient({
               )}
 
               {/* 24h window closed banner — WhatsApp only */}
-              {windowClosed && selected?.channel !== "instagram" && (
+              {windowClosed && !isIgSelected && (
                 <div className="mt-3 rounded-xl bg-red-50 border border-red-100 px-3.5 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
@@ -1181,7 +1183,7 @@ export default function InboxClient({
             <div className="relative flex-1 flex flex-col min-h-0">
               {/* Merged message + event feed */}
               <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
-                style={selected?.channel === "instagram"
+                style={isIgSelected
                   ? { background: "#fafafa" }
                   : { background: "#efeae2", backgroundImage: `url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")` }}>
                 {loadingMsgs && messages.length === 0 && (
@@ -1259,7 +1261,7 @@ export default function InboxClient({
 
                     const msgIndex = messages.indexOf(m);
                     const isOut = m.direction === "OUTBOUND";
-                    const isIgConv = selected?.channel === "instagram";
+                    const isIgConv = isIgSelected;
                     const showAvatar = !isOut && (msgIndex === messages.length - 1 || messages[msgIndex + 1]?.direction !== "INBOUND");
                     return (
                       <Fragment key={`msg-${m.id}`}>
@@ -1531,7 +1533,7 @@ export default function InboxClient({
                           />
 
                           {/* Attach — WhatsApp only */}
-                          {selected?.channel !== "instagram" && (
+                          {!isIgSelected && (
                             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
                               title="Attach images or files">
@@ -1540,7 +1542,7 @@ export default function InboxClient({
                           )}
 
                           {/* Product card — WhatsApp only */}
-                          {wcConfigured && selected?.channel !== "instagram" && (
+                          {wcConfigured && !isIgSelected && (
                             <button type="button" onClick={() => setShowProductPicker(true)}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
                               title="Send product card">
@@ -1583,7 +1585,7 @@ export default function InboxClient({
                           </div>
 
                           {/* Mic (idle, WhatsApp only) → send (typing) */}
-                          {!replyText.trim() && pendingMedia.length === 0 && selected?.channel !== "instagram" ? (
+                          {!replyText.trim() && pendingMedia.length === 0 && !isIgSelected ? (
                             <button type="button" onClick={() => setShowVoice(true)}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white transition hover:bg-[#00916e]"
                               title="Record voice message">

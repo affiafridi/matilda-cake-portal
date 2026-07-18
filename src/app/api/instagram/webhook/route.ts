@@ -72,6 +72,8 @@ export async function POST(req: NextRequest) {
               lastInboundAt:   now,
               unreadCount:     { increment: 1 },
               status:          "OPEN",
+              // Backfill channel for conversations created before the field existed
+              ...(conversation.channel !== "instagram" ? { channel: "instagram" } : {}),
             },
           });
         }
