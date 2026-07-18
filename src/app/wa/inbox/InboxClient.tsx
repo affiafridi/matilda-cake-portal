@@ -376,7 +376,7 @@ export default function InboxClient({
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => r.json())
-      .then((j) => { if (j.instagram_bot_enabled !== undefined) setIgBotEnabled(j.instagram_bot_enabled !== false && j.instagram_bot_enabled !== "false"); })
+      .then((j) => { if (j.instagram_bot_enabled !== undefined) setIgBotEnabled(j.instagram_bot_enabled === true); })
       .catch(() => {});
   }, []);
 
@@ -551,11 +551,21 @@ export default function InboxClient({
   async function toggleIgBot() {
     const next = !igBotEnabled;
     setIgBotEnabled(next);
-    await fetch("/api/admin/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "instagram_bot_enabled", value: String(next) }),
-    }).catch(() => setIgBotEnabled(!next)); // revert on error
+    try {
+      const res  = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "instagram_bot_enabled", value: String(next) }),
+      });
+      const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
+      if (!res.ok || !json?.ok) {
+        setIgBotEnabled(!next); // revert
+        addToast(json?.error ?? "Failed to save bot setting");
+      }
+    } catch {
+      setIgBotEnabled(!next);
+      addToast("Failed to save bot setting");
+    }
   }
 
   async function sendReply(e?: FormEvent) {
