@@ -58,6 +58,8 @@ const INTEGRATION_KEYS = [
   "ccavenue_website_url",
   "flows_private_key",
   "wa_flow_id",
+  "instagram_page_access_token",
+  "instagram_verify_token",
 ];
 
 export async function POST(req: NextRequest) {
