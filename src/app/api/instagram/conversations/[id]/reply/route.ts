@@ -37,13 +37,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const igHeaders = { "Content-Type": "application/json", "Authorization": `Bearer ${instagram_page_access_token}` };
 
-    // Get the sender ID from /me — works for both IG User tokens and Page tokens
-    const meRes  = await fetch("https://graph.facebook.com/v20.0/me?fields=id", { headers: igHeaders });
-    const meData = await meRes.json().catch(() => ({})) as { id?: string; error?: { message: string } };
-    if (!meRes.ok || !meData.id) {
-      return jsonError(meData.error?.message ?? "Invalid Instagram token", 502);
+    // Use the stored IG Business Account ID (captured from webhook entry.id on first inbound message)
+    const settingRows = await prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'ig_business_id' LIMIT 1`.catch(() => []);
+    let igSenderId = settingRows[0]?.value;
+    if (!igSenderId) {
+      // Fallback: derive from /me (works for IG User tokens but may return FB User ID)
+      const meRes  = await fetch("https://graph.facebook.com/v20.0/me?fields=id", { headers: igHeaders });
+      const meData = await meRes.json().catch(() => ({})) as { id?: string; error?: { message: string } };
+      if (!meRes.ok || !meData.id) {
+        return jsonError(meData.error?.message ?? "Invalid Instagram token — and ig_business_id not yet stored. Send a test DM to the Instagram account first to initialise it.", 502);
+      }
+      igSenderId = meData.id;
     }
-    const igSenderId = meData.id;
 
     // waId is stored as "ig_<psid>" — extract the raw PSID for the recipient
     const recipientId = conversation.waId.replace(/^ig_/, "");

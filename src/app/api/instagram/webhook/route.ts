@@ -31,6 +31,13 @@ export async function POST(req: NextRequest) {
     // Instagram sends entry[] with messaging[] arrays
     const entries = body.entry ?? [];
 
+    // entry.id is the IG Business Account ID — store it so we can use it for sends
+    const igBusinessId = entries[0]?.id;
+    if (igBusinessId) {
+      prisma.$executeRaw`INSERT INTO portal_settings (key, value) VALUES ('ig_business_id', ${igBusinessId}) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`
+        .catch(() => {});
+    }
+
     for (const entry of entries) {
       for (const event of entry.messaging ?? []) {
         const senderId = event.sender?.id;
@@ -207,9 +214,17 @@ async function triggerAiReply(
 // ── Send Instagram message ─────────────────────────────────────────────────
 async function sendIgMessage(recipientId: string, text: string, accessToken: string) {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
-  const meRes  = await fetch(`${IG_API}/me?fields=id`, { headers });
-  const meData = await meRes.json().catch(() => ({})) as { id?: string };
-  const igId   = meData.id ?? "me";
+
+  // Use the stored IG Business Account ID (captured from webhook entry.id on first inbound message)
+  // Fallback to /me if not stored yet
+  const rows = await prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'ig_business_id' LIMIT 1`.catch(() => []);
+  let igId = rows[0]?.value;
+  if (!igId) {
+    const meRes  = await fetch(`${IG_API}/me?fields=id`, { headers });
+    const meData = await meRes.json().catch(() => ({})) as { id?: string };
+    igId = meData.id ?? "me";
+  }
+
   return fetch(`${IG_API}/${igId}/messages`, {
     method:  "POST",
     headers,
