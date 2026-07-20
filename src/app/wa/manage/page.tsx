@@ -70,9 +70,17 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
 }) {
   const [time, setTime] = useState("12:00 AM");
   const [imgFailed, setImgFailed] = useState(false);
-  // Reset error state when the URL changes so a new upload retries correctly
-  useEffect(() => { setImgFailed(false); }, [headerMediaUrl]);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => { setImgFailed(false); setVideoPlaying(false); }, [headerMediaUrl]);
   useEffect(() => { setTime(new Date().toLocaleTimeString("en-AE", { hour: "2-digit", minute: "2-digit" })); }, []);
+
+  function toggleVideo() {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play().then(() => setVideoPlaying(true)).catch(() => {}); }
+    else { v.pause(); setVideoPlaying(false); }
+  }
   const profile = useWaProfile();
   const imgPlaceholder = (
     <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-100">
@@ -94,13 +102,16 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
         {headerType === "VIDEO" && (
           headerMediaUrl
             ? (
-              <div className="relative bg-gray-900">
-                <video src={headerMediaUrl} className="w-full max-h-36 object-cover" preload="metadata" muted playsInline />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
-                    <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5 translate-x-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <div className="relative bg-gray-900 cursor-pointer" onClick={toggleVideo}>
+                <video ref={videoRef} src={headerMediaUrl} className="w-full max-h-36 object-cover" preload="metadata" muted playsInline
+                  onEnded={() => setVideoPlaying(false)} />
+                {!videoPlaying && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/50">
+                      <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5 translate-x-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )
             : <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-900">
