@@ -17,6 +17,7 @@ export default async function InboxPage() {
         id: true, waId: true, customerName: true, channel: true, status: true,
         botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
         unreadCount: true, lastMessageAt: true, lastMessageBody: true,
+        broadcastOptOut: true, broadcastOptOutAt: true,
         assignedTo: { select: { id: true, name: true } },
       },
     }),
@@ -42,8 +43,9 @@ export default async function InboxPage() {
 
   const serialized = conversations.map((c) => ({
     ...c,
-    lastMessageAt:  c.lastMessageAt.toISOString(),
-    lastInboundAt:  c.lastInboundAt?.toISOString() ?? null,
+    lastMessageAt:    c.lastMessageAt.toISOString(),
+    lastInboundAt:    c.lastInboundAt?.toISOString() ?? null,
+    broadcastOptOutAt: c.broadcastOptOutAt?.toISOString() ?? null,
   }));
 
   return (
