@@ -223,11 +223,13 @@ export default function IntegrationsPage() {
   const [savedValues,    setSavedValues]    = useState<Record<string, string>>({});
   const [gsConnected,    setGsConnected]    = useState(false);
   const [loaded,         setLoaded]         = useState(false);
+  const [isSuperAdmin,   setIsSuperAdmin]   = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/admin/integrations").then((r) => r.json()).then((j) => { if (j.ok) setSavedValues(j.data); }).catch(() => {}),
       fetch("/api/admin/integrations/google/sheets").then((r) => r.json()).then((j) => { if (j.ok) setGsConnected(j.data.connected); }).catch(() => {}),
+      fetch("/api/auth/session").then((r) => r.json()).then((j) => { if (j?.user?.role === "SUPER_ADMIN") setIsSuperAdmin(true); }).catch(() => {}),
     ]).finally(() => setLoaded(true));
   }, []);
 
@@ -240,6 +242,7 @@ export default function IntegrationsPage() {
   }
 
   const integrations = INTEGRATIONS
+    .filter((i) => i.slug !== "instagram" || isSuperAdmin)
     .map((i) => ({ ...i, status: resolveStatus(i.slug, i.status) }))
     .sort((a, b) => {
       const order = { configured: 0, configure: 1, coming_soon: 2 };
