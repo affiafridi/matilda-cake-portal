@@ -305,6 +305,9 @@ function MediaInput({ label, accept, value, onChange, hint }: {
 
   async function handleFile(file: File) {
     setUploading(true); setError(null);
+    // Create a local blob URL immediately — works for all handle formats
+    // (Meta doesn't support GET on 4: handles, so the proxy always fails)
+    const blobUrl = URL.createObjectURL(file);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -313,14 +316,12 @@ function MediaInput({ label, accept, value, onChange, hint }: {
       if (!json.ok) throw new Error(json.error ?? "Upload failed");
       onChange({
         handle: json.data.handle as string,
-        // Use the signed CDN URL returned by the upload endpoint if available;
-        // fall back to the proxy only for handles that don't have a fresh CDN URL
-        previewUrl: (json.data.previewUrl as string | null | undefined)
-          ?? `/api/bot/media/preview?handle=${encodeURIComponent(json.data.handle as string)}`,
+        previewUrl: blobUrl,
         mimeType: file.type,
         url: undefined,
       });
     } catch (e: unknown) {
+      URL.revokeObjectURL(blobUrl);
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally { setUploading(false); }
   }
