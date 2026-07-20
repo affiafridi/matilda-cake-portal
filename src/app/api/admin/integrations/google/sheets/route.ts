@@ -27,6 +27,7 @@ export async function GET(_req: NextRequest) {
       oauthConfigured,
       sheetId:        connection.sheetId,
       sheetName:      connection.sheetName,
+      accountEmail:   connection.accountEmail,
     });
   } catch (err) {
     return handleApiError(err);

@@ -278,6 +278,7 @@ function GoogleSheetsConfig() {
   const [oauthReady,    setOauthReady]    = useState(false);
   const [sheetId,       setSheetId]       = useState<string | null>(null);
   const [sheetName,     setSheetName]     = useState<string | null>(null);
+  const [accountEmail,  setAccountEmail]  = useState<string | null>(null);
   const [sheetInput,    setSheetInput]    = useState("");
   const [saving,        setSaving]        = useState(false);
   const [exporting,     setExporting]     = useState(false);
@@ -293,6 +294,7 @@ function GoogleSheetsConfig() {
         setOauthReady(r.data.oauthConfigured ?? false);
         setSheetId(r.data.sheetId);
         setSheetName(r.data.sheetName);
+        setAccountEmail(r.data.accountEmail ?? null);
       }
     } catch { /**/ }
     setLoading(false);
@@ -339,7 +341,7 @@ function GoogleSheetsConfig() {
     if (!confirm("Disconnect Google Sheets? Auto-sync will stop.")) return;
     setDisconnecting(true);
     await fetch("/api/admin/integrations/google/disconnect", { method: "POST" });
-    setConnected(false); setSheetId(null); setSheetName(null);
+    setConnected(false); setSheetId(null); setSheetName(null); setAccountEmail(null);
     setMsg({ ok: true, text: "Google account disconnected" });
     setDisconnecting(false);
   }
@@ -352,7 +354,11 @@ function GoogleSheetsConfig() {
           <div>
             <p className="text-[13px] font-semibold text-[#0f172a]">Google Account</p>
             <p className="text-[11px] text-[#64748b] mt-0.5">
-              {connected ? "Your Google account is connected and syncing." : oauthReady ? "OAuth credentials saved — ready to connect." : "Configure Google OAuth integration first, then connect."}
+              {connected
+                ? accountEmail
+                  ? <>Connected as <span className="font-medium text-[#0f172a]">{accountEmail}</span> — share your sheet with this email as Editor.</>
+                  : "Your Google account is connected and syncing."
+                : oauthReady ? "OAuth credentials saved — ready to connect." : "Configure Google OAuth integration first, then connect."}
             </p>
           </div>
           {loading ? <Spinner /> : connected ? (

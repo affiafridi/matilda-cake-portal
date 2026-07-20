@@ -35,6 +35,23 @@ export async function GET(req: NextRequest) {
       expiry_date:   tokens.expiry_date ?? Date.now() + 3600000,
     });
 
+    // Fetch and store the connected account email so the UI can show it
+    try {
+      const oauth = await getOAuthClient();
+      oauth.setCredentials({ access_token: tokens.access_token });
+      const people = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?fields=email", {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      const info = await people.json() as { email?: string };
+      if (info.email) {
+        const { prisma } = await import("@/lib/prisma");
+        await prisma.$executeRaw`
+          INSERT INTO portal_settings (key, value) VALUES ('google_account_email', ${info.email})
+          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        `;
+      }
+    } catch { /* non-fatal — just won't show the email */ }
+
     return NextResponse.redirect(`${redirectBase}/admin/integrations?google=connected`);
   } catch (err) {
     console.error("[google/callback]", err);

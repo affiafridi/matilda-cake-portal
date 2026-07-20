@@ -88,6 +88,7 @@ export async function clearGoogleTokens() {
     deleteSetting("google_token_expiry"),
     deleteSetting("google_sheet_id"),
     deleteSetting("google_sheet_name"),
+    deleteSetting("google_account_email"),
   ]);
 }
 
@@ -102,13 +103,15 @@ export async function getGoogleConnection(): Promise<{
   connected: boolean;
   sheetId: string | null;
   sheetName: string | null;
+  accountEmail: string | null;
 }> {
-  const [accessToken, sheetId, sheetName] = await Promise.all([
+  const [accessToken, sheetId, sheetName, accountEmail] = await Promise.all([
     getSetting("google_access_token"),
     getSetting("google_sheet_id"),
     getSetting("google_sheet_name"),
+    getSetting("google_account_email"),
   ]);
-  return { connected: !!accessToken, sheetId, sheetName };
+  return { connected: !!accessToken, sheetId, sheetName, accountEmail };
 }
 
 // ── Authenticated Sheets client ────────────────────────────────────────────
