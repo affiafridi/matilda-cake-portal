@@ -376,7 +376,7 @@ export default function InboxClient({
   useEffect(() => {
     fetch("/api/admin/settings")
       .then((r) => r.json())
-      .then((j) => { if (j.instagram_bot_enabled !== undefined) setIgBotEnabled(j.instagram_bot_enabled === true); })
+      .then((j) => { if (j.data?.instagram_bot_enabled !== undefined) setIgBotEnabled(j.data.instagram_bot_enabled === true); })
       .catch(() => {});
   }, []);
 
