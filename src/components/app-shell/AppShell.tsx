@@ -26,7 +26,9 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",     parentHref: "/dashboard" },
   "/wa/woocommerce":      { title: "WooCommerce",        parent: "Integrations", parentHref: "/admin/integrations" },
   "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",     parentHref: "/wa/inbox" },
-  "/wa/leads":            { title: "WA Leads",           parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/leads":              { title: "WA Leads",           parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/admin/reports/agents":  { title: "Agent Report",       parent: "Admin",        parentHref: "/admin/settings" },
+  "/operator":              { title: "Order Queue",         parent: "Portal",       parentHref: "/dashboard" },
 };
 
 function getPageMeta(pathname: string) {
@@ -51,13 +53,15 @@ const MAIN_NAV: NavItem[] = [
 const PORTAL_NAV: NavItem[] = [
   { href: "/new-order",      label: "New Order", roles: ["SUPER_ADMIN","ADMIN","AGENT"],            icon: IcPlus },
   { href: "/orders",         label: "Orders",    roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcOrders },
+  { href: "/operator",       label: "Order Queue", roles: ["SUPER_ADMIN","ADMIN","OPERATOR"],         icon: IcQueue },
   { href: "/admin/branches", label: "Branches",  roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcBranch },
   { href: "/admin/users",    label: "Users",     roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcUsers },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
-  { href: "/admin/settings",     label: "Configuration", roles: ["SUPER_ADMIN"], icon: IcPortalSettings },
-  { href: "/admin/integrations", label: "Integrations",  roles: ["SUPER_ADMIN"], icon: IcIntegrations },
+  { href: "/admin/settings",        label: "Configuration", roles: ["SUPER_ADMIN"],           icon: IcPortalSettings },
+  { href: "/admin/integrations",    label: "Integrations",  roles: ["SUPER_ADMIN"],           icon: IcIntegrations },
+  { href: "/admin/reports/agents",  label: "Agent Report",  roles: ["SUPER_ADMIN", "ADMIN"],  icon: IcReport },
 ];
 
 const WA_NAV: NavItem[] = [
@@ -519,4 +523,10 @@ function IcIntegrations(p: SVGProps<SVGSVGElement>) {
 }
 function IcLogout(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+}
+function IcReport(p: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>;
+}
+function IcQueue(p: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/><circle cx="17" cy="17" r="3"/><path d="M17 15.5v1.5l1 1"/></svg>;
 }
