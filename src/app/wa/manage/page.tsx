@@ -94,7 +94,7 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
         {/* Header area */}
         {headerType === "IMAGE" && (
           headerMediaUrl && !imgFailed
-            ? <img src={headerMediaUrl} alt="header" className="w-full object-cover max-h-36" // eslint-disable-line @next/next/no-img-element
+            ? <img src={headerMediaUrl} alt="header" className="w-full" // eslint-disable-line @next/next/no-img-element
                 onError={() => setImgFailed(true)}
               />
             : imgPlaceholder
@@ -103,7 +103,7 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
           headerMediaUrl
             ? (
               <div className="relative bg-gray-900 cursor-pointer" onClick={toggleVideo}>
-                <video ref={videoRef} src={headerMediaUrl} className="w-full max-h-36 object-cover" preload="metadata" muted playsInline
+                <video ref={videoRef} src={headerMediaUrl} className="w-full" preload="metadata" muted playsInline
                   onEnded={() => setVideoPlaying(false)} />
                 {!videoPlaying && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -356,7 +356,7 @@ function MediaInput({ label, accept, value, onChange, hint }: {
           ) : isVideo && previewSrc ? (
             /* Video — render player */
             <div className="relative bg-black">
-              <video src={previewSrc} className="w-full max-h-48 object-contain" controls muted playsInline />
+              <video src={previewSrc} className="w-full" style={{ maxHeight: "70vh" }} controls muted playsInline />
               <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
                 {value.handle && (
                   <span className="flex items-center gap-1.5 rounded-full bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white shadow">
@@ -391,7 +391,7 @@ function MediaInput({ label, accept, value, onChange, hint }: {
             /* Image with preview URL */
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={previewSrc} alt="header preview" className="w-full max-h-48 object-cover" />
+              <img src={previewSrc} alt="header preview" className="w-full" style={{ maxHeight: "70vh", objectFit: "contain", background: "#f3f4f6" }} />
               <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/40 to-transparent p-3">
                 <div className="flex items-center gap-2">
                   {value.handle && (
