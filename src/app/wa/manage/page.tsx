@@ -388,7 +388,7 @@ function MediaInput({ label, accept, value, onChange, hint }: {
               </button>
             </div>
           ) : previewSrc ? (
-            /* Image */
+            /* Image with preview URL */
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={previewSrc} alt="header preview" className="w-full max-h-48 object-cover" />
@@ -406,6 +406,23 @@ function MediaInput({ label, accept, value, onChange, hint }: {
                   </button>
                 </div>
               </div>
+            </div>
+          ) : value.handle ? (
+            /* Image handle with no preview — existing template, Meta doesn't expose CDN URL */
+            <div className="flex items-center justify-between gap-3 bg-gray-50 px-4 py-3.5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-ink">Image uploaded</p>
+                  <p className="text-xs text-ink-muted">Stored on Meta — ready to use</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => { onChange({}); if (fileRef.current) fileRef.current.value = ""; }}
+                className="shrink-0 rounded-lg border border-rule bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:bg-red-50 hover:text-red-500 transition">
+                Remove
+              </button>
             </div>
           ) : null}
         </div>
@@ -642,8 +659,13 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
       if (!h || h.format === "TEXT" || h.format === "LOCATION" || h.format === "NONE") return {};
       const url = h.example?.header_url?.[0];
       const handle = h.example?.header_handle?.[0];
-      if (url) return { url };
-      if (handle) return { previewUrl: `/api/bot/media/preview?handle=${encodeURIComponent(handle)}`, handle: handle.startsWith("h:") || /^\d:/.test(handle) ? handle : undefined };
+      const mimeFromFormat: Record<string, string> = { IMAGE: "image/jpeg", VIDEO: "video/mp4", DOCUMENT: "application/pdf" };
+      if (url) return { url, mimeType: mimeFromFormat[h.format ?? ""] };
+      if (handle) return {
+        handle: handle.startsWith("h:") || /^\d:/.test(handle) ? handle : undefined,
+        mimeType: mimeFromFormat[h.format ?? ""],
+        // Don't set previewUrl — Meta 4: handles don't support GET requests
+      };
       return {};
     })();
     const initialType = (() => {
