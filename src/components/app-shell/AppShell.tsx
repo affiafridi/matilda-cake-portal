@@ -436,22 +436,9 @@ export default function AppShell({
             </div>
           </div>
 
-          {/* Right: search + bell */}
+          {/* Right: search */}
           <div className="flex items-center gap-2">
             <SearchBar role={user.role} />
-
-            <button
-              type="button"
-              className="relative flex h-8 w-8 items-center justify-center rounded-lg text-[#9ca3af] transition hover:bg-[#f6f8fa] hover:text-[#6b7280]"
-              title={inboxUnread > 0 ? `${inboxUnread} unread` : "Notifications"}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-[17px] w-[17px]" aria-hidden="true">
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-              {inboxUnread > 0 && (
-                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-              )}
-            </button>
           </div>
         </header>
 
