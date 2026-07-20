@@ -16,15 +16,18 @@ export async function POST(_req: NextRequest) {
     if (!conn.connected) return jsonError("Google account not connected. Please connect your Google account in Integrations → Google Sheets.", 400);
     if (!conn.sheetId)   return jsonError("No Google Sheet selected. Paste your sheet URL in Integrations → Google Sheets and click Connect.", 400);
 
-    // Fetch all conversations (each unique waId = one contact)
+    // Fetch WhatsApp-only conversations — exclude Instagram (ig_ prefix / channel=instagram)
     const conversations = await prisma.conversation.findMany({
+      where: {
+        channel: { not: "instagram" },
+        NOT: { waId: { startsWith: "ig_" } },
+      },
       orderBy: { createdAt: "asc" },
       select: {
         waId: true,
         customerName: true,
         createdAt: true,
         status: true,
-        customer: { select: { phone: true, email: true } },
       },
     });
 

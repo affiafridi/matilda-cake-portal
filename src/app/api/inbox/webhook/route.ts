@@ -199,8 +199,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Auto-sync new contacts to Google Sheets (fire-and-forget, never blocks the webhook)
-    if ((await isSheetsConfigured()) && conversation.unreadCount === 1) {
+    // Auto-sync new WhatsApp contacts to Google Sheets (Instagram contacts are excluded)
+    if (!waId.startsWith("ig_") && (await isSheetsConfigured()) && conversation.unreadCount === 1) {
       appendCustomerRow({ phone: waId, name: name || waId, firstSeen: msgTime }).catch(() => {});
     }
 
