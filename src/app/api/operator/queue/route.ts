@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/server";
 import { jsonOk, handleApiError } from "@/lib/api/http";
+import { type OrderStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const EXCLUDED: OrderStatus[] = ["DELIVERED", "CANCELLED"];
 
 /** GET /api/operator/queue — orders assigned to current operator (non-DELIVERED, non-CANCELLED) */
 export async function GET() {
@@ -13,8 +16,8 @@ export async function GET() {
     // SUPER_ADMIN/ADMIN see all; OPERATOR sees only their own
     const where =
       user.role === "OPERATOR"
-        ? { assignedOperatorId: user.id, orderStatus: { notIn: ["DELIVERED", "CANCELLED"] as const } }
-        : { orderStatus: { notIn: ["DELIVERED", "CANCELLED"] as const } };
+        ? { assignedOperatorId: user.id, orderStatus: { notIn: EXCLUDED } }
+        : { orderStatus: { notIn: EXCLUDED } };
 
     const orders = await prisma.order.findMany({
       where,
