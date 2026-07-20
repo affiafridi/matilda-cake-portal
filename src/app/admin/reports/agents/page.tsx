@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -284,7 +284,7 @@ export default function AgentReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas px-6 py-5 lg:px-8">
+    <div className="min-h-screen bg-white px-6 py-5 lg:px-8">
 
       {/* Filter bar — same pattern as dashboard */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -342,31 +342,11 @@ export default function AgentReportPage() {
 
       {/* Summary cards */}
       {data && (
-        <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <SummaryCard
-            label="Total Handled"
-            value={String(totalHandled)}
-            sub={`${data.agents.length} agent${data.agents.length !== 1 ? "s" : ""}`}
-            iconBg="bg-blue-50" iconColor="text-blue-600"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>}
-          />
-          <SummaryCard
-            label="Resolved"
-            value={String(totalResolved)}
-            sub={`${overallRes}% resolution rate`}
-            iconBg="bg-emerald-50" iconColor="text-emerald-600"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>}
-          />
-          <SummaryCard
-            label="Unassigned"
-            value={String(data.unassigned)}
-            sub="Need attention"
-            iconBg={data.unassigned > 0 ? "bg-amber-50" : "bg-slate-100"}
-            iconColor={data.unassigned > 0 ? "text-amber-600" : "text-slate-400"}
-            valueColor={data.unassigned > 0 ? "text-amber-600" : undefined}
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
-          />
-          <SummaryCard
+        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Total Handled"    value={totalHandled}   sub={`${data.agents.length} agent${data.agents.length !== 1 ? "s" : ""}`} />
+          <StatCard label="Resolved"         value={totalResolved}  sub={`${overallRes}% resolution rate`} />
+          <StatCard label="Unassigned"       value={data.unassigned} sub="Need attention" danger={data.unassigned > 0} />
+          <StatCard
             label="Best Avg Response"
             value={(() => {
               const valid = data.agents.filter((a) => a.avgResponseMinutes != null);
@@ -375,8 +355,6 @@ export default function AgentReportPage() {
               return fmtMinutes(best.avgResponseMinutes);
             })()}
             sub="Fastest agent"
-            iconBg="bg-violet-50" iconColor="text-violet-600"
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           />
         </div>
       )}
@@ -448,23 +426,16 @@ export default function AgentReportPage() {
   );
 }
 
-function SummaryCard({ label, value, sub, icon, iconBg, iconColor, valueColor }: {
-  label: string; value: string; sub: string;
-  icon: React.ReactNode; iconBg: string; iconColor: string;
-  valueColor?: string;
+function StatCard({ label, value, sub, danger }: {
+  label: string; value: string | number; sub?: string; danger?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-[#f6f8fa] p-5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[12.5px] font-medium leading-snug text-[#6b7280]">{label}</p>
-        <div className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconBg].join(" ")}>
-          <span className={["[&>svg]:h-4 [&>svg]:w-4", iconColor].join(" ")}>{icon}</span>
-        </div>
-      </div>
-      <p className={["text-[26px] font-bold tabular-nums tracking-tight leading-none", valueColor ?? "text-[#111827]"].join(" ")}>
-        {value}
+    <div className="rounded-xl border border-[#e5e7eb] bg-white px-5 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">{label}</p>
+      <p className={["mt-2 text-2xl font-bold tabular-nums tracking-tight leading-tight", danger ? "text-amber-600" : "text-[#0f172a]"].join(" ")}>
+        {typeof value === "number" ? value.toLocaleString() : value}
       </p>
-      <p className="text-[11.5px] text-[#9ca3af]">{sub}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-[#64748b]">{sub}</p>}
     </div>
   );
 }
