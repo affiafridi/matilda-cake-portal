@@ -1418,6 +1418,27 @@ export default function InboxClient({
                                   </a>
                                 );
 
+                                // Story mention
+                                if (m.mediaType === "story_mention") return (
+                                  <div className="flex items-center gap-3 min-w-[200px]">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]">
+                                      <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                                      </svg>
+                                    </div>
+                                    <div>
+                                      <p className="text-[12px] font-semibold">Story Mention</p>
+                                      <p className="text-[11px] opacity-60">{m.body ?? "Mentioned you in their story"}</p>
+                                    </div>
+                                    {m.mediaUrl && (
+                                      <a href={m.mediaUrl} target="_blank" rel="noreferrer"
+                                        className="ml-auto shrink-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-semibold hover:bg-white/20 transition">
+                                        View
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+
                                 // Other media
                                 if (m.mediaUrl) return (
                                   <a href={m.mediaUrl} target="_blank" rel="noreferrer"

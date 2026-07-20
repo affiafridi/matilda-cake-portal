@@ -47,7 +47,7 @@ export async function POST() {
         continue;
       }
 
-      const newName = data.username || data.name || "";
+      const newName = data.username ? `@${data.username}` : (data.name || "");
       if (!newName || newName === conv.customerName) continue;
 
       await prisma.conversation.update({

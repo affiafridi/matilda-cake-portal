@@ -44,6 +44,12 @@ export async function POST(req: NextRequest) {
 
         if (!text && attachments.length === 0) continue;
 
+        // Classify: is this a story mention or a real DM?
+        const isStoryMention = attachments.length > 0 && attachments.every((a) => a.type === "story_mention");
+        const previewBody    = isStoryMention
+          ? "📖 Mentioned you in a story"
+          : text ?? "(media)";
+
         const waId = `ig_${senderId}`;
         const now  = new Date();
 
@@ -58,7 +64,7 @@ export async function POST(req: NextRequest) {
               channel:         "instagram",
               status:          "OPEN",
               lastMessageAt:   now,
-              lastMessageBody: text ?? "(media)",
+              lastMessageBody: previewBody,
               lastInboundAt:   now,
               unreadCount:     1,
             },
@@ -68,7 +74,7 @@ export async function POST(req: NextRequest) {
             where: { id: conversation.id },
             data: {
               lastMessageAt:   now,
-              lastMessageBody: text ?? "(media)",
+              lastMessageBody: previewBody,
               lastInboundAt:   now,
               unreadCount:     { increment: 1 },
               status:          "OPEN",
@@ -101,7 +107,7 @@ export async function POST(req: NextRequest) {
               conversationId: conversation.id,
               waMessageId:    msg.mid ? `${msg.mid}_att${i}` : null,
               direction:      "INBOUND",
-              body:           null,
+              body:           att.type === "story_mention" ? "Mentioned you in their story" : null,
               mediaUrl:       att.payload?.url ?? null,
               mediaType:      att.type ?? "image",
               createdAt:      new Date(now.getTime() + i + 1),
@@ -110,7 +116,8 @@ export async function POST(req: NextRequest) {
         }
 
         // Auto-reply via AI (non-blocking — don't let it delay the 200 response)
-        if (text && !conversation.botPaused) {
+        // Skip story mentions — they're not messages the user typed, no reply makes sense
+        if (text && !isStoryMention && !conversation.botPaused) {
           // Check global Instagram bot toggle
           prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'instagram_bot_enabled' LIMIT 1`
             .then((rows) => {
@@ -225,7 +232,9 @@ async function resolveIgName(psid: string): Promise<string> {
     );
     const data = await res.json() as { name?: string; username?: string };
     // Prefer username (e.g. "matildacakesdubai"), fall back to name, then generic
-    return data.username || data.name || `IG User ${psid.slice(-6)}`;
+    // Prefer @username, fall back to name, then a short IG ID tag
+    const name = data.username ? `@${data.username}` : data.name;
+    return name || `IG ${psid.slice(-6)}`;
   } catch {
     return `IG User ${psid.slice(-6)}`;
   }
