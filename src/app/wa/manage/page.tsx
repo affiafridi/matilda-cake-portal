@@ -69,21 +69,27 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
   locationName?: string; body: string; footer?: string; buttons?: { text: string }[];
 }) {
   const [time, setTime] = useState("12:00 AM");
+  const [imgFailed, setImgFailed] = useState(false);
+  // Reset error state when the URL changes so a new upload retries correctly
+  useEffect(() => { setImgFailed(false); }, [headerMediaUrl]);
   useEffect(() => { setTime(new Date().toLocaleTimeString("en-AE", { hour: "2-digit", minute: "2-digit" })); }, []);
   const profile = useWaProfile();
+  const imgPlaceholder = (
+    <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-100">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+      <p className="text-[10px] text-gray-400">Image preview</p>
+    </div>
+  );
   return (
     <div className="inline-block w-full">
       <div className="overflow-hidden rounded-xl rounded-tl-sm bg-white border border-rule">
         {/* Header area */}
         {headerType === "IMAGE" && (
-          headerMediaUrl
+          headerMediaUrl && !imgFailed
             ? <img src={headerMediaUrl} alt="header" className="w-full object-cover max-h-36" // eslint-disable-line @next/next/no-img-element
-                onError={(e) => { const t = e.currentTarget; t.style.display = "none"; const p = t.parentElement; if (p) { const d = document.createElement("div"); d.className = "flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-100"; d.innerHTML = '<p class="text-[10px] text-gray-400">Image preview</p>'; p.appendChild(d); } }}
+                onError={() => setImgFailed(true)}
               />
-            : <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-100">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
-                <p className="text-[10px] text-gray-400">Image preview</p>
-              </div>
+            : imgPlaceholder
         )}
         {headerType === "VIDEO" && (
           headerMediaUrl
@@ -1224,7 +1230,9 @@ function TemplateCard({ t, onDelete, deleting, onEdit, onDuplicate }: { t: Templ
       {/* Top: image banner or gradient header */}
       <div className="relative h-36 w-full overflow-hidden">
         {hasImage
-          ? <img src={headerImgUrl} alt="" className="h-full w-full object-cover" /> // eslint-disable-line @next/next/no-img-element
+          ? <img src={headerImgUrl} alt="" className="h-full w-full object-cover" // eslint-disable-line @next/next/no-img-element
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
           : <div className="flex h-full w-full items-center justify-center" style={{ background: `linear-gradient(135deg, ${accent}15 0%, ${accent}08 100%)` }}>
               <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-30"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </div>
