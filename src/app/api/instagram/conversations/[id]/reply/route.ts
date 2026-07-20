@@ -23,7 +23,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       select: { id: true, waId: true, channel: true },
     });
     if (!conversation) return jsonError("Conversation not found", 404);
-    if (conversation.channel !== "instagram") return jsonError("Not an Instagram conversation", 400);
+    // Accept both channel="instagram" and legacy rows (channel=null) with an ig_ waId
+    const isIg = conversation.channel === "instagram" || conversation.waId.startsWith("ig_");
+    if (!isIg) return jsonError("Not an Instagram conversation", 400);
+
+    // Backfill channel field if it was missing
+    if (conversation.channel !== "instagram") {
+      await prisma.conversation.update({ where: { id }, data: { channel: "instagram" } });
+    }
 
     const { instagram_page_access_token } = await getIntegrations();
     if (!instagram_page_access_token) return jsonError("Instagram token not configured", 500);
