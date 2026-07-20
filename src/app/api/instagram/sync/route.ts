@@ -11,7 +11,7 @@ const IG_API = "https://graph.facebook.com/v20.0";
 export async function POST() {
   try {
     const user = await getCurrentUser();
-    if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) {
+    if (!user || user.role !== "SUPER_ADMIN") {
       return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     }
 

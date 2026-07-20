@@ -300,6 +300,9 @@ export default function InboxClient({
   // Image lightbox
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
+  // Story mention lightbox
+  const [storyLightboxUrl, setStoryLightboxUrl] = useState<string | null>(null);
+
   // Scroll-to-bottom button
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
@@ -488,13 +491,15 @@ export default function InboxClient({
     }
   }, [messages, selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Close lightbox on Escape ──────────────────────────────────────────────
+  // ── Close lightboxes on Escape ───────────────────────────────────────────
   useEffect(() => {
-    if (lightboxIdx === null) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxIdx(null); };
+    if (lightboxIdx === null && storyLightboxUrl === null) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setLightboxIdx(null); setStoryLightboxUrl(null); }
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [lightboxIdx]);
+  }, [lightboxIdx, storyLightboxUrl]);
 
   // ── Close tag picker on outside click ────────────────────────────────────
   useEffect(() => {
@@ -826,8 +831,8 @@ export default function InboxClient({
             {activeChannel === "whatsapp" && <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#00a884]" />}
           </button>
 
-          {/* Instagram tab — only shown when configured */}
-          {igConfigured && <button
+          {/* Instagram tab — only shown when configured AND user is SUPER_ADMIN */}
+          {igConfigured && isSuperAdmin && <button
             onClick={() => { setActiveChannel("instagram"); setSelectedId(null); setMessages([]); setConvDetail(null); }}
             className={["relative flex flex-1 items-center justify-center gap-2 px-2 py-3 text-[12px] font-semibold transition-colors",
               activeChannel === "instagram" ? "text-[#E1306C]" : "text-gray-400 hover:text-gray-600",
@@ -1420,10 +1425,10 @@ export default function InboxClient({
                                       <p className="text-[11px] opacity-60">{m.body ?? "Mentioned you in their story"}</p>
                                     </div>
                                     {m.mediaUrl && (
-                                      <a href={m.mediaUrl} target="_blank" rel="noreferrer"
-                                        className="ml-auto shrink-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-semibold hover:bg-white/20 transition">
+                                      <button type="button" onClick={() => setStoryLightboxUrl(m.mediaUrl!)}
+                                        className="ml-auto shrink-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-semibold hover:bg-white/20 transition cursor-zoom-in">
                                         View
-                                      </a>
+                                      </button>
                                     )}
                                   </div>
                                 );
@@ -1892,6 +1897,44 @@ export default function InboxClient({
               {lightboxIdx + 1} / {convImages.length}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Story Mention Lightbox ── */}
+      {storyLightboxUrl && (
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setStoryLightboxUrl(null)}
+        >
+          {/* Header pill */}
+          <div className="mb-4 flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-[#833ab4] via-[#fd1d1d] to-[#fcb045]">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5">
+                <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+              </svg>
+            </div>
+            <span className="text-[12px] font-semibold text-white">Story Mention</span>
+          </div>
+
+          {/* Story image — Instagram story aspect ratio 9:16 */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={storyLightboxUrl}
+              alt="Story"
+              className="max-h-[75vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+              style={{ aspectRatio: "9/16", maxWidth: "min(90vw, 360px)" }}
+            />
+          </div>
+
+          {/* Close */}
+          <button
+            type="button"
+            onClick={() => setStoryLightboxUrl(null)}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
         </div>
       )}
 

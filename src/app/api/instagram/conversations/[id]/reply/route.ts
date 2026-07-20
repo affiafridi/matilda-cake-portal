@@ -7,7 +7,7 @@ import { handleApiError, jsonOk, jsonError } from "@/lib/api/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = ["SUPER_ADMIN", "ADMIN", "AGENT"] as const;
+const ALLOWED = ["SUPER_ADMIN"] as const;
 
 /** POST /api/instagram/conversations/[id]/reply — agent sends a DM reply */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
