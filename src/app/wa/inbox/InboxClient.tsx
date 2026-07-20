@@ -824,31 +824,22 @@ export default function InboxClient({
             {activeChannel === "whatsapp" && <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#00a884]" />}
           </button>
 
-          {/* Instagram tab */}
-          <button
-            onClick={() => { if (!igConfigured) return; setActiveChannel("instagram"); setSelectedId(null); setMessages([]); setConvDetail(null); }}
-            title={!igConfigured ? "Instagram not configured — add token in Settings" : undefined}
+          {/* Instagram tab — only shown when configured */}
+          {igConfigured && <button
+            onClick={() => { setActiveChannel("instagram"); setSelectedId(null); setMessages([]); setConvDetail(null); }}
             className={["relative flex flex-1 items-center justify-center gap-2 px-2 py-3 text-[12px] font-semibold transition-colors",
-              !igConfigured
-                ? "cursor-not-allowed text-gray-300"
-                : activeChannel === "instagram" ? "text-[#E1306C]" : "text-gray-400 hover:text-gray-600",
+              activeChannel === "instagram" ? "text-[#E1306C]" : "text-gray-400 hover:text-gray-600",
             ].join(" ")}>
-            {!igConfigured ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 shrink-0">
-                <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
                 <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-              </svg>
-            )}
+            </svg>
             <span>Instagram</span>
-            {igConfigured && (() => { const n = conversations.filter((c) => c.channel === "instagram" || c.waId?.startsWith("ig_")).length; return n > 0 ? (
+            {(() => { const n = conversations.filter((c) => c.channel === "instagram" || c.waId?.startsWith("ig_")).length; return n > 0 ? (
               <span className={["min-w-[18px] rounded-full px-1.5 py-px text-[10px] font-bold leading-none",
                 activeChannel === "instagram" ? "bg-[#E1306C]/15 text-[#E1306C]" : "bg-gray-100 text-gray-400",
               ].join(" ")}>{n}</span>
             ) : null; })()}
-            {igConfigured && activeChannel === "instagram" && (
+            {activeChannel === "instagram" && (
               <button onClick={(e) => { e.stopPropagation(); syncInstagram(); }} title="Sync"
                 className="flex h-5 w-5 items-center justify-center rounded-md text-[#E1306C]/60 hover:bg-[#E1306C]/10 hover:text-[#E1306C] transition">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={["h-3 w-3", igSyncing ? "animate-spin" : ""].join(" ")}>
@@ -857,7 +848,7 @@ export default function InboxClient({
               </button>
             )}
             {activeChannel === "instagram" && <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#E1306C]" />}
-          </button>
+          </button>}
         </div>
 
         {/* Nav sections */}
