@@ -1,13 +1,13 @@
 import type { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/server";
+import { botQuery } from "@/lib/botdb";
 import { exportAllCustomers, getGoogleConnection } from "@/lib/googlesheets";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
@@ -16,27 +16,35 @@ export async function POST(_req: NextRequest) {
     if (!conn.connected) return jsonError("Google account not connected. Please connect your Google account in Integrations → Google Sheets.", 400);
     if (!conn.sheetId)   return jsonError("No Google Sheet selected. Paste your sheet URL in Integrations → Google Sheets and click Connect.", 400);
 
-    // Fetch WhatsApp-only conversations — exclude Instagram (ig_ prefix / channel=instagram)
-    const conversations = await prisma.conversation.findMany({
-      where: {
-        channel: { not: "instagram" },
-        NOT: { waId: { startsWith: "ig_" } },
-      },
-      orderBy: { createdAt: "asc" },
-      select: {
-        waId: true,
-        customerName: true,
-        createdAt: true,
-        status: true,
-      },
-    });
+    // Optional: array of waIds to export only selected contacts
+    const body = await req.json().catch(() => ({})) as { waIds?: string[] };
+    const selectedIds = Array.isArray(body.waIds) && body.waIds.length > 0 ? body.waIds : null;
 
-    const customers = conversations.map((c) => ({
-      phone: c.waId,
-      name: c.customerName,
-      source: "WhatsApp",
-      firstSeen: c.createdAt,
-      status: c.status === "RESOLVED" ? "Resolved" : "Active",
+    // Query the bot customers table — same source as the Customers page UI.
+    // Exclude Instagram contacts (ig_ prefix). Filter to selected waIds if provided.
+    let rows: { wa_id: string; name: string; first_seen: string | null }[];
+    if (selectedIds) {
+      const result = await botQuery(
+        `SELECT wa_id, name, first_seen FROM customers
+         WHERE wa_id NOT LIKE 'ig\\_%' AND wa_id = ANY($1::text[])
+         ORDER BY first_seen ASC`,
+        [selectedIds],
+      );
+      rows = result.rows as typeof rows;
+    } else {
+      const result = await botQuery(
+        `SELECT wa_id, name, first_seen FROM customers
+         WHERE wa_id NOT LIKE 'ig\\_%'
+         ORDER BY first_seen ASC`,
+      );
+      rows = result.rows as typeof rows;
+    }
+
+    const customers = rows.map((r) => ({
+      phone:     r.wa_id,
+      name:      r.name ?? r.wa_id,
+      source:    "WhatsApp",
+      firstSeen: r.first_seen ? new Date(r.first_seen) : undefined,
     }));
 
     let sheetUrl: string;

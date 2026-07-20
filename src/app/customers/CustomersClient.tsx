@@ -209,9 +209,14 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
 
   async function handleSyncSheets() {
     setSyncing(true); setSyncMsg(null);
+    const waIds = selected.size > 0 ? [...selected] : undefined;
     try {
-      const r = await fetch("/api/admin/customers/export-sheets", { method: "POST" }).then((r) => r.json());
-      if (r.ok) setSyncMsg({ ok: true, text: `${r.data.count} contacts synced to Google Sheets`, url: r.data.sheetUrl });
+      const r = await fetch("/api/admin/customers/export-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(waIds ? { waIds } : {}),
+      }).then((r) => r.json());
+      if (r.ok) setSyncMsg({ ok: true, text: `${r.data.count} contact${r.data.count !== 1 ? "s" : ""} synced to Google Sheets`, url: r.data.sheetUrl });
       else setSyncMsg({ ok: false, text: r.error ?? "Sync failed" });
     } catch {
       setSyncMsg({ ok: false, text: "Sync failed — check your connection" });
@@ -298,7 +303,7 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
                 {syncing ? (
                   <><svg className="h-3.5 w-3.5 animate-spin text-[#6b7280]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Syncing…</>
                 ) : (
-                  <><IconSheets className="h-3.5 w-3.5" />Sync to Sheets</>
+                  <><IconSheets className="h-3.5 w-3.5" />{selected.size > 0 ? `Sync selected (${selected.size})` : "Sync to Sheets"}</>
                 )}
               </button>
             )}
