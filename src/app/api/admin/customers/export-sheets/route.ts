@@ -43,12 +43,17 @@ export async function POST(_req: NextRequest) {
       const msg = err instanceof Error ? err.message : String(err);
       const code = (err as { code?: number | string })?.code;
       console.error("[export-sheets]", { code, msg, err });
+      if (/sheets-api-disabled/i.test(msg)) {
+        return jsonError(msg.replace("sheets-api-disabled: ", ""), 403);
+      }
       if (/invalid_grant|token|unauthorized|expired|revoked/i.test(msg)) {
         return jsonError("Google token expired or revoked. Disconnect and reconnect your Google account in Integrations → Google Sheets.", 401);
       }
       if (/forbidden|permission/i.test(msg) || code === 403 || String(code) === "403") {
         const { accountEmail } = await getGoogleConnection();
-        const hint = accountEmail ? ` The connected account is ${accountEmail} — make sure the sheet is shared with that email as Editor.` : " Disconnect and reconnect your Google account, then make sure the sheet is shared with it as Editor.";
+        const hint = accountEmail
+          ? ` Connected as ${accountEmail} — make sure this sheet is shared with that email as Editor.`
+          : " Disconnect and reconnect your Google account, then share the sheet with it as Editor.";
         return jsonError(`Permission denied (403).${hint}`, 403);
       }
       if (/not found|404/i.test(msg) || code === 404 || String(code) === "404") {

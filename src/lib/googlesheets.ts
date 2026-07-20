@@ -150,7 +150,12 @@ async function ensureTab(sheets: ReturnType<typeof google.sheets>, spreadsheetId
     meta = await sheets.spreadsheets.get({ spreadsheetId });
   } catch (err: unknown) {
     const code = (err as { code?: number | string })?.code ?? (err as { status?: number })?.status;
-    if (code === 403 || String(code) === "403") throw new Error("forbidden: Google account does not have access to this sheet");
+    const rawMsg = (err as { message?: string })?.message ?? String(err);
+    console.error("[googlesheets] ensureTab error", { code, rawMsg, spreadsheetId });
+    if (/has not been used|disabled|Enable it/i.test(rawMsg)) {
+      throw new Error("sheets-api-disabled: The Google Sheets API is not enabled in your GCP project. Go to https://console.cloud.google.com/apis/library/sheets.googleapis.com and enable it, then try again.");
+    }
+    if (code === 403 || String(code) === "403") throw new Error(`forbidden: ${rawMsg}`);
     if (code === 404 || String(code) === "404") throw new Error("not found: spreadsheet does not exist");
     throw err;
   }
