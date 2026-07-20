@@ -229,7 +229,7 @@ export default function IntegrationsPage() {
     Promise.all([
       fetch("/api/admin/integrations").then((r) => r.json()).then((j) => { if (j.ok) setSavedValues(j.data); }).catch(() => {}),
       fetch("/api/admin/integrations/google/sheets").then((r) => r.json()).then((j) => { if (j.ok) setGsConnected(j.data.connected); }).catch(() => {}),
-      fetch("/api/auth/session").then((r) => r.json()).then((j) => { if (j?.user?.role === "SUPER_ADMIN") setIsSuperAdmin(true); }).catch(() => {}),
+      fetch("/api/auth/me").then((r) => r.json()).then((j) => { if (j?.data?.role === "SUPER_ADMIN") setIsSuperAdmin(true); }).catch(() => {}),
     ]).finally(() => setLoaded(true));
   }, []);
 
