@@ -17,8 +17,10 @@ export async function GET(req: NextRequest) {
     if (!token) return jsonError("WhatsApp not configured", 500);
 
     const handle = req.nextUrl.searchParams.get("handle");
-    // Meta returns handles in multiple formats: "h:xxx" (resumable upload) or "4:xxx" / "3:xxx" (template API)
-    if (!handle || handle.length > 1024 || !/^[A-Za-z0-9][A-Za-z0-9+/=_\-:]*$/.test(handle)) {
+    // Meta returns handles in multiple formats: "h:xxx", "2:xxx", "4:xxx" etc.
+    // Only reject clearly invalid values; the handle is always encodeURIComponent'd before being
+    // used in the Meta API URL so path-traversal is not a concern.
+    if (!handle || handle.length > 2048 || handle.includes("..") || handle.startsWith("http")) {
       return jsonError("Invalid handle", 400);
     }
 

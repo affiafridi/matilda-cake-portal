@@ -77,7 +77,9 @@ function WaBubble({ headerType, headerText, headerMediaUrl, locationName, body, 
         {/* Header area */}
         {headerType === "IMAGE" && (
           headerMediaUrl
-            ? <img src={headerMediaUrl} alt="header" className="w-full object-cover max-h-36" /> // eslint-disable-line @next/next/no-img-element
+            ? <img src={headerMediaUrl} alt="header" className="w-full object-cover max-h-36" // eslint-disable-line @next/next/no-img-element
+                onError={(e) => { const t = e.currentTarget; t.style.display = "none"; const p = t.parentElement; if (p) { const d = document.createElement("div"); d.className = "flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-100"; d.innerHTML = '<p class="text-[10px] text-gray-400">Image preview</p>'; p.appendChild(d); } }}
+              />
             : <div className="flex h-28 flex-col items-center justify-center gap-1.5 bg-gray-100">
                 <svg viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-8 w-8"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
                 <p className="text-[10px] text-gray-400">Image preview</p>
@@ -294,7 +296,10 @@ function MediaInput({ label, accept, value, onChange, hint }: {
       if (!json.ok) throw new Error(json.error ?? "Upload failed");
       onChange({
         handle: json.data.handle as string,
-        previewUrl: `/api/bot/media/preview?handle=${encodeURIComponent(json.data.handle as string)}`,
+        // Use the signed CDN URL returned by the upload endpoint if available;
+        // fall back to the proxy only for handles that don't have a fresh CDN URL
+        previewUrl: (json.data.previewUrl as string | null | undefined)
+          ?? `/api/bot/media/preview?handle=${encodeURIComponent(json.data.handle as string)}`,
         mimeType: file.type,
         url: undefined,
       });
