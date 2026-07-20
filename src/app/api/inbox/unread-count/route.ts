@@ -12,11 +12,11 @@ export async function GET() {
   try {
     await requireRole(ALLOWED);
 
-    const baseWhere = { status: { not: "RESOLVED" }, OR: [{ botPaused: true }, { agentRequested: true }] } as const;
+    const notResolved = { status: { not: "RESOLVED" as const }, OR: [{ botPaused: true }, { agentRequested: true }] };
 
     const [all, ig] = await Promise.all([
-      prisma.conversation.aggregate({ where: baseWhere, _sum: { unreadCount: true } }),
-      prisma.conversation.aggregate({ where: { ...baseWhere, channel: "instagram" }, _sum: { unreadCount: true } }),
+      prisma.conversation.aggregate({ where: notResolved, _sum: { unreadCount: true } }),
+      prisma.conversation.aggregate({ where: { ...notResolved, channel: "instagram" }, _sum: { unreadCount: true } }),
     ]);
 
     const total = all._sum.unreadCount ?? 0;
