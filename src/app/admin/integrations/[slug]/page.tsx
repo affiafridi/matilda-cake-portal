@@ -280,9 +280,10 @@ function GoogleSheetsConfig() {
   const [sheetName,     setSheetName]     = useState<string | null>(null);
   const [accountEmail,  setAccountEmail]  = useState<string | null>(null);
   const [sheetInput,    setSheetInput]    = useState("");
-  const [saving,        setSaving]        = useState(false);
-  const [exporting,     setExporting]     = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [exporting,      setExporting]      = useState(false);
+  const [disconnecting,  setDisconnecting]  = useState(false);
+  const [unlinkingSheet, setUnlinkingSheet] = useState(false);
   const [msg,           setMsg]           = useState<{ ok: boolean; text: string; url?: string } | null>(null);
 
   const loadStatus = useCallback(async () => {
@@ -302,8 +303,12 @@ function GoogleSheetsConfig() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("google") === "connected") setMsg({ ok: true, text: "Google account connected!" });
-    if (params.get("google") === "error")     setMsg({ ok: false, text: "Google connection failed. Please try again." });
+    if (params.get("google") === "connected") {
+      setMsg({ ok: true, text: "Google account connected!" });
+      // Clean the URL without reload
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    if (params.get("google") === "error") setMsg({ ok: false, text: "Google connection failed. Please try again." });
     loadStatus();
   }, [loadStatus]);
 
@@ -338,12 +343,21 @@ function GoogleSheetsConfig() {
   }
 
   async function handleDisconnect() {
-    if (!confirm("Disconnect Google Sheets? Auto-sync will stop.")) return;
+    if (!confirm("Disconnect Google account? Auto-sync will stop and you'll need to reconnect.")) return;
     setDisconnecting(true);
     await fetch("/api/admin/integrations/google/disconnect", { method: "POST" });
     setConnected(false); setSheetId(null); setSheetName(null); setAccountEmail(null);
     setMsg({ ok: true, text: "Google account disconnected" });
     setDisconnecting(false);
+  }
+
+  async function handleUnlinkSheet() {
+    if (!confirm("Unlink this sheet? Auto-sync will stop but your Google account stays connected.")) return;
+    setUnlinkingSheet(true);
+    await fetch("/api/admin/integrations/google/sheets", { method: "DELETE" });
+    setSheetId(null); setSheetName(null);
+    setMsg({ ok: true, text: "Sheet unlinked" });
+    setUnlinkingSheet(false);
   }
 
   return (
@@ -423,10 +437,22 @@ function GoogleSheetsConfig() {
                   {" "}— new contacts added automatically
                 </span>
               </p>
-              <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noopener noreferrer"
-                className="text-[12px] font-semibold text-emerald-700 underline underline-offset-2 shrink-0">
-                Open →
-              </a>
+              <div className="flex items-center gap-2 shrink-0">
+                <a href={`https://docs.google.com/spreadsheets/d/${sheetId}`} target="_blank" rel="noopener noreferrer"
+                  className="text-[12px] font-semibold text-emerald-700 underline underline-offset-2">
+                  Open →
+                </a>
+                <button onClick={handleUnlinkSheet} disabled={unlinkingSheet}
+                  title="Unlink this sheet"
+                  className="flex items-center justify-center h-6 w-6 rounded-md text-emerald-600 hover:bg-emerald-100 hover:text-red-500 transition disabled:opacity-40">
+                  {unlinkingSheet ? <Spinner /> : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                      <path d="M18.36 6.64A9 9 0 0 1 20.77 15M5.63 5.63A9 9 0 1 0 15 20.77M8.71 2.71A9 9 0 0 1 18.36 6.64"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -453,7 +479,7 @@ function GoogleSheetsConfig() {
 
 // ── Generic credentials form ──────────────────────────────────────────────
 
-function CredentialsForm({ fields }: { fields: Field[] }) {
+function CredentialsForm({ fields, slug }: { fields: Field[]; slug: string }) {
   const [values,         setValues]         = useState<Record<string, string>>({});
   const [savedValues,    setSavedValues]    = useState<Record<string, string>>({});
   const [saveState,      setSaveState]      = useState<SaveState>("idle");
@@ -497,7 +523,7 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
       const configured = fields.filter((f) => !f.multiline).every((f) => values[f.key]?.trim());
       setIsConfigured(configured);
       setSaveState("saved");
-      setTimeout(() => setSaveState("idle"), 2500);
+      setTimeout(() => router.push("/admin/integrations"), 1200);
     } catch {
       setSaveState("error");
       setTimeout(() => setSaveState("idle"), 3000);
@@ -513,6 +539,10 @@ function CredentialsForm({ fields }: { fields: Field[] }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: f.key, value: "" }),
         });
+      }
+      // Clear Google tokens too so Sheets page shows disconnected
+      if (slug === "google-oauth") {
+        await fetch("/api/admin/integrations/google/disconnect", { method: "POST" });
       }
       setValues({});
       setIsConfigured(false);
@@ -736,7 +766,7 @@ export default function IntegrationDetailPage() {
             {slug === "google-sheets" ? (
               <GoogleSheetsConfig />
             ) : fields ? (
-              <CredentialsForm fields={fields} />
+              <CredentialsForm fields={fields} slug={slug} />
             ) : null}
           </div>
         )}
@@ -757,7 +787,7 @@ export default function IntegrationDetailPage() {
             <p className="text-[12px] text-[#64748b] leading-relaxed mb-4">
               WhatsApp Flows lets customers complete checkout, pick delivery slots and fill forms — all inside WhatsApp without leaving the chat. Add your Flow ID and RSA private key to enable end-to-end encrypted communication between Meta and this portal.
             </p>
-            <CredentialsForm fields={flowsFields} />
+            <CredentialsForm fields={flowsFields} slug="whatsapp-flows" />
           </div>
         )}
       </div>

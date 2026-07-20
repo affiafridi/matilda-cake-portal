@@ -34,6 +34,19 @@ export async function GET(_req: NextRequest) {
   }
 }
 
+/** DELETE — unlink the current sheet (keep Google account connected) */
+export async function DELETE(_req: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!await canAccess(user)) return jsonError("Forbidden", 403);
+
+    await prisma.$executeRaw`DELETE FROM portal_settings WHERE key IN ('google_sheet_id', 'google_sheet_name')`;
+    return jsonOk({ ok: true });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
 /** POST — validate and save the sheet URL/ID the user pasted */
 export async function POST(req: NextRequest) {
   try {
