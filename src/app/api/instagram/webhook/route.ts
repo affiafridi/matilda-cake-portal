@@ -207,10 +207,9 @@ async function triggerAiReply(
 // ── Send Instagram message ─────────────────────────────────────────────────
 async function sendIgMessage(recipientId: string, text: string, accessToken: string) {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
-  // Page token /me returns FB Page ID; need the linked IG Business Account ID for DM endpoint
-  const meRes  = await fetch(`${IG_API}/me?fields=id,instagram_business_account`, { headers });
-  const meData = await meRes.json().catch(() => ({})) as { id?: string; instagram_business_account?: { id: string } };
-  const igId   = meData.instagram_business_account?.id ?? meData.id ?? "me";
+  const meRes  = await fetch(`${IG_API}/me?fields=id`, { headers });
+  const meData = await meRes.json().catch(() => ({})) as { id?: string };
+  const igId   = meData.id ?? "me";
   return fetch(`${IG_API}/${igId}/messages`, {
     method:  "POST",
     headers,
@@ -226,16 +225,23 @@ async function resolveIgName(psid: string): Promise<string> {
   try {
     const { instagram_page_access_token } = await getIntegrations();
     if (!instagram_page_access_token) return `IG User ${psid.slice(-6)}`;
-    const res = await fetch(
-      `${IG_API}/${psid}?fields=name,username`,
-      { headers: { Authorization: `Bearer ${instagram_page_access_token}` } },
-    );
-    const data = await res.json() as { name?: string; username?: string };
-    // Prefer username (e.g. "matildacakesdubai"), fall back to name, then generic
-    // Prefer @username, fall back to name, then a short IG ID tag
-    const name = data.username ? `@${data.username}` : data.name;
-    return name || `IG ${psid.slice(-6)}`;
-  } catch {
+    const headers = { Authorization: `Bearer ${instagram_page_access_token}` };
+
+    // Try name+username first; fall back to name-only if that fails (IG User tokens
+    // may not expose username for other users)
+    for (const fields of ["name,username", "name"]) {
+      const res  = await fetch(`${IG_API}/${psid}?fields=${fields}`, { headers });
+      const data = await res.json() as { name?: string; username?: string; error?: { message: string; code?: number } };
+      if (data.error) {
+        console.warn(`[ig-webhook] resolveIgName ${psid} (fields=${fields}):`, data.error.message);
+        continue;
+      }
+      const name = data.username ? `@${data.username}` : data.name;
+      if (name) return name;
+    }
+    return `IG ${psid.slice(-6)}`;
+  } catch (e) {
+    console.warn("[ig-webhook] resolveIgName error:", e);
     return `IG User ${psid.slice(-6)}`;
   }
 }

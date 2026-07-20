@@ -34,20 +34,26 @@ export async function POST() {
   let updated = 0;
   const errors: string[] = [];
 
+  const igHeaders = { Authorization: `Bearer ${instagram_page_access_token}` };
+
   for (const conv of convs) {
     const psid = conv.waId.replace(/^ig_/, "");
     try {
-      const res  = await fetch(`${IG_API}/${psid}?fields=name,username`, {
-        headers: { Authorization: `Bearer ${instagram_page_access_token}` },
-      });
-      const data = await res.json() as { name?: string; username?: string; error?: { message: string } };
+      let newName = "";
 
-      if (data.error) {
-        errors.push(`${psid}: ${data.error.message}`);
-        continue;
+      for (const fields of ["name,username", "name"]) {
+        const res  = await fetch(`${IG_API}/${psid}?fields=${fields}`, { headers: igHeaders });
+        const data = await res.json() as { name?: string; username?: string; error?: { message: string; code?: number } };
+
+        if (data.error) {
+          errors.push(`${psid} (fields=${fields}): ${data.error.message}`);
+          continue;
+        }
+
+        newName = data.username ? `@${data.username}` : (data.name ?? "");
+        if (newName) break;
       }
 
-      const newName = data.username ? `@${data.username}` : (data.name || "");
       if (!newName || newName === conv.customerName) continue;
 
       await prisma.conversation.update({
