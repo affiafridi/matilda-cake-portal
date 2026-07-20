@@ -23,6 +23,8 @@ type ConvSummary = {
   lastMessageAt:   string;
   lastMessageBody: string | null;
   assignedTo:      { id: string; name: string } | null;
+  broadcastOptOut:  boolean;
+  broadcastOptOutAt: string | null;
   // Bot context (populated by bot via webhook)
   currentBotFlowId?:      number | null;
   currentBotFlowName?:    string | null;
@@ -965,7 +967,7 @@ export default function InboxClient({
                   <p className={["mt-0.5 truncate text-xs", c.unreadCount > 0 ? "text-gray-600" : "text-gray-400"].join(" ")}>
                     {c.lastMessageBody ?? "Attachment"}
                   </p>
-                  {(c.tags.length > 0 || c.botPaused || c.agentRequested) && (
+                  {(c.tags.length > 0 || c.botPaused || c.agentRequested || c.broadcastOptOut) && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       {c.tags.slice(0, 2).map((tag) => (
                         <span key={tag} className="rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-500">
@@ -976,6 +978,12 @@ export default function InboxClient({
                         <span className="flex shrink-0 items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
                           Bot paused
+                        </span>
+                      )}
+                      {c.broadcastOptOut && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-red-50 border border-red-200 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                          Unsubscribed
                         </span>
                       )}
                     </div>
@@ -1015,6 +1023,12 @@ export default function InboxClient({
                         <span className="flex shrink-0 items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                           Wants Agent
+                        </span>
+                      )}
+                      {selected?.broadcastOptOut && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                          Unsubscribed
                         </span>
                       )}
                       {selected?.botPaused && (

@@ -204,6 +204,59 @@ export async function POST(req: NextRequest) {
       appendCustomerRow({ phone: waId, name: name || waId, firstSeen: msgTime }).catch(() => {});
     }
 
+    // ── STOP / START opt-out handling ─────────────────────────────────────
+    const keyword = text?.trim().toUpperCase();
+    if (keyword === "STOP" || keyword === "START") {
+      const optOut = keyword === "STOP";
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          broadcastOptOut:   optOut,
+          broadcastOptOutAt: optOut ? msgTime : null,
+        },
+      });
+
+      // Store system message so agents can see the opt-out event in the thread
+      const systemBody = optOut
+        ? "🚫 Customer replied STOP — unsubscribed from broadcasts."
+        : "✅ Customer replied START — re-subscribed to broadcasts.";
+      await prisma.message.create({
+        data: {
+          id:             crypto.randomUUID(),
+          conversationId: conversation.id,
+          waMessageId:    messageId,
+          direction:      "INBOUND",
+          body:           text,
+          createdAt:      msgTime,
+        },
+      });
+      // System event so agents can see it clearly
+      await prisma.message.create({
+        data: {
+          id:             crypto.randomUUID(),
+          conversationId: conversation.id,
+          direction:      "SYSTEM",
+          body:           systemBody,
+          createdAt:      new Date(msgTime.getTime() + 1),
+        },
+      });
+
+      // Notify the bot to send an auto-reply confirmation
+      const { inbox_webhook_secret, bot_url } = await getIntegrations();
+      if (bot_url && inbox_webhook_secret) {
+        const replyText = optOut
+          ? "You have been unsubscribed from our broadcast messages. Reply START at any time to re-subscribe."
+          : "You have been re-subscribed to our broadcast messages. Reply STOP at any time to unsubscribe.";
+        fetch(`${bot_url}/send-message`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", "x-inbox-secret": inbox_webhook_secret },
+          body:    JSON.stringify({ waId, message: replyText }),
+        }).catch(() => {});
+      }
+
+      return jsonOk({ ok: true, action: optOut ? "opted_out" : "opted_in" });
+    }
+
     const existing = await prisma.message.findUnique({
       where:  { waMessageId: messageId },
       select: { id: true },

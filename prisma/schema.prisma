@@ -302,6 +302,10 @@ model Conversation {
   // Channel: "whatsapp" | "instagram"
   channel             String             @default("whatsapp")
 
+  // Broadcast opt-out — set true when customer replies STOP, false on START
+  broadcastOptOut     Boolean   @default(false)
+  broadcastOptOutAt   DateTime?
+
   // Bot context — updated by bot via webhook as it processes steps
   currentBotFlowId    Int?
   currentBotFlowName  String?
