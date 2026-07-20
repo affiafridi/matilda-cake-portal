@@ -37,17 +37,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const igHeaders = { "Content-Type": "application/json", "Authorization": `Bearer ${instagram_page_access_token}` };
 
-    // Get own IG user ID to use explicit endpoint instead of /me
-    const meRes  = await fetch("https://graph.facebook.com/v20.0/me?fields=id", { headers: igHeaders });
-    const meData = await meRes.json().catch(() => ({})) as { id?: string; error?: { message: string } };
-    if (!meRes.ok || !meData.id) {
+    // Get the Instagram Business Account ID — the Page token's /me returns the FB Page ID,
+    // but the DM endpoint requires the linked IG Business Account ID.
+    const meRes  = await fetch("https://graph.facebook.com/v20.0/me?fields=id,instagram_business_account", { headers: igHeaders });
+    const meData = await meRes.json().catch(() => ({})) as { id?: string; instagram_business_account?: { id: string }; error?: { message: string } };
+    if (!meRes.ok || (!meData.instagram_business_account?.id && !meData.id)) {
       return jsonError(meData.error?.message ?? "Invalid Instagram token", 502);
     }
+    const igSenderId = meData.instagram_business_account?.id ?? meData.id!;
 
     // waId is stored as "ig_<psid>" — extract the raw PSID for the recipient
     const recipientId = conversation.waId.replace(/^ig_/, "");
 
-    const igRes = await fetch(`https://graph.facebook.com/v20.0/${meData.id}/messages`, {
+    const igRes = await fetch(`https://graph.facebook.com/v20.0/${igSenderId}/messages`, {
       method:  "POST",
       headers: igHeaders,
       body: JSON.stringify({

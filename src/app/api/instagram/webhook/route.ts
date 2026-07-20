@@ -207,10 +207,10 @@ async function triggerAiReply(
 // ── Send Instagram message ─────────────────────────────────────────────────
 async function sendIgMessage(recipientId: string, text: string, accessToken: string) {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
-  // Get own IG user ID for explicit endpoint
-  const meRes  = await fetch(`${IG_API}/me?fields=id`, { headers });
-  const meData = await meRes.json().catch(() => ({})) as { id?: string };
-  const igId   = meData.id ?? "me";
+  // Page token /me returns FB Page ID; need the linked IG Business Account ID for DM endpoint
+  const meRes  = await fetch(`${IG_API}/me?fields=id,instagram_business_account`, { headers });
+  const meData = await meRes.json().catch(() => ({})) as { id?: string; instagram_business_account?: { id: string } };
+  const igId   = meData.instagram_business_account?.id ?? meData.id ?? "me";
   return fetch(`${IG_API}/${igId}/messages`, {
     method:  "POST",
     headers,
