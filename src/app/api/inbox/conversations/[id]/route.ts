@@ -19,9 +19,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       prisma.conversation.findUnique({
         where: { id },
         select: {
-          id: true, waId: true, customerName: true, status: true,
+          id: true, waId: true, customerName: true, status: true, channel: true,
           botPaused: true, agentRequested: true, tags: true, lastInboundAt: true,
-          unreadCount: true, lastMessageAt: true,
+          unreadCount: true, lastMessageAt: true, lastMessageBody: true,
+          broadcastOptOut: true, broadcastOptOutAt: true,
           currentBotFlowId: true, currentBotFlowName: true, currentBotStepKey: true,
           botContextVariables: true, lastBotActivityAt: true,
           assignedTo: { select: { id: true, name: true } },
