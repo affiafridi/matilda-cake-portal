@@ -212,27 +212,49 @@ async function triggerAiReply(
 }
 
 // ── Send Instagram message ─────────────────────────────────────────────────
+// Tries two approaches:
+// 1. Messenger Platform format (entry.id = Page ID) with messaging_type=RESPONSE
+// 2. Instagram Graph API format (ig_business_id = IG Business Account ID)
 async function sendIgMessage(recipientId: string, text: string, accessToken: string) {
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` };
 
-  // Use the stored IG Business Account ID (captured from webhook entry.id on first inbound message)
-  // Fallback to /me if not stored yet
   const rows = await prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'ig_business_id' LIMIT 1`.catch(() => []);
-  let igId = rows[0]?.value;
-  if (!igId) {
-    const meRes  = await fetch(`${IG_API}/me?fields=id`, { headers });
-    const meData = await meRes.json().catch(() => ({})) as { id?: string };
-    igId = meData.id ?? "me";
-  }
+  const storedId = rows[0]?.value;
 
-  return fetch(`${IG_API}/${igId}/messages`, {
+  const senderId = storedId || "me";
+
+  // Attempt 1: Messenger Platform format — entry.id from webhook is the Facebook Page ID.
+  // messaging_type=RESPONSE is required for customer-initiated 24h window replies.
+  const attempt1 = await fetch(`${IG_API}/${senderId}/messages`, {
     method:  "POST",
     headers,
     body:    JSON.stringify({
-      recipient: { id: recipientId },
-      message:   { text },
+      recipient:      { id: recipientId },
+      messaging_type: "RESPONSE",
+      message:        { text },
     }),
   });
+
+  const json1 = await attempt1.json().catch(() => ({})) as { message_id?: string; error?: { message: string; code?: number } };
+  if (attempt1.ok && !json1.error) return attempt1;
+
+  console.warn("[ig-send] attempt1 failed:", json1.error?.message, "— trying /me fallback");
+
+  // Attempt 2: use /me as sender (works if the token is already tied to the right page)
+  if (senderId !== "me") {
+    const attempt2 = await fetch(`${IG_API}/me/messages`, {
+      method:  "POST",
+      headers,
+      body:    JSON.stringify({
+        recipient:      { id: recipientId },
+        messaging_type: "RESPONSE",
+        message:        { text },
+      }),
+    });
+    return attempt2;
+  }
+
+  return attempt1;
 }
 
 // ── Resolve IG display name ────────────────────────────────────────────────

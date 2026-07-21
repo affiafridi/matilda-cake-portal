@@ -249,7 +249,8 @@ export default function InboxClient({
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
   const [activeChannel, setActiveChannel] = useState<"whatsapp" | "instagram">("whatsapp");
-  const [igSyncing,    setIgSyncing]    = useState(false);
+  const [igSyncing,          setIgSyncing]          = useState(false);
+  const [igRefreshingNames,  setIgRefreshingNames]  = useState(false);
   const [igBotEnabled, setIgBotEnabled] = useState(true);
   const [view,          setView]          = useState<"unassigned" | "mine" | "all" | "open" | "resolved" | "paused">("all");
   const [search,        setSearch]        = useState("");
@@ -533,6 +534,25 @@ export default function InboxClient({
       if (e.key === "Escape") { setQrQuery(null); return; }
     }
     if (e.key === "Enter" && !e.shiftKey && qrQuery === null) { e.preventDefault(); void sendReply(); }
+  }
+
+  async function refreshIgNames() {
+    if (igRefreshingNames) return;
+    setIgRefreshingNames(true);
+    try {
+      const res = await fetch("/api/instagram/refresh-names", { method: "POST" });
+      const j   = await res.json() as { ok: boolean; checked?: number; updated?: number; error?: string };
+      if (j.ok) {
+        addToast(`Updated ${j.updated ?? 0} of ${j.checked ?? 0} Instagram names`);
+        // Reload conversations to show new names
+        const r = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all&channel=all`, { cache: "no-store" });
+        const d = await r.json() as { ok: boolean; data: ConvSummary[] };
+        if (d.ok) setConversations(d.data);
+      } else {
+        addToast(j.error ?? "Name refresh failed");
+      }
+    } catch { addToast("Name refresh failed"); }
+    setIgRefreshingNames(false);
   }
 
   async function syncInstagram() {
@@ -848,12 +868,20 @@ export default function InboxClient({
               ].join(" ")}>{n}</span>
             ) : null; })()}
             {activeChannel === "instagram" && (
-              <button onClick={(e) => { e.stopPropagation(); syncInstagram(); }} title="Sync"
-                className="flex h-5 w-5 items-center justify-center rounded-md text-[#E1306C]/60 hover:bg-[#E1306C]/10 hover:text-[#E1306C] transition">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={["h-3 w-3", igSyncing ? "animate-spin" : ""].join(" ")}>
-                  <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-                </svg>
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button onClick={(e) => { e.stopPropagation(); refreshIgNames(); }} title="Refresh usernames"
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-[#E1306C]/60 hover:bg-[#E1306C]/10 hover:text-[#E1306C] transition">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={["h-3 w-3", igRefreshingNames ? "animate-spin" : ""].join(" ")}>
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); syncInstagram(); }} title="Sync conversations"
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-[#E1306C]/60 hover:bg-[#E1306C]/10 hover:text-[#E1306C] transition">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className={["h-3 w-3", igSyncing ? "animate-spin" : ""].join(" ")}>
+                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                  </svg>
+                </button>
+              </div>
             )}
             {activeChannel === "instagram" && <span className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#E1306C]" />}
           </button>}
