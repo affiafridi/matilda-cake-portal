@@ -153,17 +153,17 @@ export async function GET(req: NextRequest) {
         // Try with type+variations columns first; fall back if columns don't exist yet (pre-Sync)
         let row: { wc_id: number; name: string; price: string; image: string; permalink: string; type?: string; variations?: unknown } | undefined;
         try {
-          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: unknown }>(
-            `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products WHERE wc_id = $1 AND enabled = true LIMIT 1`,
+          const { rows } = await botQuery<{ source_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: unknown }>(
+            `SELECT source_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products WHERE source = 'woocommerce' AND source_id = $1 AND enabled = true LIMIT 1`,
             [wcId],
           );
-          row = rows[0];
+          row = rows[0] ? { ...rows[0], wc_id: rows[0].source_id } : undefined;
         } catch {
-          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string }>(
-            `SELECT wc_id, name, price, image, permalink FROM bot_products WHERE wc_id = $1 AND enabled = true LIMIT 1`,
+          const { rows } = await botQuery<{ source_id: number; name: string; price: string; image: string; permalink: string }>(
+            `SELECT source_id, name, price, image, permalink FROM bot_products WHERE source = 'woocommerce' AND source_id = $1 AND enabled = true LIMIT 1`,
             [wcId],
           );
-          row = rows[0];
+          row = rows[0] ? { ...rows[0], wc_id: rows[0].source_id } : undefined;
         }
         if (row) {
           return { id: row.wc_id, name: row.name, price: row.price, image: wpThumb(row.image), permalink: row.permalink, type: row.type ?? "simple", variations: row.variations ?? [] };
@@ -192,16 +192,16 @@ export async function GET(req: NextRequest) {
       const cacheKey = `wc_search:${search.toLowerCase()}:${page}:${perPage}`;
       const result = await cacheOr(cacheKey, TTL.WC_PRODUCTS, async () => {
         const { rows: countRows } = await botQuery<{ count: string }>(
-          `SELECT COUNT(*) as count FROM bot_products WHERE enabled = true AND name ILIKE $1`,
+          `SELECT COUNT(*) as count FROM bot_products WHERE source = 'woocommerce' AND enabled = true AND name ILIKE $1`,
           [`%${search}%`],
         );
         const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
 
         if (totalCount > 0) {
-          const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: { price: string }[] | null }>(
-            `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products
-             WHERE enabled = true AND name ILIKE $1
-             ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
+          const { rows } = await botQuery<{ source_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: { price: string }[] | null }>(
+            `SELECT source_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products
+             WHERE source = 'woocommerce' AND enabled = true AND name ILIKE $1
+             ORDER BY sort_order, source_id LIMIT $2 OFFSET $3`,
             [`%${search}%`, perPage, offset],
           );
           const totalPages = Math.ceil(totalCount / perPage);
@@ -210,7 +210,7 @@ export async function GET(req: NextRequest) {
             const vars  = Array.isArray(p.variations) ? p.variations : [];
             const prices = vars.map((v) => parseFloat(v.price)).filter((n) => !isNaN(n) && n > 0);
             return {
-              id: p.wc_id, name: p.name, price: p.price, image: wpThumb(p.image), permalink: p.permalink, type: p.type,
+              id: p.source_id, name: p.name, price: p.price, image: wpThumb(p.image), permalink: p.permalink, type: p.type,
               ...(isVar && prices.length ? { minPrice: String(Math.min(...prices)) } : {}),
             };
           });
@@ -235,15 +235,15 @@ export async function GET(req: NextRequest) {
     const cacheKey = `wc_cat:${catId}:${page}:${perPage}`;
     const result = await cacheOr(cacheKey, TTL.WC_PRODUCTS, async () => {
       const { rows: countRows } = await botQuery<{ count: string }>(
-        `SELECT COUNT(*) as count FROM bot_products WHERE category_id = $1 AND enabled = true`, [catId],
+        `SELECT COUNT(*) as count FROM bot_products WHERE source = 'woocommerce' AND category_id = $1 AND enabled = true`, [catId],
       );
       const totalCount = parseInt(countRows[0]?.count ?? "0", 10);
 
       if (totalCount > 0) {
-        const { rows } = await botQuery<{ wc_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: { price: string }[] | null }>(
-          `SELECT wc_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products
-           WHERE category_id = $1 AND enabled = true
-           ORDER BY sort_order, wc_id LIMIT $2 OFFSET $3`,
+        const { rows } = await botQuery<{ source_id: number; name: string; price: string; image: string; permalink: string; type: string; variations: { price: string }[] | null }>(
+          `SELECT source_id, name, price, image, permalink, COALESCE(type,'simple') as type, variations FROM bot_products
+           WHERE source = 'woocommerce' AND category_id = $1 AND enabled = true
+           ORDER BY sort_order, source_id LIMIT $2 OFFSET $3`,
           [catId, perPage, offset],
         );
         const totalPages = Math.ceil(totalCount / perPage);
@@ -252,7 +252,7 @@ export async function GET(req: NextRequest) {
           const vars  = Array.isArray(p.variations) ? p.variations : [];
           const prices = vars.map((v) => parseFloat(v.price)).filter((n) => !isNaN(n) && n > 0);
           return {
-            id: p.wc_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: p.type,
+            id: p.source_id, name: p.name, price: p.price, image: p.image, permalink: p.permalink, type: p.type,
             ...(isVar && prices.length ? { minPrice: String(Math.min(...prices)) } : {}),
           };
         });

@@ -21,6 +21,9 @@ export type IntegrationSettings = {
   wc_webhook_secret:        string;
   instagram_page_access_token: string;
   instagram_verify_token:      string;
+  shopify_domain:              string;
+  shopify_access_token:        string;
+  shopify_api_version:         string;
 };
 
 const KEYS: (keyof IntegrationSettings)[] = [
@@ -43,6 +46,9 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "wc_webhook_secret",
   "instagram_page_access_token",
   "instagram_verify_token",
+  "shopify_domain",
+  "shopify_access_token",
+  "shopify_api_version",
 ];
 
 /** Read integration credentials from DB, falling back to env vars. Always fresh — no cache. */
@@ -58,7 +64,8 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
         'openai_api_key',
         'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
         'flows_private_key', 'wa_flow_id',
-        'instagram_page_access_token', 'instagram_verify_token'
+        'instagram_page_access_token', 'instagram_verify_token',
+        'shopify_domain', 'shopify_access_token', 'shopify_api_version'
       )
     `;
     map = Object.fromEntries(rows.map((r) => [r.key, r.value?.replace(/\s/g, "") ?? ""]));
@@ -84,6 +91,9 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
     wc_webhook_secret:           map["wc_webhook_secret"]           || process.env.WC_WEBHOOK_SECRET             || "",
     instagram_page_access_token: map["instagram_page_access_token"] || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN   || "",
     instagram_verify_token:      map["instagram_verify_token"]      || process.env.INSTAGRAM_VERIFY_TOKEN        || "",
+    shopify_domain:              map["shopify_domain"]              || process.env.SHOPIFY_DOMAIN                || "",
+    shopify_access_token:        map["shopify_access_token"]        || process.env.SHOPIFY_ACCESS_TOKEN          || "",
+    shopify_api_version:         map["shopify_api_version"]         || process.env.SHOPIFY_API_VERSION           || "2024-10",
   };
 }
 

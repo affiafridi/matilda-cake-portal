@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
     const secret = req.headers.get("x-inbox-secret");
     if (!secret || secret !== inbox_webhook_secret) return jsonError("Unauthorized", 401);
 
-    const { rows } = await botQuery<{ wc_id: number; name: string }>(
-      `SELECT wc_id, name FROM bot_categories WHERE enabled = true ORDER BY sort_order, wc_id`,
+    const { rows } = await botQuery<{ source_id: number; name: string }>(
+      `SELECT source_id, name FROM bot_categories WHERE source = 'woocommerce' AND enabled = true ORDER BY sort_order, source_id`,
     );
 
     return jsonOk({ categories: rows });

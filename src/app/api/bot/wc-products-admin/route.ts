@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/bot/wc-products-admin?categoryId=32&refresh=true
- * Returns products for a category from bot_products table.
+ * Returns WooCommerce products for a category from bot_products table.
  * Pass ?refresh=true to sync latest from WooCommerce.
  */
 export async function GET(req: NextRequest) {
@@ -24,12 +24,12 @@ export async function GET(req: NextRequest) {
     const refresh = req.nextUrl.searchParams.get("refresh") === "true";
 
     const { rows: dbRows } = await botQuery<{
-      id: number; wc_id: number; name: string; price: string;
+      id: number; source_id: number; name: string; price: string;
       image: string; permalink: string; enabled: boolean; sort_order: number;
-    }>(`SELECT id, wc_id, name, price, image, permalink, enabled, sort_order
-        FROM bot_products WHERE category_id = $1 ORDER BY sort_order, wc_id`, [categoryId]);
+    }>(`SELECT id, source_id, name, price, image, permalink, enabled, sort_order
+        FROM bot_products WHERE source = 'woocommerce' AND category_id = $1 ORDER BY sort_order, source_id`, [categoryId]);
 
-    const dbMap = new Map(dbRows.map((r) => [r.wc_id, r]));
+    const dbMap = new Map(dbRows.map((r) => [r.source_id, r]));
     let newCount = 0;
 
     if (refresh) {
@@ -40,14 +40,9 @@ export async function GET(req: NextRequest) {
       const wcBase = wc_url.replace(/\/$/, "");
       const auth   = Buffer.from(`${wc_consumer_key}:${wc_consumer_secret}`).toString("base64");
 
-      // Ensure variations columns exist (safe to run on every refresh)
-      await botQuery(`ALTER TABLE bot_products ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'simple'`);
-      await botQuery(`ALTER TABLE bot_products ADD COLUMN IF NOT EXISTS variations JSONB`);
-
       let page = 1;
       let fetched: { id: number; name: string; price: string; type: string; images: { src: string }[]; permalink: string }[] = [];
 
-      // Paginate through all WC products in this category
       while (true) {
         const res = await fetch(
           `${wcBase}/wp-json/wc/v3/products?category=${categoryId}&page=${page}&per_page=50&status=publish`,
@@ -65,7 +60,6 @@ export async function GET(req: NextRequest) {
       const maxOrder = dbRows.length > 0 ? Math.max(...dbRows.map((r) => r.sort_order)) + 1 : 0;
 
       for (const [i, p] of fetched.entries()) {
-        // Fetch variations for variable products — trim to only what the bot uses
         type WcVariationRaw = { id: number; price: string; attributes: { name: string; option: string }[] };
         type WcVariationTrimmed = { id: number; price: string; attributes: { name: string; option: string }[] };
         let variations: WcVariationTrimmed[] = [];
@@ -86,38 +80,36 @@ export async function GET(req: NextRequest) {
           } catch { /* ignore variation fetch failures */ }
         }
 
-        const productType = p.type ?? "simple";
+        const productType    = p.type ?? "simple";
         const variationsJson = variations.length > 0 ? JSON.stringify(variations) : null;
 
         if (!dbMap.has(p.id)) {
           await botQuery(
-            `INSERT INTO bot_products (wc_id, category_id, name, price, image, permalink, type, variations, enabled, sort_order)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)
-             ON CONFLICT (wc_id, category_id) DO NOTHING`,
+            `INSERT INTO bot_products (source, source_id, category_id, name, price, image, permalink, type, variations, enabled, sort_order)
+             VALUES ('woocommerce', $1, $2, $3, $4, $5, $6, $7, $8, true, $9)
+             ON CONFLICT (source, source_id, category_id) DO NOTHING`,
             [p.id, categoryId, p.name, p.price ?? "", p.images?.[0]?.src ?? "", p.permalink, productType, variationsJson, maxOrder + i]
           );
           newCount++;
         } else {
-          // Update name/price/image/type/variations in case they changed in WC
           await botQuery(
             `UPDATE bot_products SET name=$1, price=$2, image=$3, permalink=$4, type=$5, variations=$6, updated_at=NOW()
-             WHERE wc_id=$7 AND category_id=$8`,
+             WHERE source = 'woocommerce' AND source_id=$7 AND category_id=$8`,
             [p.name, p.price ?? "", p.images?.[0]?.src ?? "", p.permalink, productType, variationsJson, p.id, categoryId]
           );
         }
-        // Bust per-product cache so ?id=X returns fresh type+variations immediately
         cacheDel(`wc_product:${p.id}`);
       }
-      // Bust category and search caches for this category
       cacheDel_prefix(`wc_cat:${categoryId}`);
       cacheDel_prefix(`wc_search:`);
     }
 
     const { rows } = await botQuery<{
-      id: number; wc_id: number; name: string; price: string;
+      id: number; source_id: number; name: string; price: string;
       image: string; permalink: string; enabled: boolean; sort_order: number;
-    }>(`SELECT id, wc_id, name, price, image, permalink, enabled, sort_order
-        FROM bot_products WHERE category_id = $1 ORDER BY sort_order, wc_id`, [categoryId]);
+      type: string; variations: unknown;
+    }>(`SELECT id, source_id, name, price, image, permalink, enabled, sort_order, COALESCE(type,'simple') as type, variations
+        FROM bot_products WHERE source = 'woocommerce' AND category_id = $1 ORDER BY sort_order, source_id`, [categoryId]);
 
     return jsonOk({ products: rows, newCount });
   } catch (err) {
@@ -127,7 +119,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/bot/wc-products-admin
- * Save enabled/sort_order for products.
+ * Save enabled/sort_order for products (works for any source — uses row id).
  */
 export async function POST(req: NextRequest) {
   try {
