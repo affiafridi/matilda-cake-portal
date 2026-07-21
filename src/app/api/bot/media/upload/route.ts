@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser } from "@/lib/auth/server";
 import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
@@ -80,6 +81,9 @@ async function getPreviewUrl(handle: string, token: string): Promise<string | nu
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
+
     const { token } = await creds();
 
     const formData = await req.formData();

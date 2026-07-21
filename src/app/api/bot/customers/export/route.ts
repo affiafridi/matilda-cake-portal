@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { botQuery } from "@/lib/botdb";
-import { handleApiError } from "@/lib/api/http";
+import { jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser } from "@/lib/auth/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,9 @@ function csvCell(val: unknown): string {
 
 export async function GET(_req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
+
     const { rows } = await botQuery(
       `SELECT wa_id, name, language, total_messages,
               COALESCE(tags, '{}') AS tags,

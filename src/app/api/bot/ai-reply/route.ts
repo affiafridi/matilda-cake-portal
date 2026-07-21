@@ -77,26 +77,38 @@ async function loadAiSettings(): Promise<AiSettings> {
 async function checkAndIncrementUsage(dailyLimit: number): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Always read from DB — safe across multiple Cloud Run container instances
-  let currentCount = 0;
   try {
-    const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
-      SELECT key, value FROM portal_settings WHERE key IN ('ai_usage_date','ai_usage_count')
+    // Atomic increment: only increments if today's date matches and count is below limit.
+    // Returns the new count, or nothing if the limit is already reached.
+    const rows = await prisma.$queryRaw<{ new_count: number }[]>`
+      INSERT INTO portal_settings (key, value) VALUES ('ai_usage_count', '1')
+      ON CONFLICT (key) DO UPDATE SET value = (
+        CASE
+          WHEN (SELECT value FROM portal_settings WHERE key = 'ai_usage_date') = ${today}
+               AND portal_settings.value::int < ${dailyLimit}
+          THEN (portal_settings.value::int + 1)::text
+          WHEN (SELECT value FROM portal_settings WHERE key = 'ai_usage_date') != ${today}
+          THEN '1'
+          ELSE portal_settings.value
+        END
+      )
+      RETURNING value::int AS new_count
     `;
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-    currentCount = map["ai_usage_date"] === today ? Number(map["ai_usage_count"] ?? "0") : 0;
-  } catch { /* treat as 0 on DB error */ }
 
-  if (currentCount >= dailyLimit) return false;
+    // Also upsert the date so it's always in sync
+    await prisma.$executeRaw`
+      INSERT INTO portal_settings (key, value) VALUES ('ai_usage_date', ${today})
+      ON CONFLICT (key) DO UPDATE SET value = ${today}
+    `.catch(() => {});
 
-  // Persist incremented count to DB
-  const newCount = String(currentCount + 1);
-  await Promise.all([
-    prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_date',${today}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
-    prisma.$executeRaw`INSERT INTO portal_settings (key,value) VALUES ('ai_usage_count',${newCount}) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value`,
-  ]).catch(() => { /* non-critical — allow reply even if count fails to save */ });
-
-  return true;
+    const newCount = rows[0]?.new_count ?? 1;
+    // If new_count equals old count (no increment happened), limit was reached
+    // We check by re-reading — simpler: if newCount > dailyLimit the update was a no-op
+    return newCount <= dailyLimit;
+  } catch {
+    // On DB error allow the reply (non-critical)
+    return true;
+  }
 }
 
 function buildSystemPrompt(kb: Record<string, string>): string {

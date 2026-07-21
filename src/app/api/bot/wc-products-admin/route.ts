@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const user = await getCurrentUser();
-    if (!user) return jsonError("Unauthorized", 401);
+    if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
     const categoryId = parseInt(req.nextUrl.searchParams.get("categoryId") ?? "0", 10);
     if (!categoryId) return jsonError("categoryId is required", 400);
@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
-    if (!user) return jsonError("Unauthorized", 401);
+    if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
     const body = await req.json().catch(() => ({}));
     const products = body.products as { id: number; enabled: boolean; sort_order: number }[];

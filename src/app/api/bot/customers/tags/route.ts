@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { botQuery } from "@/lib/botdb";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser } from "@/lib/auth/server";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -21,6 +22,9 @@ const schema = z.object({
 // PUT — replace all tags for a customer
 export async function PUT(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
+
     await ensureColumn();
     const body = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
@@ -43,6 +47,9 @@ export async function PUT(req: NextRequest) {
 // GET — list all distinct tags in use
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
+
     await ensureColumn();
     const { rows } = await botQuery(
       `SELECT DISTINCT unnest(tags) AS tag FROM customers WHERE tags != '{}' ORDER BY 1`,

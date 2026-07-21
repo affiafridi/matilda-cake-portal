@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser } from "@/lib/auth/server";
 import { getIntegrations } from "@/lib/integrations";
 
 export const runtime = "nodejs";
@@ -14,6 +15,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
+
     const { wa_access_token: token } = await getIntegrations();
     if (!token) return jsonError("WhatsApp not configured", 500);
 

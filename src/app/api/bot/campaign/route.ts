@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
     if (!user) return jsonError("Unauthorized", 401);
+    if (!["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
     const body   = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(body);

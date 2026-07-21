@@ -1,13 +1,16 @@
 import type { NextRequest } from "next/server";
 import { botQuery } from "@/lib/botdb";
 import { prisma } from "@/lib/prisma";
-import { jsonOk, handleApiError } from "@/lib/api/http";
+import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser } from "@/lib/auth/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
     // Ensure tags column exists
     await botQuery(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS tags TEXT[] NOT NULL DEFAULT '{}'`).catch(() => {});
 

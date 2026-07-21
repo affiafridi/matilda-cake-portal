@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { botQuery } from "@/lib/botdb";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser, ROLE_GROUPS } from "@/lib/auth/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,9 @@ function cleanPhone(raw: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user || !ROLE_GROUPS.ADMINS.includes(user.role as "SUPER_ADMIN" | "ADMIN")) return jsonError("Forbidden", 403);
+
     const formData = await req.formData();
     const file = formData.get("file");
     if (!file || typeof file === "string") return jsonError("No file uploaded", 400);

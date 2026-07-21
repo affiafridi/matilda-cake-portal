@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join, extname } from "path";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
+import { getCurrentUser } from "@/lib/auth/server";
 import { randomUUID } from "crypto";
 import { Storage } from "@google-cloud/storage";
 
@@ -24,6 +25,9 @@ function gcs() {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) return jsonError("Unauthorized", 401);
+
     const formData = await req.formData();
     const file = formData.get("file");
     if (!file || typeof file === "string") return jsonError("No file", 400);

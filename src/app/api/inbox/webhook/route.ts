@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
           recipientData.readAt = now;
           broadcastInc.readCount = { increment: 1 };
           // If we somehow missed the delivered webhook, set deliveredAt too
-          if (!recipient.status.includes("DELIVERED") && prev !== "READ") {
+          if (recipient.status !== "DELIVERED" && prev !== "READ") {
             recipientData.deliveredAt = now;
             broadcastInc.deliveredCount = { increment: 1 };
           }

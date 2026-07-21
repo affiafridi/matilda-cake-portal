@@ -317,6 +317,9 @@ model Conversation {
   @@index([assignedToId])
   @@index([lastMessageAt])
   @@index([customerId])
+  @@index([channel])
+  @@index([botPaused])
+  @@index([agentRequested])
 }
 
 /// Activity events shown as labels in the conversation feed (assigned, resolved, etc.)
