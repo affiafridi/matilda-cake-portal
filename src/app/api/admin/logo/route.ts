@@ -100,13 +100,13 @@ export async function DELETE() {
       }
     }
 
-    // Reset logo_url to default fallback
+    // Clear logo_url
     await prisma.$executeRaw`
-      INSERT INTO portal_settings (key, value) VALUES ('logo_url', '/uploads/logo.png')
+      INSERT INTO portal_settings (key, value) VALUES ('logo_url', '')
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     `;
 
-    return jsonOk({ logo_url: "/uploads/logo.png" });
+    return jsonOk({ logo_url: "" });
   } catch (err) {
     return handleApiError(err);
   }

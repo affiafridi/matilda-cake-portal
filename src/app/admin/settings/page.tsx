@@ -67,8 +67,8 @@ export default function AdminSettingsPage() {
       wa_visible_to_admin:           true,
       portal_visible_to_admin:       true,
       integrations_visible_to_admin: false,
-      app_name: "Order Portal",
-      logo_url: "/uploads/logo.png",
+      app_name: "",
+      logo_url: "",
       contact_phone:         "",
       contact_email:         "",
       contact_website:       "",
@@ -225,7 +225,7 @@ export default function AdminSettingsPage() {
                   onBlur={(e) => save("app_name", e.target.value)}
                   suppressHydrationWarning
                   className={inputCls}
-                  placeholder="Order Portal" />
+                  placeholder="e.g. Customer Portal" />
                 <p className="mt-1.5 text-[11px] text-[#64748b]">Shown in the browser tab and login page</p>
               </div>
             </div>
@@ -255,7 +255,7 @@ export default function AdminSettingsPage() {
                     {logoRemoving
                       ? <svg className="h-5 w-5 animate-spin text-[#9ca3af]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
                       : settings.logo_url
-                        ? <><img src={settings.logo_url} alt="Logo" className="h-full w-full object-contain" />{/* eslint-disable-line @next/next/no-img-element */}
+                        ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={settings.logo_url} alt="Logo" className="h-full w-full object-contain" onError={() => setSettings((p) => ({ ...p, logo_url: "" }))} />
                             <button type="button" onClick={removeLogo} title="Remove"
                               className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 transition">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><path d="M18 6L6 18M6 6l12 12"/></svg>
