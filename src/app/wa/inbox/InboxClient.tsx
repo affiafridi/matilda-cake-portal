@@ -301,7 +301,8 @@ export default function InboxClient({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
 
   // Story mention lightbox
-  const [storyLightboxUrl, setStoryLightboxUrl] = useState<string | null>(null);
+  const [storyLightboxUrl,      setStoryLightboxUrl]      = useState<string | null>(null);
+  const [storyLightboxMediaType, setStoryLightboxMediaType] = useState<"img" | "video">("img");
 
   // Scroll-to-bottom button
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -1425,7 +1426,7 @@ export default function InboxClient({
                                       <p className="text-[11px] opacity-60">{m.body ?? "Mentioned you in their story"}</p>
                                     </div>
                                     {m.mediaUrl && (
-                                      <button type="button" onClick={() => setStoryLightboxUrl(m.mediaUrl!)}
+                                      <button type="button" onClick={() => { setStoryLightboxMediaType("img"); setStoryLightboxUrl(m.mediaUrl!); }}
                                         className="ml-auto shrink-0 rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-semibold hover:bg-white/20 transition cursor-zoom-in">
                                         View
                                       </button>
@@ -1916,15 +1917,27 @@ export default function InboxClient({
             <span className="text-[12px] font-semibold text-white">Story Mention</span>
           </div>
 
-          {/* Story image — Instagram story aspect ratio 9:16 */}
+          {/* Story media — try img first, fall back to video if it errors (stories can be video/mp4) */}
           <div className="relative" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={storyLightboxUrl}
-              alt="Story"
-              className="max-h-[75vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
-              style={{ aspectRatio: "9/16", maxWidth: "min(90vw, 360px)" }}
-            />
+            {storyLightboxMediaType === "img" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={storyLightboxUrl!}
+                alt="Story"
+                className="max-h-[75vh] rounded-2xl object-contain shadow-2xl"
+                style={{ maxWidth: "min(90vw, 360px)" }}
+                onError={() => setStoryLightboxMediaType("video")}
+              />
+            ) : (
+              <video
+                src={storyLightboxUrl!}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[75vh] rounded-2xl object-contain shadow-2xl"
+                style={{ maxWidth: "min(90vw, 360px)" }}
+              />
+            )}
           </div>
 
           {/* Close */}
