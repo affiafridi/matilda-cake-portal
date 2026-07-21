@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
-type Category = { wc_id: number; name: string; enabled: boolean; sort_order: number };
-type Product  = { id: number; wc_id: number; name: string; price: string; image: string; permalink: string; enabled: boolean; sort_order: number };
+type Category = { source_id: number; name: string; enabled: boolean; sort_order: number };
+type Product  = { id: number; source_id: number; name: string; price: string; image: string; permalink: string; enabled: boolean; sort_order: number };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function DragHandle() {
@@ -144,8 +144,8 @@ export default function BotConfigPage() {
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(null), 2500); }
 
-  const isLoadingProds = selectedCat ? loadingCatId === selectedCat.wc_id : false;
-  const isSyncingProds = selectedCat ? syncingCatId === selectedCat.wc_id : false;
+  const isLoadingProds = selectedCat ? loadingCatId === selectedCat.source_id : false;
+  const isSyncingProds = selectedCat ? syncingCatId === selectedCat.source_id : false;
   const isBusy         = isLoadingProds || isSyncingProds;
 
   // Load categories
@@ -163,7 +163,7 @@ export default function BotConfigPage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    const catId = cat.wc_id;
+    const catId = cat.source_id;
 
     if (refresh) {
       setSyncingCatId(catId);
@@ -196,7 +196,7 @@ export default function BotConfigPage() {
   }, []);
 
   function selectCat(cat: Category) {
-    if (selectedCat?.wc_id === cat.wc_id) return; // already selected
+    if (selectedCat?.source_id === cat.source_id) return; // already selected
     setSelectedCat(cat);
     loadProducts(cat);
   }
@@ -209,14 +209,14 @@ export default function BotConfigPage() {
       await fetch("/api/bot/wc-categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ categories: updated.map((c, i) => ({ wc_id: c.wc_id, enabled: c.enabled, sort_order: i + 1 })) }),
+        body: JSON.stringify({ categories: updated.map((c, i) => ({ source_id: c.source_id, enabled: c.enabled, sort_order: i + 1 })) }),
       });
     } finally { setCatSaving(false); }
   }
 
-  function toggleCategory(wc_id: number) {
+  function toggleCategory(source_id: number) {
     setCategories((prev) => {
-      const updated = prev.map((c) => c.wc_id === wc_id ? { ...c, enabled: !c.enabled } : c);
+      const updated = prev.map((c) => c.source_id === source_id ? { ...c, enabled: !c.enabled } : c);
       autoSave(updated);
       return updated;
     });
@@ -398,10 +398,10 @@ export default function BotConfigPage() {
             ) : filteredCats.length === 0 ? (
               <p className="text-center text-xs text-ink-muted py-8">No categories found</p>
             ) : filteredCats.map((cat, i) => (
-              <CategoryRow key={cat.wc_id} cat={cat} index={i}
-                selected={selectedCat?.wc_id === cat.wc_id}
+              <CategoryRow key={cat.source_id} cat={cat} index={i}
+                selected={selectedCat?.source_id === cat.source_id}
                 onSelect={() => selectCat(cat)}
-                onToggle={() => toggleCategory(cat.wc_id)}
+                onToggle={() => toggleCategory(cat.source_id)}
                 onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
                 dragging={dragging} />
             ))}
