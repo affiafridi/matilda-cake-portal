@@ -15,7 +15,7 @@ export async function GET() {
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM portal_settings
       WHERE key IN (
-        'woo_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
+        'woo_visible_to_admin', 'shopify_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
         'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url', 'inbox_template_name',
         'contact_phone', 'contact_email', 'contact_website', 'contact_welcome_image', 'contact_team_numbers',
         'instagram_bot_enabled'
@@ -25,6 +25,7 @@ export async function GET() {
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return jsonOk({
       woo_visible_to_admin:          (map["woo_visible_to_admin"]          ?? "false") === "true",
+      shopify_visible_to_admin:      (map["shopify_visible_to_admin"]      ?? "false") === "true",
       ai_visible_to_admin:           (map["ai_visible_to_admin"]           ?? "false") === "true",
       wa_visible_to_admin:           (map["wa_visible_to_admin"]           ?? "true")  === "true",
       portal_visible_to_admin:       (map["portal_visible_to_admin"]       ?? "true")  === "true",
@@ -61,6 +62,8 @@ const INTEGRATION_KEYS = [
   "wa_flow_id",
   "instagram_page_access_token",
   "instagram_verify_token",
+  "shopify_domain",
+  "shopify_access_token",
 ];
 
 export async function POST(req: NextRequest) {
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json() as { key: string; value: boolean | string };
     const allowed = [
-      "woo_visible_to_admin", "ai_visible_to_admin", "wa_visible_to_admin", "portal_visible_to_admin", "integrations_visible_to_admin", "app_name",
+      "woo_visible_to_admin", "shopify_visible_to_admin", "ai_visible_to_admin", "wa_visible_to_admin", "portal_visible_to_admin", "integrations_visible_to_admin", "app_name",
       "primary_color", "accent_color", "sidebar_color", "logo_url",
       "inbox_template_name",
       "contact_phone", "contact_email", "contact_website", "contact_welcome_image", "contact_team_numbers",

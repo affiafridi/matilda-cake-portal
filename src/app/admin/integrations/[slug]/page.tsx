@@ -193,6 +193,24 @@ const META: Record<string, IntegrationMeta> = {
       </svg>
     ),
   },
+  "shopify": {
+    name: "Shopify",
+    desc: "Connect your Shopify store — sync products and collections, manage them from the dashboard, and show them to customers via WhatsApp bot flows.",
+    category: "E-Commerce",
+    iconBg: "bg-[#95BF47]/10",
+    features: [
+      "Sync Shopify collections and products into the portal",
+      "Enable or disable products per-collection from the dashboard",
+      "Bot shows products with image, price, and buy link",
+      "Supports product variants (size, colour, etc.) displayed dynamically",
+      "Credentials stored securely — access token never exposed to the browser",
+    ],
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-8 w-8" fill="#95BF47">
+        <path d="M15.337.338a.538.538 0 0 0-.485-.338c-.202 0-3.837.08-3.837.08S8.04.323 7.853.13A.568.568 0 0 0 7.45 0C6.897 0 6.37.3 5.9.892L5 2.11c-.54.082-1.08.176-1.62.283C2.38 2.672 1.5 3.79 1.093 5.31.686 6.842.363 8.778.18 11.182c-.108 1.432-.162 2.916-.162 4.41 0 .66.02 1.31.06 1.94l.052.795C.65 21.26 3.047 24 5.5 24c.162 0 .323-.01.483-.028l.29-.039c.33.027.663.04.996.04 2.7 0 5.307-.862 7.437-2.454l.434-.333c.5-.392.857-.943.99-1.562l.822-3.858.004-.02 2.783-13.047A.538.538 0 0 0 18.5.8l-3.163-.462zM9.36 6.5l-.458 2.158a3.7 3.7 0 0 0-1.77-.452c-1.432 0-2.127.897-2.127 1.783 0 .98.62 1.612 1.664 2.147 1.7.87 2.554 1.994 2.554 3.478 0 2.232-1.757 3.717-4.15 3.717a6.83 6.83 0 0 1-2.895-.618l.527-2.474a5.24 5.24 0 0 0 2.38.617c.965 0 1.698-.45 1.698-1.268 0-.817-.566-1.33-1.686-1.938C3.633 12.97 2.7 11.9 2.7 10.418c0-2.112 1.69-3.573 4.003-3.573A6.03 6.03 0 0 1 9.36 6.5zm6.128-4.04l-.53 2.47h-1.5l-.57 2.667h1.498l-.906 4.24c-.093.435-.13.78-.13 1.04 0 1.1.606 1.652 1.847 1.652.474 0 .876-.06 1.23-.176l.456-2.135a2.01 2.01 0 0 1-.547.08c-.493 0-.72-.22-.72-.686 0-.19.037-.44.11-.757l.933-4.258h1.707l.55-2.667H16.8l.53-2.47h-1.84z"/>
+      </svg>
+    ),
+  },
   "openai": {
     name: "OpenAI",
     desc: "Add your OpenAI API key to power AI replies inside the bot. When a customer message doesn't match a flow, the bot asks the AI — which can also search WooCommerce products and reply naturally.",
@@ -200,7 +218,7 @@ const META: Record<string, IntegrationMeta> = {
     iconBg: "bg-[#10a37f]/10",
     features: [
       "AI fallback replies when no flow matches the message",
-      "Natural language product search via WooCommerce",
+      "Natural language product search via WooCommerce and Shopify",
       "Replies with product names, prices and links",
       "Key stored securely in the portal database",
       "Bot calls portal /api/bot/ai-reply — key never leaves the portal",
@@ -261,6 +279,10 @@ const FIELDS: Record<string, Field[]> = {
     { key: "paypal_client_secret",  label: "Client Secret",  type: "password", hint: "PayPal Developer → My Apps & Credentials → App → Secret" },
     { key: "paypal_mode",           label: "Mode",           hint: "Enter 'sandbox' for testing or 'live' for production" },
     { key: "paypal_success_url",    label: "Success URL",    type: "url",      hint: "URL to redirect customers to after a successful payment" },
+  ],
+  "shopify": [
+    { key: "shopify_domain",       label: "Store Domain",                             hint: "Your Shopify store domain, e.g. mystore.myshopify.com (without https://)" },
+    { key: "shopify_access_token", label: "Admin API Access Token", type: "password", hint: "Shopify Admin → Settings → Apps → Develop apps → your app → API credentials → Admin API access token" },
   ],
 };
 
@@ -654,6 +676,55 @@ function CredentialsForm({ fields, slug }: { fields: Field[]; slug: string }) {
   );
 }
 
+// ── Shopify test-connection wrapper ───────────────────────────────────────
+
+function ShopifyForm() {
+  const [testState, setTestState] = useState<"idle" | "testing" | "ok" | "fail">("idle");
+  const [testMsg,   setTestMsg]   = useState<string | null>(null);
+
+  async function handleTest() {
+    setTestState("testing"); setTestMsg(null);
+    try {
+      const settings = await fetch("/api/admin/integrations").then((r) => r.json());
+      if (!settings.ok) throw new Error("Could not load saved credentials");
+      const domain      = settings.data.shopify_domain?.trim();
+      const accessToken = settings.data.shopify_access_token?.trim();
+      if (!domain || !accessToken) { setTestState("fail"); setTestMsg("Save your credentials first, then test."); return; }
+      const r = await fetch("/api/admin/integrations/shopify/test", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shopify_domain: domain, shopify_access_token: accessToken }),
+      }).then((r) => r.json());
+      if (r.ok) {
+        setTestState("ok");
+        setTestMsg(r.data?.name ? `Connected to "${r.data.name}"` : "Connection successful");
+      } else {
+        setTestState("fail");
+        setTestMsg(r.error ?? "Connection failed");
+      }
+    } catch (e) {
+      setTestState("fail");
+      setTestMsg(e instanceof Error ? e.message : "Connection failed");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <CredentialsForm fields={FIELDS["shopify"]} slug="shopify" />
+      <div className="pt-1 border-t border-[#f1f5f9]">
+        <button onClick={handleTest} disabled={testState === "testing"}
+          className="h-9 flex items-center gap-2 rounded-lg border border-[#95BF47]/50 bg-[#95BF47]/8 px-4 text-[13px] font-semibold text-[#4a7c1f] hover:bg-[#95BF47]/15 transition disabled:opacity-50">
+          {testState === "testing" ? <><Spinner /> Testing…</> : (
+            <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Test connection</>
+          )}
+        </button>
+        {testMsg && (
+          <p className={`mt-2 text-[12px] font-medium ${testState === "ok" ? "text-emerald-700" : "text-red-500"}`}>{testMsg}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main detail page ──────────────────────────────────────────────────────
 
 export default function IntegrationDetailPage() {
@@ -672,6 +743,7 @@ export default function IntegrationDetailPage() {
       "stripe":       ["stripe_secret_key"],
       "paypal":       ["paypal_client_id", "paypal_client_secret"],
       "instagram":    ["instagram_page_access_token"],
+      "shopify":      ["shopify_domain", "shopify_access_token"],
     };
     const keys = required[slug];
     if (!keys) { setStatusLoaded(true); return; }
@@ -765,6 +837,8 @@ export default function IntegrationDetailPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b] mb-4">Credentials</p>
             {slug === "google-sheets" ? (
               <GoogleSheetsConfig />
+            ) : slug === "shopify" ? (
+              <ShopifyForm />
             ) : fields ? (
               <CredentialsForm fields={fields} slug={slug} />
             ) : null}

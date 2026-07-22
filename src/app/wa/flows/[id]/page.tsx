@@ -118,10 +118,13 @@ const DS = [
   { v: "woocommerce_products",             l: "All Products" },
   { v: "woocommerce_products_by_category", l: "Products by Category" },
   { v: "woocommerce_search",               l: "WC Product Search" },
+  { v: "shopify_collections",              l: "Shopify Collections" },
+  { v: "shopify_products_by_collection",   l: "Shopify Products by Collection" },
+  { v: "shopify_search",                   l: "Shopify Product Search" },
   { v: "custom_api",                       l: "Custom API" },
   { v: "custom_api_search",                l: "Custom API Search" },
 ];
-const PROD_SRC  = ["woocommerce_products","woocommerce_products_by_category","woocommerce_search"];
+const PROD_SRC  = ["woocommerce_products","woocommerce_products_by_category","woocommerce_search","shopify_products_by_collection","shopify_search"];
 const NEEDS_URL = ["custom_api","custom_api_search"];
 const INP = "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-100 placeholder:text-gray-300";
 const LBL = "block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2";
@@ -132,7 +135,8 @@ type LinkLine = { x1: number; y1: number; x2: number; y2: number };
 type ModuleDef = { id: string; label: string; desc: string; inputType: ST; dataSource?: string; stepPatch?: Partial<Step>; icon: React.ReactNode; color: string; bg: string };
 type ModuleGroup = { id: string; label: string; icon: React.ReactNode; color: string; modules: ModuleDef[] };
 
-const IcWoo   = <svg viewBox="0 0 24 24" fill="currentColor" width={18} height={18}><path d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2z"/></svg>;
+const IcWoo      = <svg viewBox="0 0 24 24" fill="currentColor" width={18} height={18}><path d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2z"/></svg>;
+const IcShopify  = <svg viewBox="0 0 24 24" fill="none" stroke="#95BF47" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><path d="M15.5 3.5c0 0-.4 0-.9.1C14.2 2.6 13.4 2 12.5 2c-.8 0-1.5.5-1.9 1.2C9.2 3.4 8 4.4 8 5.5V6H6l-1 14h12L16 6h-1.5V5.5c0-.6-.2-1.2-.5-1.6M12.5 4c.3 0 .6.2.8.5-1 .2-2.1.6-3 1.2.2-.9.9-1.7 2.2-1.7z"/></svg>;
 const IcMsgMod = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
 const IcHandoff = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
 const IcApi    = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>;
@@ -154,6 +158,15 @@ const MODULE_GROUPS: ModuleGroup[] = [
       { id: "wc_all_products", label: "All Products",        desc: "Browse all published products", inputType: "list", dataSource: "woocommerce_products",                color: "#7f54b3", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> },
       { id: "wc_search",      label: "Product Search",       desc: "Let customer search products by keyword", inputType: "search", dataSource: "woocommerce_search",              color: "#8b5cf6", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
       { id: "wc_product_card", label: "Product Detail Card",  desc: "Show full product card — image, price, description & add to cart", inputType: "message", stepPatch: { showProductCard: true }, color: "#059669", bg: "#ecfdf5", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="9" cy="10" r="1.5"/><path d="M13 8h4M13 11h4"/></svg> },
+    ],
+  },
+  {
+    id: "shopify", label: "Shopify", color: "#95BF47", icon: IcShopify,
+    modules: [
+      { id: "shopify_collections",   label: "Collections",             desc: "Show all enabled Shopify collections as a list", inputType: "list" as ST,   dataSource: "shopify_collections",            color: "#95BF47", bg: "#f3f9e8", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/></svg> },
+      { id: "shopify_by_collection", label: "Products by Collection",  desc: "Show products filtered by a selected collection", inputType: "list" as ST,   dataSource: "shopify_products_by_collection", color: "#95BF47", bg: "#f3f9e8", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg> },
+      { id: "shopify_search",        label: "Product Search",          desc: "Let customer search Shopify products by keyword", inputType: "search" as ST, dataSource: "shopify_search",                color: "#8b5cf6", bg: "#f5f3ff", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> },
+      { id: "shopify_product_card",  label: "Product Detail Card",     desc: "Show full product card — image, price, variants & order button", inputType: "message" as ST, stepPatch: { showProductCard: true }, color: "#059669", bg: "#ecfdf5", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={20} height={20}><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="9" cy="10" r="1.5"/><path d="M13 8h4M13 11h4"/></svg> },
     ],
   },
   {
@@ -741,7 +754,7 @@ function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" width={15} height={15} className="text-emerald-600 shrink-0"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><circle cx="9" cy="10" r="1.5"/><path d="M13 8h4M13 11h4"/></svg>
               <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Product Detail Card</p>
             </div>
-            <p className="text-[11px] text-emerald-600 leading-relaxed">The following fields load automatically from WooCommerce — no setup needed:</p>
+            <p className="text-[11px] text-emerald-600 leading-relaxed">The following fields load automatically from your store — no setup needed:</p>
             <div className="flex flex-col gap-1.5">
               {["Product image", "Product name", "Price from", "Variations", "Order Now button link"].map((f) => (
                 <div key={f} className="flex items-center gap-1.5 text-[11px] text-emerald-700">
@@ -841,6 +854,7 @@ function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
               <label className={LBL}>Where to search</label>
               <select value={srchOpt.dataSource} onChange={(e) => onChange({ ...step, options: [{ ...srchOpt, dataSource: e.target.value }] })} className={INP}>
                 <option value="woocommerce_search">WooCommerce products</option>
+                <option value="shopify_search">Shopify products</option>
                 <option value="custom_api_search">Custom API</option>
               </select>
             </div>

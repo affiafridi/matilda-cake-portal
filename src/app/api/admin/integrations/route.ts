@@ -16,6 +16,8 @@ const INTEGRATION_KEYS = [
   "wa_flow_id",
   "instagram_page_access_token",
   "instagram_verify_token",
+  "shopify_domain",
+  "shopify_access_token",
 ];
 
 async function canAccessIntegrations(user: { role: string } | null): Promise<boolean> {
@@ -41,7 +43,8 @@ export async function GET() {
         'openai_api_key',
         'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
         'flows_private_key', 'wa_flow_id',
-        'instagram_page_access_token', 'instagram_verify_token'
+        'instagram_page_access_token', 'instagram_verify_token',
+        'shopify_domain', 'shopify_access_token'
       )
     `;
 
@@ -81,6 +84,8 @@ function envFallback(key: string): string {
     wc_webhook_secret:           process.env.WC_WEBHOOK_SECRET,
     instagram_page_access_token: process.env.INSTAGRAM_PAGE_ACCESS_TOKEN,
     instagram_verify_token:      process.env.INSTAGRAM_VERIFY_TOKEN,
+    shopify_domain:              process.env.SHOPIFY_DOMAIN,
+    shopify_access_token:        process.env.SHOPIFY_ACCESS_TOKEN,
   };
   return map[key] ?? "";
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 export type PortalSettings = {
   woo_visible_to_admin:          boolean;
+  shopify_visible_to_admin:      boolean;
   ai_visible_to_admin:           boolean;
   wa_visible_to_admin:           boolean;
   portal_visible_to_admin:       boolean;
@@ -16,6 +17,7 @@ export type PortalSettings = {
 
 const DEFAULTS: PortalSettings = {
   woo_visible_to_admin:          false,
+  shopify_visible_to_admin:      false,
   ai_visible_to_admin:           false,
   wa_visible_to_admin:           true,
   portal_visible_to_admin:       true,
@@ -32,13 +34,14 @@ export async function getPortalSettings(): Promise<PortalSettings> {
     const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
       SELECT key, value FROM portal_settings
       WHERE key IN (
-        'woo_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
+        'woo_visible_to_admin', 'shopify_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
         'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url'
       )
     `;
     const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return {
       woo_visible_to_admin:          (map["woo_visible_to_admin"]          ?? "false") === "true",
+      shopify_visible_to_admin:      (map["shopify_visible_to_admin"]      ?? "false") === "true",
       ai_visible_to_admin:           (map["ai_visible_to_admin"]           ?? "false") === "true",
       wa_visible_to_admin:           (map["wa_visible_to_admin"]           ?? "true")  === "true",
       portal_visible_to_admin:       (map["portal_visible_to_admin"]       ?? "true")  === "true",

@@ -25,6 +25,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/settings":         { title: "Channel Settings",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",     parentHref: "/dashboard" },
   "/wa/woocommerce":      { title: "WooCommerce",        parent: "Integrations", parentHref: "/admin/integrations" },
+  "/wa/shopify":          { title: "Shopify",             parent: "Integrations", parentHref: "/admin/integrations" },
   "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/leads":              { title: "WA Leads",           parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/admin/reports/agents":  { title: "Agent Report",       parent: "Admin",        parentHref: "/admin/settings" },
@@ -80,6 +81,10 @@ const WOO_NAV = [
   { href: "/wa/woocommerce", label: "WooCommerce", icon: IcWoo },
 ];
 
+const SHOPIFY_NAV = [
+  { href: "/wa/shopify", label: "Shopify", icon: IcShopify },
+];
+
 const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN:       "Admin",
@@ -91,6 +96,7 @@ const ROLE_LABEL: Record<Role, string> = {
 
 type Settings = {
   woo_visible_to_admin:          boolean;
+  shopify_visible_to_admin:      boolean;
   wa_visible_to_admin:           boolean;
   portal_visible_to_admin:       boolean;
   integrations_visible_to_admin: boolean;
@@ -228,6 +234,7 @@ export default function AppShell({
   const waNavItems      = WA_NAV.filter((i) => i.roles.includes(user.role));
   const isSuperAdmin    = user.role === "SUPER_ADMIN";
   const showWoo         = isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin          ?? false));
+  const showShopify     = isSuperAdmin || (user.role === "ADMIN" && (settings?.shopify_visible_to_admin      ?? false));
   const showWA          = isSuperAdmin || user.role === "AGENT"    || (user.role === "ADMIN" && (settings?.wa_visible_to_admin           ?? true));
   const showPortal      = isSuperAdmin || user.role === "AGENT"    || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin       ?? true));
   const showIntegrations = isSuperAdmin || (user.role === "ADMIN" && (settings?.integrations_visible_to_admin ?? false));
@@ -340,6 +347,33 @@ export default function AppShell({
                     activeText: "text-[#5b21b6]",
                     hoverBg:    "hover:bg-white",
                     iconColor:  "text-[#7f54b3]",
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Shopify */}
+        {showShopify && (
+          <div className="space-y-0.5">
+            <div className="mb-0.5 mt-2.5 flex items-center gap-1.5 px-2.5">
+              <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="#95BF47" aria-hidden="true">
+                <path d="M15.337.338a.538.538 0 0 0-.485-.338c-.202 0-3.837.08-3.837.08S8.04.323 7.853.13A.568.568 0 0 0 7.45 0C6.897 0 6.37.3 5.9.892L5 2.11c-.54.082-1.08.176-1.62.283C2.38 2.672 1.5 3.79 1.093 5.31.686 6.842.363 8.778.18 11.182c-.108 1.432-.162 2.916-.162 4.41 0 .66.02 1.31.06 1.94l.052.795C.65 21.26 3.047 24 5.5 24c.162 0 .323-.01.483-.028l.29-.039c.33.027.663.04.996.04 2.7 0 5.307-.862 7.437-2.454l.434-.333c.5-.392.857-.943.99-1.562l.822-3.858.004-.02 2.783-13.047A.538.538 0 0 0 18.5.8l-3.163-.462z"/>
+              </svg>
+              <span className="text-[10.5px] font-semibold uppercase tracking-widest text-[#9ca3af]">Shopify</span>
+            </div>
+            {SHOPIFY_NAV.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <NavLink
+                  key={item.href} href={item.href} label={item.label} icon={item.icon}
+                  active={active}
+                  accent={{
+                    activeBg:   "bg-white",
+                    activeText: "text-[#4a7c1f]",
+                    hoverBg:    "hover:bg-white",
+                    iconColor:  "text-[#95BF47]",
                   }}
                 />
               );
@@ -499,6 +533,9 @@ function IcTemplate(p: SVGProps<SVGSVGElement>) {
 }
 function IcWoo(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" {...p}><path fill="currentColor" d="M2.2 2h19.6C22.99 2 24 3.01 24 4.2v10.08c0 1.19-1.01 2.2-2.2 2.2H13.5l1.63 3.27-4.36-3.27H2.2C1.01 16.48 0 15.47 0 14.28V4.2C0 3.01 1.01 2 2.2 2zm2.01 3.33c-.31.04-.54.19-.65.5-.06.18-.04.37.02.56l2.18 6.93 2.27-4.46 2.27 4.46 2.18-6.93c.11-.37-.04-.75-.38-.92a.76.76 0 00-.99.34l-1.08 3.9-1.98-3.88-2.01 3.88-1.08-3.9c-.11-.36-.41-.52-.75-.48zm11.06.12c-.72.04-1.37.46-1.68 1.11-.31.66-.25 1.46.17 2.06.43.61 1.16.93 1.9.84.74-.09 1.38-.59 1.63-1.3.25-.7.08-1.49-.43-2.02a1.87 1.87 0 00-1.59-.69zm0 .98c.36-.01.71.17.91.47.2.3.24.69.09 1.02-.14.34-.46.57-.82.61-.36.04-.72-.12-.94-.42-.22-.3-.26-.7-.1-1.04.16-.34.5-.57.86-.64z"/></svg>;
+}
+function IcShopify(p: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" fill="#95BF47" aria-hidden="true" {...p}><path d="M15.337.338a.538.538 0 0 0-.485-.338c-.202 0-3.837.08-3.837.08S8.04.323 7.853.13A.568.568 0 0 0 7.45 0C6.897 0 6.37.3 5.9.892L5 2.11c-.54.082-1.08.176-1.62.283C2.38 2.672 1.5 3.79 1.093 5.31.686 6.842.363 8.778.18 11.182c-.108 1.432-.162 2.916-.162 4.41 0 .66.02 1.31.06 1.94l.052.795C.65 21.26 3.047 24 5.5 24c.162 0 .323-.01.483-.028l.29-.039c.33.027.663.04.996.04 2.7 0 5.307-.862 7.437-2.454l.434-.333c.5-.392.857-.943.99-1.562l.822-3.858.004-.02 2.783-13.047A.538.538 0 0 0 18.5.8L15.337.338z"/></svg>;
 }
 function IcSettings(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>;

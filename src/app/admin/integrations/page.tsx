@@ -177,9 +177,9 @@ const INTEGRATIONS: IntegrationDef[] = [
   {
     slug: "shopify",
     name: "Shopify",
-    desc: "Connect your Shopify store to send order updates and product info via WhatsApp.",
+    desc: "Connect your Shopify store — sync products and collections into the bot, manage them from the dashboard, and show them to customers via WhatsApp.",
     category: "E-Commerce",
-    status: "coming_soon",
+    status: "configure",
     iconBg: "bg-[#95BF47]/10",
     icon: (
       <svg viewBox="0 0 24 24" className="h-6 w-6 text-[#5a8e13]" fill="currentColor">
@@ -214,6 +214,7 @@ const REQUIRED_KEYS: Record<string, string[]> = {
   "ccavenue":     ["ccavenue_merchant_id", "ccavenue_access_code"],
   "stripe":       ["stripe_secret_key"],
   "paypal":       ["paypal_client_id", "paypal_client_secret"],
+  "shopify":      ["shopify_domain", "shopify_access_token"],
 };
 
 // ── Component ─────────────────────────────────────────────────────────────
