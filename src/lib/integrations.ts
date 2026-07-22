@@ -68,7 +68,8 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
         'shopify_domain', 'shopify_access_token', 'shopify_api_version'
       )
     `;
-    map = Object.fromEntries(rows.map((r) => [r.key, r.value?.replace(/\s/g, "") ?? ""]));
+    // Strip whitespace from all values except PEM keys, which require newlines
+    map = Object.fromEntries(rows.map((r) => [r.key, r.key === "flows_private_key" ? (r.value ?? "") : (r.value?.replace(/\s/g, "") ?? "")]));
   } catch { /* DB not ready — fall back to env */ }
 
   return {

@@ -532,9 +532,12 @@ function CredentialsForm({ fields, slug }: { fields: Field[]; slug: string }) {
     try {
       for (const f of fields) {
         // Strip whitespace from credential fields to prevent corrupt token saves
-        const val = f.type === "password" || f.key.includes("token") || f.key.includes("key") || f.key.includes("secret")
-          ? (values[f.key] ?? "").replace(/\s/g, "")
-          : (values[f.key] ?? "");
+        // Preserve newlines in multiline fields (e.g. PEM private key); strip whitespace from all other credential fields
+      const val = f.multiline
+          ? (values[f.key] ?? "")
+          : f.type === "password" || f.key.includes("token") || f.key.includes("key") || f.key.includes("secret")
+            ? (values[f.key] ?? "").replace(/\s/g, "")
+            : (values[f.key] ?? "");
         await fetch("/api/admin/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
