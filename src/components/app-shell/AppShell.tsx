@@ -102,8 +102,8 @@ type Settings = {
   integrations_visible_to_admin: boolean;
   app_name?:        string;
   logo_url?:        string;
-  woo_configured?:     boolean;
-  shopify_configured?: boolean;
+  woo_configured:     boolean;
+  shopify_configured: boolean;
 };
 
 // ── Shared nav link component ──────────────────────────────────────────────

@@ -13,6 +13,9 @@ export type PortalSettings = {
   accent_color:  string;
   sidebar_color: string;
   logo_url:      string;
+  // Derived from integration credentials — used by AppShell to gate nav items
+  woo_configured:     boolean;
+  shopify_configured: boolean;
 };
 
 const DEFAULTS: PortalSettings = {
@@ -27,6 +30,8 @@ const DEFAULTS: PortalSettings = {
   accent_color:  "#0891b2",
   sidebar_color: "#ffffff",
   logo_url:      "/uploads/logo.png",
+  woo_configured:     false,
+  shopify_configured: false,
 };
 
 export async function getPortalSettings(): Promise<PortalSettings> {
@@ -35,10 +40,12 @@ export async function getPortalSettings(): Promise<PortalSettings> {
       SELECT key, value FROM portal_settings
       WHERE key IN (
         'woo_visible_to_admin', 'shopify_visible_to_admin', 'ai_visible_to_admin', 'wa_visible_to_admin', 'portal_visible_to_admin', 'integrations_visible_to_admin',
-        'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url'
+        'app_name', 'primary_color', 'accent_color', 'sidebar_color', 'logo_url',
+        'wc_url', 'wc_consumer_key', 'wc_consumer_secret',
+        'shopify_domain', 'shopify_access_token'
       )
     `;
-    const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value?.replace(/\s/g, "") ?? ""]));
     return {
       woo_visible_to_admin:          (map["woo_visible_to_admin"]          ?? "false") === "true",
       shopify_visible_to_admin:      (map["shopify_visible_to_admin"]      ?? "false") === "true",
@@ -51,6 +58,8 @@ export async function getPortalSettings(): Promise<PortalSettings> {
       accent_color:  map["accent_color"]  ?? DEFAULTS.accent_color,
       sidebar_color: map["sidebar_color"] ?? DEFAULTS.sidebar_color,
       logo_url:      map["logo_url"]      ?? DEFAULTS.logo_url,
+      woo_configured:     !!(map["wc_url"] && map["wc_consumer_key"] && map["wc_consumer_secret"]),
+      shopify_configured: !!(map["shopify_domain"] && map["shopify_access_token"]),
     };
   } catch {
     return DEFAULTS;
