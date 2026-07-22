@@ -679,20 +679,67 @@ function CredentialsForm({ fields, slug }: { fields: Field[]; slug: string }) {
   );
 }
 
-// ── WhatsApp Flows — credentials + sign public key ───────────────────────
+// ── WhatsApp Flows — generate key pair + sign + copy/export ──────────────
 
 function WhatsAppFlowsForm() {
+  const [formKey,    setFormKey]    = useState(0); // bump to re-mount CredentialsForm after generation
+  const [hasWaKeys,  setHasWaKeys]  = useState(false); // phone ID + access token configured?
+  const [hasFlowKey, setHasFlowKey] = useState(false); // private key already saved?
+
+  const [genState,  setGenState]  = useState<"idle" | "generating" | "done" | "error">("idle");
+  const [genKey,    setGenKey]    = useState<string | null>(null);
+  const [genError,  setGenError]  = useState<string | null>(null);
+  const [copied,    setCopied]    = useState(false);
+
   const [signState, setSignState] = useState<"idle" | "signing" | "ok" | "fail">("idle");
   const [signMsg,   setSignMsg]   = useState<string | null>(null);
-  const [hasKeys,   setHasKeys]   = useState(false);
 
-  useEffect(() => {
+  const loadStatus = useCallback(() => {
     fetch("/api/admin/integrations").then((r) => r.json()).then((s) => {
       if (s.ok) {
-        setHasKeys(!!(s.data.flows_private_key?.trim() && s.data.wa_phone_number_id?.trim() && s.data.wa_access_token?.trim()));
+        setHasWaKeys(!!(s.data.wa_phone_number_id?.trim() && s.data.wa_access_token?.trim()));
+        setHasFlowKey(!!s.data.flows_private_key?.trim());
       }
     }).catch(() => {});
   }, []);
+
+  useEffect(() => { loadStatus(); }, [loadStatus, formKey]);
+
+  async function handleGenerate() {
+    if (!confirm("Generate a new RSA key pair? This will replace any existing key and upload the new public key to Meta automatically.")) return;
+    setGenState("generating"); setGenKey(null); setGenError(null);
+    try {
+      const r = await fetch("/api/admin/flows/generate-key", { method: "POST" }).then((r) => r.json());
+      if (r.ok) {
+        setGenKey(r.data.privateKey);
+        setGenState("done");
+        setFormKey((k) => k + 1);
+      } else {
+        setGenState("error");
+        setGenError(r.error ?? "Generation failed");
+      }
+    } catch (e) {
+      setGenState("error");
+      setGenError(e instanceof Error ? e.message : "Generation failed");
+    }
+  }
+
+  function handleCopy() {
+    if (!genKey) return;
+    navigator.clipboard.writeText(genKey).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  }
+
+  function handleExport() {
+    if (!genKey) return;
+    const blob = new Blob([JSON.stringify({ flows_private_key: genKey }, null, 2)], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = "flows-key-backup.json"; a.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function handleSign() {
     setSignState("signing"); setSignMsg(null);
@@ -700,7 +747,7 @@ function WhatsAppFlowsForm() {
       const r = await fetch("/api/admin/flows/sign-public-key", { method: "POST" }).then((r) => r.json());
       if (r.ok) {
         setSignState("ok");
-        setSignMsg("Public key signed and uploaded to Meta — the Sign public key step is now complete.");
+        setSignMsg("Public key uploaded to Meta — Sign public key step complete.");
       } else {
         setSignState("fail");
         setSignMsg(r.error ?? "Signing failed");
@@ -713,30 +760,88 @@ function WhatsAppFlowsForm() {
 
   return (
     <div className="space-y-4">
-      <CredentialsForm fields={FIELDS["whatsapp-flows"]} slug="whatsapp-flows" />
-      {hasKeys && (
-        <div className="pt-1 border-t border-[#f1f5f9] space-y-2">
-          <p className="text-[11px] text-[#64748b]">
-            Once your private key is saved, click below to derive and upload your public key to Meta — this completes the <strong>Sign public key</strong> step in WhatsApp Flows.
-          </p>
-          <button onClick={handleSign} disabled={signState === "signing"}
-            className="h-9 flex items-center gap-2 rounded-lg border border-[#25D366]/50 bg-[#25D366]/8 px-4 text-[13px] font-semibold text-[#1a7a40] hover:bg-[#25D366]/15 transition disabled:opacity-50">
-            {signState === "signing" ? (
-              <><Spinner /> Uploading…</>
+      <CredentialsForm key={formKey} fields={FIELDS["whatsapp-flows"]} slug="whatsapp-flows" />
+
+      <div className="pt-1 border-t border-[#f1f5f9] space-y-3">
+
+        {/* Generate key pair */}
+        <div>
+          <button onClick={handleGenerate} disabled={genState === "generating" || !hasWaKeys}
+            title={!hasWaKeys ? "Save WhatsApp Phone Number ID and Access Token first" : undefined}
+            className="h-9 flex items-center gap-2 rounded-lg bg-[#0f172a] px-4 text-[13px] font-semibold text-white hover:bg-[#1e293b] transition disabled:opacity-40">
+            {genState === "generating" ? (
+              <><Spinner /> Generating…</>
             ) : (
               <>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
                 </svg>
-                Sign &amp; upload public key
+                {hasFlowKey ? "Regenerate RSA key pair" : "Generate RSA key pair"}
               </>
             )}
           </button>
-          {signMsg && (
-            <p className={`text-[12px] font-medium ${signState === "ok" ? "text-emerald-700" : "text-red-500"}`}>{signMsg}</p>
+          <p className="text-[11px] text-[#64748b] mt-1.5">
+            Generates a 2048-bit RSA key pair, saves the private key to the portal, and uploads the public key to Meta in one click.
+            {!hasWaKeys && <span className="text-amber-600"> Save your WhatsApp credentials first.</span>}
+          </p>
+          {genState === "error" && genError && (
+            <p className="text-[12px] font-medium text-red-500 mt-1">{genError}</p>
           )}
         </div>
-      )}
+
+        {/* Generated key — copy + export */}
+        {genState === "done" && genKey && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2.5">
+            <p className="text-[12px] font-semibold text-emerald-700 flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+              Key pair generated &amp; public key uploaded to Meta
+            </p>
+            <textarea readOnly rows={6} value={genKey}
+              className="w-full rounded-md border border-emerald-200 bg-white px-2.5 py-2 font-mono text-[10px] leading-relaxed text-[#374151] resize-none focus:outline-none" />
+            <div className="flex items-center gap-2">
+              <button onClick={handleCopy}
+                className="h-8 flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100 transition">
+                {copied ? (
+                  <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>Copied!</>
+                ) : (
+                  <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy key</>
+                )}
+              </button>
+              <button onClick={handleExport}
+                className="h-8 flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-white px-3 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100 transition">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export JSON
+              </button>
+            </div>
+            <p className="text-[11px] text-amber-700 font-medium">
+              Copy or export this private key now — paste it into your bot config. It&apos;s saved in the portal but this is your only chance to see it in full here.
+            </p>
+          </div>
+        )}
+
+        {/* Manual sign button — for when key was pasted manually */}
+        {hasFlowKey && genState !== "done" && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-[#64748b]">Already have a private key saved? Re-upload the public key to Meta:</p>
+            <button onClick={handleSign} disabled={signState === "signing"}
+              className="h-8 flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[12px] font-semibold text-[#374151] hover:border-[#25D366]/50 hover:text-[#1a7a40] transition disabled:opacity-50">
+              {signState === "signing" ? (
+                <><Spinner /> Uploading…</>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                    <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                  Sign &amp; upload public key
+                </>
+              )}
+            </button>
+            {signMsg && (
+              <p className={`text-[12px] font-medium ${signState === "ok" ? "text-emerald-700" : "text-red-500"}`}>{signMsg}</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
