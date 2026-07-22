@@ -105,6 +105,7 @@ function LinkGeneratorTab() {
   const [wcBase,         setWcBase]         = useState("");
   const [wcUnconfigured, setWcUnconfigured] = useState(false);
   const [copied,         setCopied]         = useState(false);
+  const [hoveredId,      setHoveredId]      = useState<string | null>(null);
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef  = useRef<HTMLDivElement>(null);
 
@@ -241,56 +242,90 @@ function LinkGeneratorTab() {
               placeholder="Type to search…"
               className="w-full rounded-lg border border-[#e5e7eb] bg-[#f8fafc] pl-9 pr-3 py-2.5 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition"
             />
-            {searching && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <svg className="h-3.5 w-3.5 animate-spin text-[#9ca3af]" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/>
-                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75"/>
-                </svg>
-              </div>
-            )}
 
             {/* Dropdown */}
             {results.length > 0 && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-lg">
-                {results.map(r => (
-                  <button
-                    key={`${r.type}-${r.id}`}
-                    onClick={() => select(r)}
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8fafc] transition-colors"
-                  >
-                    {/* Thumbnail — product image or category placeholder */}
-                    {r.type === "product" && r.image ? (
-                      <img src={r.image} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover border border-[#e5e7eb]" />
-                    ) : (
-                      <div className={`h-9 w-9 shrink-0 rounded-md flex items-center justify-center border ${r.type === "category" ? "bg-violet-50 border-violet-200" : "bg-[#f1f5f9] border-[#e5e7eb]"}`}>
-                        {r.type === "category" ? (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-violet-400">
-                            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                          </svg>
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-[#e5e7eb] bg-white shadow-lg">
+                {results.map(r => {
+                  const key = `${r.type}-${r.id}`;
+                  const isHovered = hoveredId === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => select(r)}
+                      onMouseEnter={() => setHoveredId(key)}
+                      onMouseLeave={() => setHoveredId(null)}
+                      className="flex w-full flex-col text-left transition-colors hover:bg-[#f8fafc]"
+                    >
+                      {/* Row */}
+                      <div className="flex w-full items-center gap-3 px-3 py-2.5">
+                        {/* Thumbnail */}
+                        {r.type === "product" && r.image ? (
+                          <img src={r.image} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover border border-[#e5e7eb]" />
                         ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#94a3b8]">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                          </svg>
+                          <div className={`h-9 w-9 shrink-0 rounded-md flex items-center justify-center border ${r.type === "category" ? "bg-violet-50 border-violet-200" : "bg-[#f1f5f9] border-[#e5e7eb]"}`}>
+                            {r.type === "category" ? (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-violet-400">
+                                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#94a3b8]">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                              </svg>
+                            )}
+                          </div>
                         )}
+                        {/* Badge */}
+                        <span className={[
+                          "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                          r.type === "category"
+                            ? "bg-violet-50 text-violet-700 border border-violet-200"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-200",
+                        ].join(" ")}>
+                          {r.type === "category" ? "Category" : "Product"}
+                        </span>
+                        <span className="flex-1 truncate text-[13px] font-medium text-[#0f172a]">{r.name}</span>
+                        {r.price && <span className="shrink-0 text-[12px] font-semibold text-[#64748b]">{r.price}</span>}
                       </div>
-                    )}
-                    {/* Label badge */}
-                    <span className={[
-                      "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                      r.type === "category"
-                        ? "bg-violet-50 text-violet-700 border border-violet-200"
-                        : "bg-emerald-50 text-emerald-700 border border-emerald-200",
-                    ].join(" ")}>
-                      {r.type === "category" ? "Category" : "Product"}
-                    </span>
-                    <span className="flex-1 truncate text-[13px] font-medium text-[#0f172a]">{r.name}</span>
-                    {r.price && <span className="shrink-0 text-[12px] text-[#64748b]">{r.price}</span>}
-                  </button>
-                ))}
+
+                      {/* Inline product preview — expands on hover */}
+                      {r.type === "product" && isHovered && (
+                        <div className="mx-3 mb-2.5 flex items-start gap-3 rounded-lg border border-[#e5e7eb] bg-white p-3 shadow-sm">
+                          {r.image ? (
+                            <img src={r.image} alt={r.name} className="h-20 w-20 shrink-0 rounded-lg object-cover border border-[#e5e7eb]" />
+                          ) : (
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[#f1f5f9] border border-[#e5e7eb]">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7 text-[#cbd5e1]">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                              </svg>
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-semibold leading-snug text-[#0f172a]">{r.name}</p>
+                            {r.price && (
+                              <p className="mt-1 text-[15px] font-bold text-emerald-600">{r.price}</p>
+                            )}
+                            <p className="mt-1.5 text-[11px] text-[#94a3b8]">Click to select this product</p>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
+
+          {/* Searching indicator — centered below the input */}
+          {searching && (
+            <div className="mt-2 flex items-center justify-center gap-2 text-[12px] text-[#94a3b8]">
+              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25"/>
+                <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75"/>
+              </svg>
+              Searching…
+            </div>
+          )}
 
           {/* Selected pill */}
           {selected && (
