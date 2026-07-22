@@ -235,8 +235,8 @@ export default function AppShell({
 
   const waNavItems      = WA_NAV.filter((i) => i.roles.includes(user.role));
   const isSuperAdmin    = user.role === "SUPER_ADMIN";
-  const showWoo         = (settings?.woo_configured     ?? true)  && (isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin     ?? false)));
-  const showShopify     = (settings?.shopify_configured ?? true)  && (isSuperAdmin || (user.role === "ADMIN" && (settings?.shopify_visible_to_admin ?? false)));
+  const showWoo         = (settings?.woo_configured     ?? false) && (isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin     ?? false)));
+  const showShopify     = (settings?.shopify_configured ?? false) && (isSuperAdmin || (user.role === "ADMIN" && (settings?.shopify_visible_to_admin ?? false)));
   const showWA          = isSuperAdmin || user.role === "AGENT"    || (user.role === "ADMIN" && (settings?.wa_visible_to_admin           ?? true));
   const showPortal      = isSuperAdmin || user.role === "AGENT"    || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin       ?? true));
   const showIntegrations = isSuperAdmin || (user.role === "ADMIN" && (settings?.integrations_visible_to_admin ?? false));
