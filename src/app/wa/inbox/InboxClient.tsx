@@ -985,7 +985,7 @@ export default function InboxClient({
                       {c.agentRequested && !c.botPaused && (
                         <span className="flex shrink-0 items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                          Wants Agent
+                          Needs Support
                         </span>
                       )}
                     </div>
@@ -1056,7 +1056,7 @@ export default function InboxClient({
                       {selected?.agentRequested && !selected?.botPaused && (
                         <span className="flex shrink-0 items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="h-2.5 w-2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                          Wants Agent
+                          Needs Support
                         </span>
                       )}
                       {selected?.broadcastOptOut && (
@@ -1283,7 +1283,7 @@ export default function InboxClient({
                                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                               </svg>
                               <span>
-                                <span className="font-bold">Wants Agent</span>
+                                <span className="font-bold">Needs Support</span>
                                 {m.body && <span className="ml-1 opacity-80">— &ldquo;{m.body}&rdquo;</span>}
                               </span>
                             </div>
