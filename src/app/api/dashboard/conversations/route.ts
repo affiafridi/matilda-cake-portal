@@ -8,8 +8,11 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Non-SUPER_ADMIN roles don't have access to Instagram — exclude those conversations
+  const channelFilter = user.role === "SUPER_ADMIN" ? {} : { NOT: { channel: "instagram" } };
+
   const conversations = await prisma.conversation.findMany({
-    where: { status: "OPEN" },
+    where: { status: "OPEN", ...channelFilter },
     orderBy: { lastMessageAt: "desc" },
     take: 6,
     select: {
