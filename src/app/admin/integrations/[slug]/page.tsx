@@ -676,6 +676,68 @@ function CredentialsForm({ fields, slug }: { fields: Field[]; slug: string }) {
   );
 }
 
+// ── WhatsApp Flows — credentials + sign public key ───────────────────────
+
+function WhatsAppFlowsForm() {
+  const [signState, setSignState] = useState<"idle" | "signing" | "ok" | "fail">("idle");
+  const [signMsg,   setSignMsg]   = useState<string | null>(null);
+  const [hasKeys,   setHasKeys]   = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/integrations").then((r) => r.json()).then((s) => {
+      if (s.ok) {
+        setHasKeys(!!(s.data.flows_private_key?.trim() && s.data.wa_phone_number_id?.trim() && s.data.wa_access_token?.trim()));
+      }
+    }).catch(() => {});
+  }, []);
+
+  async function handleSign() {
+    setSignState("signing"); setSignMsg(null);
+    try {
+      const r = await fetch("/api/admin/flows/sign-public-key", { method: "POST" }).then((r) => r.json());
+      if (r.ok) {
+        setSignState("ok");
+        setSignMsg("Public key signed and uploaded to Meta — the Sign public key step is now complete.");
+      } else {
+        setSignState("fail");
+        setSignMsg(r.error ?? "Signing failed");
+      }
+    } catch (e) {
+      setSignState("fail");
+      setSignMsg(e instanceof Error ? e.message : "Signing failed");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <CredentialsForm fields={FIELDS["whatsapp-flows"]} slug="whatsapp-flows" />
+      {hasKeys && (
+        <div className="pt-1 border-t border-[#f1f5f9] space-y-2">
+          <p className="text-[11px] text-[#64748b]">
+            Once your private key is saved, click below to derive and upload your public key to Meta — this completes the <strong>Sign public key</strong> step in WhatsApp Flows.
+          </p>
+          <button onClick={handleSign} disabled={signState === "signing"}
+            className="h-9 flex items-center gap-2 rounded-lg border border-[#25D366]/50 bg-[#25D366]/8 px-4 text-[13px] font-semibold text-[#1a7a40] hover:bg-[#25D366]/15 transition disabled:opacity-50">
+            {signState === "signing" ? (
+              <><Spinner /> Uploading…</>
+            ) : (
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Sign &amp; upload public key
+              </>
+            )}
+          </button>
+          {signMsg && (
+            <p className={`text-[12px] font-medium ${signState === "ok" ? "text-emerald-700" : "text-red-500"}`}>{signMsg}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Shopify test-connection wrapper ───────────────────────────────────────
 
 function ShopifyForm() {
@@ -781,7 +843,6 @@ export default function IntegrationDetailPage() {
   }
 
   const fields = FIELDS[slug];
-  const flowsFields = FIELDS["whatsapp-flows"];
   const hasConfig = fields || slug === "google-sheets";
 
   return (
@@ -873,7 +934,7 @@ export default function IntegrationDetailPage() {
             <p className="text-[12px] text-[#64748b] leading-relaxed mb-4">
               WhatsApp Flows lets customers complete checkout, pick delivery slots and fill forms — all inside WhatsApp without leaving the chat. Add your Flow ID and RSA private key to enable end-to-end encrypted communication between Meta and this portal.
             </p>
-            <CredentialsForm fields={flowsFields} slug="whatsapp-flows" />
+            <WhatsAppFlowsForm />
           </div>
         )}
       </div>
