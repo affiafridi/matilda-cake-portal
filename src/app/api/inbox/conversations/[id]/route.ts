@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }),
       prisma.message.findMany({
         where:   { conversationId: id },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
         take:    100,
         select: {
           id: true, direction: true, body: true,
@@ -39,7 +39,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           metadata: true, waMessageId: true, createdAt: true,
           sentBy: { select: { id: true, name: true } },
         },
-      }),
+      }).then((rows) => rows.reverse()),
       prisma.conversationEvent.findMany({
         where:   { conversationId: id },
         orderBy: { createdAt: "asc" },

@@ -679,8 +679,19 @@ function CredentialsForm({ fields, slug }: { fields: Field[]; slug: string }) {
 // ── Shopify test-connection wrapper ───────────────────────────────────────
 
 function ShopifyForm() {
-  const [testState, setTestState] = useState<"idle" | "testing" | "ok" | "fail">("idle");
-  const [testMsg,   setTestMsg]   = useState<string | null>(null);
+  const [testState,    setTestState]    = useState<"idle" | "testing" | "ok" | "fail">("idle");
+  const [testMsg,      setTestMsg]      = useState<string | null>(null);
+  const [hasCredentials, setHasCredentials] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/integrations").then((r) => r.json()).then((s) => {
+      if (s.ok) {
+        const domain = s.data.shopify_domain?.trim();
+        const token  = s.data.shopify_access_token?.trim();
+        setHasCredentials(!!(domain && token));
+      }
+    }).catch(() => {});
+  }, []);
 
   async function handleTest() {
     setTestState("testing"); setTestMsg(null);
@@ -689,7 +700,6 @@ function ShopifyForm() {
       if (!settings.ok) throw new Error("Could not load saved credentials");
       const domain      = settings.data.shopify_domain?.trim();
       const accessToken = settings.data.shopify_access_token?.trim();
-      if (!domain || !accessToken) { setTestState("fail"); setTestMsg("Save your credentials first, then test."); return; }
       const r = await fetch("/api/admin/integrations/shopify/test", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ shopify_domain: domain, shopify_access_token: accessToken }),
@@ -710,17 +720,19 @@ function ShopifyForm() {
   return (
     <div className="space-y-4">
       <CredentialsForm fields={FIELDS["shopify"]} slug="shopify" />
-      <div className="pt-1 border-t border-[#f1f5f9]">
-        <button onClick={handleTest} disabled={testState === "testing"}
-          className="h-9 flex items-center gap-2 rounded-lg border border-[#95BF47]/50 bg-[#95BF47]/8 px-4 text-[13px] font-semibold text-[#4a7c1f] hover:bg-[#95BF47]/15 transition disabled:opacity-50">
-          {testState === "testing" ? <><Spinner /> Testing…</> : (
-            <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Test connection</>
+      {hasCredentials && (
+        <div className="pt-1 border-t border-[#f1f5f9]">
+          <button onClick={handleTest} disabled={testState === "testing"}
+            className="h-9 flex items-center gap-2 rounded-lg border border-[#95BF47]/50 bg-[#95BF47]/8 px-4 text-[13px] font-semibold text-[#4a7c1f] hover:bg-[#95BF47]/15 transition disabled:opacity-50">
+            {testState === "testing" ? <><Spinner /> Testing…</> : (
+              <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Test connection</>
+            )}
+          </button>
+          {testMsg && (
+            <p className={`mt-2 text-[12px] font-medium ${testState === "ok" ? "text-emerald-700" : "text-red-500"}`}>{testMsg}</p>
           )}
-        </button>
-        {testMsg && (
-          <p className={`mt-2 text-[12px] font-medium ${testState === "ok" ? "text-emerald-700" : "text-red-500"}`}>{testMsg}</p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
