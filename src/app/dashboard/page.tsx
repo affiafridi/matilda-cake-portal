@@ -104,13 +104,14 @@ export default async function DashboardPage({
 
   // ── Agent-specific dashboard ───────────────────────────────────────────────
   if (user.role === "AGENT") {
+    const WA_ONLY = { channel: "whatsapp" };
     const [openCount, pendingCount, resolvedTodayCount, unreadAgg, recentConvs] = await Promise.all([
-      prisma.conversation.count({ where: { status: "OPEN" } }),
-      prisma.conversation.count({ where: { status: "PENDING" } }),
-      prisma.conversation.count({ where: { status: "RESOLVED", updatedAt: { gte: startOfDayUTC() } } }),
-      prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { unreadCount: { gt: 0 } } }),
+      prisma.conversation.count({ where: { ...WA_ONLY, status: "OPEN" } }),
+      prisma.conversation.count({ where: { ...WA_ONLY, status: "PENDING" } }),
+      prisma.conversation.count({ where: { ...WA_ONLY, status: "RESOLVED", updatedAt: { gte: startOfDayUTC() } } }),
+      prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { ...WA_ONLY, unreadCount: { gt: 0 } } }),
       prisma.conversation.findMany({
-        where: { status: "OPEN" },
+        where: { ...WA_ONLY, status: "OPEN" },
         orderBy: { lastMessageAt: "desc" },
         take: 8,
         select: { id: true, waId: true, customerName: true, lastMessageBody: true, lastMessageAt: true, unreadCount: true },
