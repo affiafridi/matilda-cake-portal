@@ -24,13 +24,9 @@ export async function POST(_req: NextRequest) {
     const privateKeyPem = privKeyObj.export({ type: "pkcs8",  format: "pem" }) as string;
     const publicKeyPem  = createPublicKey(privKeyObj).export({ type: "spki", format: "pem" }) as string;
 
-    // Save private key to DB
-    await prisma.$executeRaw`
-      INSERT INTO portal_settings (key, value) VALUES ('flows_private_key', ${privateKeyPem})
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    `;
-
-    // Upload public key to Meta
+    // Upload public key to Meta FIRST — only save to DB if Meta accepts it.
+    // Reversing this order would leave the DB with a new private key while Meta
+    // still holds the old public key, breaking decryption permanently.
     const res = await fetch(
       `https://graph.facebook.com/v19.0/${integrations.wa_phone_number_id.trim()}/whatsapp_business_encryption`,
       {
@@ -47,6 +43,12 @@ export async function POST(_req: NextRequest) {
     if (!res.ok || data.error) {
       return jsonError(data.error?.message ?? `Meta API error (${res.status})`, 400);
     }
+
+    // Meta accepted the public key — safe to persist the private key now
+    await prisma.$executeRaw`
+      INSERT INTO portal_settings (key, value) VALUES ('flows_private_key', ${privateKeyPem})
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    `;
 
     return jsonOk({ privateKey: privateKeyPem });
   } catch (err) {
