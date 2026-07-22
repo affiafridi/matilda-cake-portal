@@ -93,6 +93,7 @@ type SearchResult = {
   slug:  string;
   type:  "product" | "category";
   price?: string;
+  image?: string;
 };
 
 function LinkGeneratorTab() {
@@ -137,8 +138,9 @@ function LinkGeneratorTab() {
         fetch(`/api/woocommerce/products/search?q=${encodeURIComponent(q)}`).then(r => r.json()),
         fetch(`/api/woocommerce/categories/search?q=${encodeURIComponent(q)}`).then(r => r.json()),
       ]);
-      const products: SearchResult[] = (pRes.data ?? []).map((p: { id: number; name: string; price?: string }) => ({
+      const products: SearchResult[] = (pRes.data ?? []).map((p: { id: number; name: string; price?: string; images?: { src: string }[] }) => ({
         id: p.id, name: p.name, slug: "", type: "product" as const, price: p.price,
+        image: p.images?.[0]?.src,
       }));
       const categories: SearchResult[] = (cRes.data ?? []).map((c: { id: number; name: string; slug: string }) => ({
         id: c.id, name: c.name, slug: c.slug, type: "category" as const,
@@ -257,6 +259,22 @@ function LinkGeneratorTab() {
                     onClick={() => select(r)}
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8fafc] transition-colors"
                   >
+                    {/* Thumbnail — product image or category placeholder */}
+                    {r.type === "product" && r.image ? (
+                      <img src={r.image} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover border border-[#e5e7eb]" />
+                    ) : (
+                      <div className={`h-9 w-9 shrink-0 rounded-md flex items-center justify-center border ${r.type === "category" ? "bg-violet-50 border-violet-200" : "bg-[#f1f5f9] border-[#e5e7eb]"}`}>
+                        {r.type === "category" ? (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-violet-400">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#94a3b8]">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
                     {/* Label badge */}
                     <span className={[
                       "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
