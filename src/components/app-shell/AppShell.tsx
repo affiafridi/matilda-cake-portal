@@ -52,14 +52,14 @@ const MAIN_NAV: NavItem[] = [
 ];
 
 const PORTAL_NAV: NavItem[] = [
-  { href: "/new-order",      label: "New Order", roles: ["SUPER_ADMIN","ADMIN","AGENT"],            icon: IcPlus },
-  { href: "/orders",         label: "Orders",    roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcOrders },
+  { href: "/new-order",      label: "New Order",   roles: ["SUPER_ADMIN","ADMIN","AGENT"],            icon: IcPlus },
+  { href: "/orders",         label: "Orders",      roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcOrders },
   { href: "/operator",       label: "Order Queue", roles: ["SUPER_ADMIN","ADMIN","OPERATOR"],         icon: IcQueue },
-  { href: "/admin/branches", label: "Branches",  roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcBranch },
-  { href: "/admin/users",    label: "Users",     roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcUsers },
+  { href: "/admin/branches", label: "Branches",    roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcBranch },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
+  { href: "/admin/users",           label: "Users",         roles: ["SUPER_ADMIN", "ADMIN"],  icon: IcUsers },
   { href: "/admin/settings",        label: "Configuration", roles: ["SUPER_ADMIN"],           icon: IcPortalSettings },
   { href: "/admin/integrations",    label: "Integrations",  roles: ["SUPER_ADMIN"],           icon: IcIntegrations },
   { href: "/admin/reports/agents",  label: "Agent Report",  roles: ["SUPER_ADMIN", "ADMIN"],  icon: IcReport },
