@@ -294,106 +294,133 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="px-6 py-4 lg:px-8">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[12.5px] text-[#64748b]">WhatsApp contacts from Bot</p>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              <input type="search" placeholder="Search name or number…" value={query} onChange={(e) => onSearch(e.target.value)}
-                className="h-8 w-52 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none transition" />
-            </div>
 
-            {/* Divider */}
-            <div className="h-5 w-px bg-[#e5e7eb]" />
-
-            {/* Import CSV */}
-            <label className={["inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition", importing ? "pointer-events-none opacity-50" : ""].join(" ")}>
-              <IconUpload className="h-3.5 w-3.5 text-[#6b7280]" />
-              {importing ? "Importing…" : "Import CSV"}
-              <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
-            </label>
-
-            {/* Export CSV */}
-            <button onClick={() => window.open("/api/bot/customers/export", "_blank")}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition">
-              <IconDownload className="h-3.5 w-3.5 text-[#6b7280]" />
-              Export CSV
-            </button>
-
-            {/* Sync to Sheets */}
-            {sheetsReady && (
-              <button onClick={handleSyncSheets} disabled={syncing}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#34a853]/30 bg-[#f0faf4] px-3 text-[13px] font-medium text-[#1e7e34] hover:bg-[#dcf5e5] transition disabled:opacity-50">
-                {syncing ? (
-                  <><svg className="h-3.5 w-3.5 animate-spin text-[#6b7280]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Syncing…</>
-                ) : (
-                  <><IconSheets className="h-3.5 w-3.5" />{selected.size > 0 ? `Sync selected (${selected.size})` : "Sync to Sheets"}</>
-                )}
-              </button>
-            )}
-
-            {/* Send Campaign */}
-            {selected.size > 0 && (
-              <Link href={`/wa/templates?customers=${[...selected].map(encodeURIComponent).join(",")}`}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-[13px] font-semibold text-white hover:bg-[#1DA851] transition">
-                <IconSendIcon className="h-3.5 w-3.5" />
-                Send Campaign ({selected.size})
-              </Link>
-            )}
-
-            {/* Delete — SUPER_ADMIN only */}
-            {isSuperAdmin && selected.size > 0 && (
-              <button onClick={handleDelete} disabled={deleting}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 text-[13px] font-medium text-red-600 hover:bg-red-100 transition disabled:opacity-50">
-                {deleting ? (
-                  <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-                )}
-                Delete ({selected.size})
-              </button>
-            )}
-          </div>
+      {/* ── Top bar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f3f4f6] px-6 py-3.5 lg:px-8">
+        {/* Left: search */}
+        <div className="relative">
+          <svg className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9ca3af]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="search" placeholder="Search name or number…" value={query} onChange={(e) => onSearch(e.target.value)}
+            className="h-9 w-56 rounded-lg border border-[#e5e7eb] bg-[#f6f8fa] pl-8 pr-3 text-[13px] text-[#0f172a] placeholder:text-[#9ca3af] focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand/20 transition" />
         </div>
-      </div>
 
-      {/* Tag filter bar */}
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-6 py-2.5 lg:px-8">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Filter by tag:</p>
-          {allTags.map((t) => (
-            <button key={t} onClick={() => onTagFilter(t)}
-              className={["rounded-full border px-2.5 py-0.5 text-xs font-medium transition", tagFilter === t ? [tagColor(t), "ring-1 ring-current"].join(" ") : "border-rule bg-[#f6f8fa] text-ink-muted hover:border-[#25D366]/40"].join(" ")}>
-              {t}
+        {/* Right: action buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Import CSV */}
+          <label className={["inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-[12.5px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition", importing ? "pointer-events-none opacity-50" : ""].join(" ")}>
+            <IconUpload className="h-3.5 w-3.5 text-[#6b7280]" />
+            {importing ? "Importing…" : "Import CSV"}
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          </label>
+
+          {/* Export CSV */}
+          <button onClick={() => window.open("/api/bot/customers/export", "_blank")}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-[12.5px] font-medium text-[#374151] hover:bg-[#f6f8fa] transition">
+            <IconDownload className="h-3.5 w-3.5 text-[#6b7280]" />
+            Export CSV
+          </button>
+
+          {/* Sync to Sheets */}
+          {sheetsReady && (
+            <button onClick={handleSyncSheets} disabled={syncing}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#34a853]/30 bg-[#f0faf4] px-3.5 text-[12.5px] font-medium text-[#1e7e34] hover:bg-[#dcf5e5] transition disabled:opacity-50">
+              {syncing ? (
+                <><svg className="h-3.5 w-3.5 animate-spin text-[#6b7280]" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Syncing…</>
+              ) : (
+                <><IconSheets className="h-3.5 w-3.5" />{selected.size > 0 ? `Sync selected (${selected.size})` : "Sync to Sheets"}</>
+              )}
             </button>
-          ))}
-          {tagFilter && (
-            <button onClick={() => onTagFilter("")} className="ml-1 text-xs text-ink-muted hover:text-danger transition">
-              Clear filter
+          )}
+
+          {/* Send Campaign */}
+          {selected.size > 0 && (
+            <Link href={`/wa/templates?customers=${[...selected].map(encodeURIComponent).join(",")}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#25D366] px-3.5 text-[12.5px] font-semibold text-white hover:bg-[#1DA851] transition">
+              <IconSendIcon className="h-3.5 w-3.5" />
+              Send Campaign ({selected.size})
+            </Link>
+          )}
+
+          {/* Delete — SUPER_ADMIN only */}
+          {isSuperAdmin && selected.size > 0 && (
+            <button onClick={handleDelete} disabled={deleting}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 text-[12.5px] font-medium text-red-600 hover:bg-red-100 transition disabled:opacity-50">
+              {deleting ? (
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              )}
+              Delete ({selected.size})
             </button>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Segment filter bar */}
-      <div className="flex flex-wrap items-center gap-2 px-6 py-2.5 lg:px-8">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Filter by segment:</p>
-        {SEGMENT_ORDER.map((seg) => {
-          const m = SEGMENT_META[seg];
-          const active = segmentFilter === seg;
-          return (
-            <button key={seg} onClick={() => setSegmentFilter(active ? "" : seg)}
-              className={["rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide transition", active ? [m.badge, "ring-1 ring-current"].join(" ") : "border-rule bg-[#f6f8fa] text-ink-muted hover:border-current/30"].join(" ")}>
-              {m.label}
+      {/* ── Filter bar ── */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 border-b border-[#f3f4f6] bg-[#fafafa] px-6 py-3 lg:px-8">
+
+        {/* Tag filters */}
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Tags</span>
+            <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-white p-0.5">
+              {allTags.map((t) => (
+                <button key={t} onClick={() => onTagFilter(t)}
+                  className={["rounded-md px-2.5 py-1 text-[12px] font-medium transition-all duration-150",
+                    tagFilter === t
+                      ? "bg-[#0f172a] text-white shadow-sm"
+                      : "text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#374151]",
+                  ].join(" ")}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            {tagFilter && (
+              <button onClick={() => onTagFilter("")}
+                className="text-[11.5px] text-[#94a3b8] hover:text-red-500 transition">
+                ✕
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Divider between tag + segment groups */}
+        {allTags.length > 0 && <div className="h-5 w-px bg-[#e5e7eb]" />}
+
+        {/* Segment filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#9ca3af]">Segments</span>
+          <div className="flex items-center gap-0.5 rounded-lg border border-[#e5e7eb] bg-white p-0.5">
+            {SEGMENT_ORDER.map((seg) => {
+              const m = SEGMENT_META[seg];
+              const active = segmentFilter === seg;
+              return (
+                <button key={seg} onClick={() => setSegmentFilter(active ? "" : seg)}
+                  className={["rounded-md px-2.5 py-1 text-[12px] font-semibold transition-all duration-150",
+                    active
+                      ? "bg-[#0f172a] text-white shadow-sm"
+                      : "text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#374151]",
+                  ].join(" ")}>
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+          {segmentFilter && (
+            <button onClick={() => setSegmentFilter("")}
+              className="text-[11.5px] text-[#94a3b8] hover:text-red-500 transition">
+              ✕
             </button>
-          );
-        })}
-        {segmentFilter && (
-          <button onClick={() => setSegmentFilter("")} className="ml-1 text-xs text-ink-muted hover:text-danger transition">
-            Clear filter
+          )}
+        </div>
+
+        {/* Active filter summary */}
+        {(tagFilter || segmentFilter) && (
+          <button onClick={() => { onTagFilter(""); setSegmentFilter(""); }}
+            className="ml-auto text-[12px] font-medium text-[#94a3b8] hover:text-red-500 transition">
+            Clear all filters
           </button>
         )}
       </div>
