@@ -420,6 +420,8 @@ model BotFlowStep {
   useCCAvenue        Boolean  @default(false) @map("use_ccavenue")
   orderButtonLabel   String?  @map("order_button_label")
   variationListLabel String?  @map("variation_list_label")
+  backButtonEnabled  Boolean  @default(false) @map("back_button_enabled")
+  backButtonLabel    String?  @map("back_button_label")
   imageUrl        String?         @map("image_url")
   sortOrder       Int             @default(0) @map("sort_order")
   positionX       Int             @default(80) @map("position_x")

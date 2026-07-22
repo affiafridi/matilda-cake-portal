@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Prisma, type OrderStatus, type PaymentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/server";
@@ -66,10 +67,8 @@ export default async function OrdersPage({
   );
 
   const actor = await getCurrentUser();
+  if (!actor || actor.role === "AGENT") redirect("/wa/inbox");
   const where: Prisma.OrderWhereInput = {};
-  if (actor && actor.role === "AGENT") {
-    where.createdById = actor.id;
-  }
   if (
     statusParam &&
     (ORDER_STATUS_VALUES as string[]).includes(statusParam)

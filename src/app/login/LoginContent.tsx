@@ -6,7 +6,7 @@ import { useState, type FormEvent } from "react";
 const ROLE_HOME: Record<string, string> = {
   SUPER_ADMIN: "/admin",
   ADMIN:       "/admin",
-  AGENT:    "/new-order",
+  AGENT:    "/wa/inbox",
   OPERATOR: "/operator",
 };
 
@@ -52,7 +52,7 @@ export function LoginContent({ appName, logoUrl }: { appName: string; logoUrl: s
       <div className="w-full max-w-sm rounded-2xl border border-rule bg-surface p-6 sm:p-8">
         <div className="mb-6 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt={appName} className="mx-auto h-14 w-auto" />
+          {logoUrl && <img src={logoUrl} alt={appName} className="mx-auto h-14 w-auto" />}
           <h1 className="mt-4 text-2xl font-semibold text-ink">Sign in</h1>
           <p className="mt-1 text-sm text-ink-muted">Internal portal access only.</p>
         </div>

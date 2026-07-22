@@ -48,12 +48,12 @@ type NavItem = {
 };
 
 const MAIN_NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcDashboard },
+  { href: "/dashboard", label: "Dashboard", roles: ["SUPER_ADMIN","ADMIN","OPERATOR","AGENT"], icon: IcDashboard },
 ];
 
 const PORTAL_NAV: NavItem[] = [
-  { href: "/new-order",      label: "New Order",   roles: ["SUPER_ADMIN","ADMIN","AGENT"],            icon: IcPlus },
-  { href: "/orders",         label: "Orders",      roles: ["SUPER_ADMIN","ADMIN","AGENT","OPERATOR"], icon: IcOrders },
+  { href: "/new-order",      label: "New Order",   roles: ["SUPER_ADMIN","ADMIN"],            icon: IcPlus },
+  { href: "/orders",         label: "Orders",      roles: ["SUPER_ADMIN","ADMIN","OPERATOR"], icon: IcOrders },
   { href: "/operator",       label: "Order Queue", roles: ["SUPER_ADMIN","ADMIN","OPERATOR"],         icon: IcQueue },
   { href: "/admin/branches", label: "Branches",    roles: ["SUPER_ADMIN","ADMIN"],                    icon: IcBranch },
 ];
@@ -67,7 +67,7 @@ const SETTINGS_NAV: NavItem[] = [
 
 const WA_NAV: NavItem[] = [
   { href: "/wa/inbox",            label: "Team Inbox",       icon: IcInbox,      roles: ["SUPER_ADMIN","ADMIN","AGENT"] },
-  { href: "/customers",           label: "Customers",        icon: IcCustomers,  roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/customers",           label: "Customers",        icon: IcCustomers,  roles: ["SUPER_ADMIN","ADMIN","AGENT"] },
   { href: "/admin/quick-replies", label: "Quick Replies",    icon: IcQuickReply, roles: ["SUPER_ADMIN","ADMIN"] },
   { href: "/wa/templates",        label: "Send Campaign",    icon: IcSend,       roles: ["SUPER_ADMIN","ADMIN"] },
   { href: "/wa/campaigns",        label: "Campaign History", icon: IcHistory,    roles: ["SUPER_ADMIN","ADMIN"] },
@@ -238,7 +238,7 @@ export default function AppShell({
   const showWoo         = (settings?.woo_configured     ?? false) && (isSuperAdmin || (user.role === "ADMIN" && (settings?.woo_visible_to_admin     ?? false)));
   const showShopify     = (settings?.shopify_configured ?? false) && (isSuperAdmin || (user.role === "ADMIN" && (settings?.shopify_visible_to_admin ?? false)));
   const showWA          = isSuperAdmin || user.role === "AGENT"    || (user.role === "ADMIN" && (settings?.wa_visible_to_admin           ?? true));
-  const showPortal      = isSuperAdmin || user.role === "AGENT"    || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin       ?? true));
+  const showPortal      = isSuperAdmin || user.role === "OPERATOR" || (user.role === "ADMIN" && (settings?.portal_visible_to_admin ?? true));
   const showIntegrations = isSuperAdmin || (user.role === "ADMIN" && (settings?.integrations_visible_to_admin ?? false));
 
   const mainItems     = MAIN_NAV.filter((i) => i.roles.includes(user.role));

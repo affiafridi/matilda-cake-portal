@@ -20,6 +20,7 @@ type Step = {
   _x?: number; _y?: number; disabled?: boolean; _imgH?: number;
   captureVar?: string; label?: string; isFallback?: boolean;
   orderButtonLabel?: string; variationListLabel?: string; useCCAvenue?: boolean;
+  backButtonEnabled?: boolean; backButtonLabel?: string;
 };
 type StepIssue = { severity: "error" | "warn"; label: string };
 function validateFlow(flow: Flow): Map<string, StepIssue[]> {
@@ -65,7 +66,7 @@ function normaliseFlow(d: any): Flow {
   return {
     ...d, description: d.description ?? "", triggerKeywords: d.triggerKeywords ?? "", isFallback: d.isFallback ?? false,
     steps: (d.steps ?? []).map((s: Step, i: number) => ({
-      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false, orderButtonLabel: s.orderButtonLabel ?? "Order Today", variationListLabel: s.variationListLabel ?? "Choose Options", useCCAvenue: s.useCCAvenue ?? false,
+      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false, orderButtonLabel: s.orderButtonLabel ?? "Order Today", variationListLabel: s.variationListLabel ?? "Choose Options", useCCAvenue: s.useCCAvenue ?? false, backButtonEnabled: s.backButtonEnabled ?? false, backButtonLabel: s.backButtonLabel ?? "⬅️ Back",
       label: s.label ?? undefined, captureVar: s.captureVar ?? undefined,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       _x: s._x ?? (s as any).positionX ?? 80 + i * 320, _y: s._y ?? (s as any).positionY ?? 120,
@@ -78,7 +79,7 @@ function normaliseFlow(d: any): Flow {
   };
 }
 function newOption(n = 0): Option { return { label: "", value: "", description: "", nextStepKey: "", dataSource: "static", sortOrder: n, customApiUrl: "", customApiPath: "", customApiLabel: "", customApiValue: "" }; }
-function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y, orderButtonLabel: "Order Today", variationListLabel: "Choose Options", useCCAvenue: false }; }
+function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y, orderButtonLabel: "Order Today", variationListLabel: "Choose Options", useCCAvenue: false, backButtonEnabled: false, backButtonLabel: "⬅️ Back" }; }
 function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu", nextStepKey: "step_1" }], _x: 80, _y: 340 }; }
 
 type IP = { size?: number; className?: string };
@@ -939,6 +940,28 @@ function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
             </div>
           </button>
         )}
+
+        {/* Back button toggle — available on any step */}
+        {!step.isFallback && (
+          <div className={"w-full rounded-xl border-2 px-3.5 py-3 transition " + (step.backButtonEnabled ? "border-blue-400 bg-blue-50" : "border-gray-200")}>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => onChange({ ...step, backButtonEnabled: !step.backButtonEnabled })}
+                className={"shrink-0 h-5 w-9 rounded-full transition-colors cursor-pointer " + (step.backButtonEnabled ? "bg-blue-500" : "bg-gray-200")}>
+                <span className={"block h-4 w-4 rounded-full bg-white shadow mt-0.5 transition-transform " + (step.backButtonEnabled ? "translate-x-[18px]" : "translate-x-0.5")} />
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className={"text-sm font-semibold leading-tight " + (step.backButtonEnabled ? "text-blue-700" : "text-gray-700")}>Send back button</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Sends a second message with a back button to the previous step</p>
+              </div>
+            </div>
+            {step.backButtonEnabled && (
+              <div className="mt-2.5 pt-2.5 border-t border-blue-200">
+                <label className={LBL}>Button label</label>
+                <input type="text" value={step.backButtonLabel ?? "⬅️ Back"} onChange={(e) => onChange({ ...step, backButtonLabel: e.target.value })} placeholder="⬅️ Back" className={INP} />
+              </div>
+            )}
+          </div>
+        )}
         {isInter && !isSrch && !step.showProductCard && (
           <div>
             <div className="flex items-center justify-between mb-2.5">
@@ -1031,6 +1054,19 @@ function StepBubble({ step, onChoose, vars }: { step: Step; onChoose: (nextKey: 
             <span className="text-[8px] text-gray-300">{now} ✓✓</span>
           </div>
         </div>
+        {/* Back button preview */}
+        {step.backButtonEnabled && (
+          <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden w-full">
+            <div className="px-3 pt-2 pb-1">
+              <p className="text-[10px] text-gray-400 italic">Explore more options:</p>
+            </div>
+            <div className="border-t border-gray-100">
+              <div className="w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold text-[#0a82ff] py-2">
+                {step.backButtonLabel || "⬅️ Back"}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1082,6 +1118,14 @@ function StepBubble({ step, onChoose, vars }: { step: Step; onChoose: (nextKey: 
         </div>
       )}
       {isMsg && !step.showProductCard && <p className="px-3 pb-2 text-[9px] text-gray-300 italic">Continues automatically →</p>}
+      {/* Back button preview for non-product-card steps */}
+      {step.backButtonEnabled && (
+        <div className="mt-1.5 border-t border-gray-100 pt-1">
+          <div className="w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold text-[#0a82ff] py-1.5">
+            {step.backButtonLabel || "⬅️ Back"}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import {
+  calcSegments, SEGMENT_META, SEGMENT_ORDER,
+  type SegmentKey, type OrderStat,
+} from "@/lib/customerSegments";
 import { useSearchParams, useRouter } from "next/navigation";
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -83,16 +87,18 @@ function CustomerPickerModal({
   onClose: () => void;
   onApply: (ids: string[]) => void;
 }) {
-  const [customers,  setCustomers]  = useState<Customer[]>([]);
-  const [total,      setTotal]      = useState(0);
-  const [page,       setPage]       = useState(1);
-  const [pages,      setPages]      = useState(1);
-  const [loading,    setLoading]    = useState(false);
-  const [loadingMore,setLoadingMore]= useState(false);
-  const [query,      setQuery]      = useState("");
-  const [tagFilter,  setTagFilter]  = useState("");
-  const [allTags,    setAllTags]    = useState<string[]>([]);
-  const [selected,   setSelected]   = useState<Set<string>>(new Set(initial));
+  const [customers,     setCustomers]     = useState<Customer[]>([]);
+  const [total,         setTotal]         = useState(0);
+  const [page,          setPage]          = useState(1);
+  const [pages,         setPages]         = useState(1);
+  const [loading,       setLoading]       = useState(false);
+  const [loadingMore,   setLoadingMore]   = useState(false);
+  const [query,         setQuery]         = useState("");
+  const [tagFilter,     setTagFilter]     = useState("");
+  const [segmentFilter, setSegmentFilter] = useState<SegmentKey | "">("");
+  const [allTags,       setAllTags]       = useState<string[]>([]);
+  const [orderStats,    setOrderStats]    = useState<Record<string, OrderStat>>({});
+  const [selected,      setSelected]      = useState<Set<string>>(new Set(initial));
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef      = useRef<HTMLDivElement>(null);
 
@@ -116,12 +122,16 @@ function CustomerPickerModal({
 
   useEffect(() => {
     if (!open) return;
-    setQuery(""); setTagFilter(""); setPage(1);
+    setQuery(""); setTagFilter(""); setSegmentFilter(""); setPage(1);
     setSelected(new Set(initial));
     fetchPage("", "", 1);
     fetch("/api/bot/customers/tags")
       .then((r) => r.json())
       .then((j) => { if (j.ok) setAllTags(j.data ?? []); })
+      .catch(() => {});
+    fetch("/api/admin/customers/order-stats")
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setOrderStats(j.data); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -154,7 +164,10 @@ function CustomerPickerModal({
   function selectAllVisible() {
     setSelected((prev) => {
       const n = new Set(prev);
-      customers.forEach((c) => n.add(c.wa_id));
+      const visible = segmentFilter
+        ? customers.filter((c) => calcSegments(orderStats[c.wa_id] ?? { orderCount: 0, totalSpend: 0, daysSinceLastOrder: null }).includes(segmentFilter))
+        : customers;
+      visible.forEach((c) => n.add(c.wa_id));
       return n;
     });
   }
@@ -196,9 +209,16 @@ function CustomerPickerModal({
 
   if (!open) return null;
 
-  const allVisibleSelected = customers.length > 0 && customers.every((c) => selected.has(c.wa_id));
-  const someVisibleSelected = customers.some((c) => selected.has(c.wa_id));
-  const hasFilter = !!(query || tagFilter);
+  const visibleCustomers = segmentFilter
+    ? customers.filter((c) => {
+        const stat = orderStats[c.wa_id] ?? { orderCount: 0, totalSpend: 0, daysSinceLastOrder: null };
+        return calcSegments(stat).includes(segmentFilter);
+      })
+    : customers;
+
+  const allVisibleSelected = visibleCustomers.length > 0 && visibleCustomers.every((c) => selected.has(c.wa_id));
+  const someVisibleSelected = visibleCustomers.some((c) => selected.has(c.wa_id));
+  const hasFilter = !!(query || tagFilter || segmentFilter);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -251,6 +271,22 @@ function CustomerPickerModal({
               ))}
             </div>
           )}
+
+          {/* Segment filter */}
+          <div className="flex flex-wrap gap-1.5">
+            {SEGMENT_ORDER.map((seg) => {
+              const m = SEGMENT_META[seg];
+              const active = segmentFilter === seg;
+              return (
+                <button key={seg} onClick={() => setSegmentFilter(active ? "" : seg)}
+                  className={["rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide transition",
+                    active ? [m.badge, "ring-1 ring-current"].join(" ") : "border-rule bg-canvas text-ink-muted hover:border-current/30",
+                  ].join(" ")}>
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Select all bar */}
@@ -266,10 +302,10 @@ function CustomerPickerModal({
             </button>
             <span className="text-xs text-ink-muted">
               {allVisibleSelected ? "Deselect visible" : "Select visible"}
-              {hasFilter && ` (${customers.length} shown)`}
+              {hasFilter && ` (${visibleCustomers.length} shown)`}
             </span>
           </div>
-          {hasFilter && total > customers.length && (
+          {hasFilter && !segmentFilter && total > customers.length && (
             <button onClick={selectAllMatching}
               className="text-xs font-semibold text-brand hover:underline transition">
               Select all {total.toLocaleString()} matching
@@ -300,9 +336,11 @@ function CustomerPickerModal({
             </div>
           ) : (
             <>
-              {customers.map((c) => {
+              {visibleCustomers.map((c) => {
                 const isSelected = selected.has(c.wa_id);
                 const initials = (c.name || c.wa_id).slice(0, 2).toUpperCase();
+                const stat = orderStats[c.wa_id] ?? { orderCount: 0, totalSpend: 0, daysSinceLastOrder: null };
+                const segs = calcSegments(stat);
                 return (
                   <button key={c.wa_id} type="button" onClick={() => toggleOne(c.wa_id)}
                     className={["flex w-full items-center gap-3 px-5 py-3 text-left transition-colors",
@@ -326,11 +364,17 @@ function CustomerPickerModal({
                     </div>
                     {/* Info */}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <p className="truncate text-sm font-semibold text-ink">{c.name || c.wa_id}</p>
                         {c.tags.slice(0, 2).map((tag) => (
                           <span key={tag} className="shrink-0 rounded-full border border-rule bg-canvas px-2 py-0.5 text-[10px] font-medium text-ink-muted">
                             {tag}
+                          </span>
+                        ))}
+                        {segs.map((s) => (
+                          <span key={s} title={SEGMENT_META[s].description}
+                            className={["shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide", SEGMENT_META[s].badge].join(" ")}>
+                            {SEGMENT_META[s].label}
                           </span>
                         ))}
                       </div>

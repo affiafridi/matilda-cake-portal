@@ -54,7 +54,7 @@ type AiSettings = {
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "SUPER_ADMIN") return jsonError("Forbidden", 403);
+    if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN")) return jsonError("Forbidden", 403);
 
     const { openai_api_key } = await getIntegrations();
 

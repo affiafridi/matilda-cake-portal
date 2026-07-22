@@ -6,7 +6,7 @@ import { getPortalSettings } from "@/lib/portalSettings";
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/admin");
-  if (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") redirect("/dashboard");
+  if (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN") redirect("/wa/inbox");
 
   const settings = await getPortalSettings();
 

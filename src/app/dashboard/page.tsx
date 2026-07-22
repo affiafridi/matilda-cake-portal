@@ -102,6 +102,103 @@ export default async function DashboardPage({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // ── Agent-specific dashboard ───────────────────────────────────────────────
+  if (user.role === "AGENT") {
+    const [openCount, pendingCount, resolvedTodayCount, unreadAgg, recentConvs] = await Promise.all([
+      prisma.conversation.count({ where: { status: "OPEN" } }),
+      prisma.conversation.count({ where: { status: "PENDING" } }),
+      prisma.conversation.count({ where: { status: "RESOLVED", updatedAt: { gte: startOfDayUTC() } } }),
+      prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { unreadCount: { gt: 0 } } }),
+      prisma.conversation.findMany({
+        where: { status: "OPEN" },
+        orderBy: { lastMessageAt: "desc" },
+        take: 8,
+        select: { id: true, waId: true, customerName: true, lastMessageBody: true, lastMessageAt: true, unreadCount: true },
+      }),
+    ]);
+    const totalUnread = unreadAgg._sum.unreadCount ?? 0;
+    const firstName = user.name.split(" ")[0];
+    const hour = new Date().getUTCHours();
+    const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+    return (
+      <div className="min-h-full">
+        <div className="space-y-5 px-6 py-5 lg:px-8">
+          <div>
+            <h1 className="text-[18px] font-bold tracking-tight text-[#0f172a]">{greeting}, {firstName}</h1>
+            <p className="mt-0.5 text-[12.5px] text-[#64748b]">Here&apos;s your conversation overview</p>
+          </div>
+
+          {/* Metric cards */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <MetricCard label="Open Conversations" value={openCount}        href="/wa/inbox" icon={<IcInbox />}    iconBg="bg-green-50"  iconColor="text-green-600" />
+            <MetricCard label="Pending"             value={pendingCount}    href="/wa/inbox" icon={<IcPending />}  iconBg="bg-amber-50"  iconColor="text-amber-600" />
+            <MetricCard label="Unread Messages"     value={totalUnread}     href="/wa/inbox" icon={<IcUnread />}   iconBg="bg-red-50"    iconColor="text-red-500"   valueColor={totalUnread > 0 ? "text-red-600" : undefined} />
+            <MetricCard label="Resolved Today"      value={resolvedTodayCount} href="/wa/inbox" icon={<IcResolved />} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          </div>
+
+          {/* Recent conversations + quick actions */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Recent open conversations */}
+            <div className="overflow-hidden rounded-xl bg-[#f6f8fa] lg:col-span-2">
+              <div className="flex items-center justify-between border-b border-[#f3f4f6] px-5 py-4">
+                <div>
+                  <p className="text-[13.5px] font-semibold text-[#111827]">Open Conversations</p>
+                  <p className="mt-0.5 text-[12px] text-[#9ca3af]">Most recently active</p>
+                </div>
+                <Link href="/wa/inbox" className="text-[12px] font-semibold text-[#64748b] hover:opacity-75 transition">Open Inbox →</Link>
+              </div>
+              {recentConvs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center px-4 py-14 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#f3f4f6]">
+                    <IcInbox className="h-5 w-5 text-[#9ca3af]" />
+                  </div>
+                  <p className="text-[13px] font-semibold text-[#111827]">No open conversations</p>
+                  <p className="mt-1 text-[12px] text-[#9ca3af]">All caught up!</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-[#ebebeb]">
+                  {recentConvs.map((c) => (
+                    <li key={c.id}>
+                      <Link href="/wa/inbox" className="flex items-center gap-3 px-5 py-3 hover:bg-[#f0f2f5] transition-colors">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e2e8f0] text-[13px] font-semibold text-[#374151]">
+                          {(c.customerName ?? "?")[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-[13px] font-semibold text-[#111827]">{c.customerName ?? c.waId}</p>
+                            <span className="shrink-0 text-[11px] text-[#9ca3af]">
+                              {new Date(c.lastMessageAt).toLocaleTimeString("en-AE", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-[12px] text-[#9ca3af]">{c.lastMessageBody ?? "—"}</p>
+                        </div>
+                        {c.unreadCount > 0 && (
+                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold leading-none text-white">
+                            {c.unreadCount > 99 ? "99+" : c.unreadCount}
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Quick actions */}
+            <div className="rounded-xl bg-[#f6f8fa] p-5">
+              <p className="mb-3 text-[13.5px] font-semibold text-[#111827]">Quick Actions</p>
+              <div className="space-y-1.5">
+                <QuickLink href="/wa/inbox"  icon={<IcUnread />}    label="Open Team Inbox"  desc="View active conversations" primary />
+                <QuickLink href="/customers" icon={<IcCustomers />} label="View Customers"   desc="Browse all contacts" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const sp          = await searchParams;
   const rangeParam  = (typeof sp.range  === "string" ? sp.range  : "today");
   const branchParam = (typeof sp.branch === "string" ? sp.branch : "all");
@@ -110,10 +207,10 @@ export default async function DashboardPage({
 
   const isAdmin      = user.role === "SUPER_ADMIN" || user.role === "ADMIN";
   const isSuperAdmin = user.role === "SUPER_ADMIN";
-  const scopeFilter  = user.role === "AGENT" ? { createdById: user.id } : {};
+  const scopeFilter  = {};
 
   const portalSettings = await getPortalSettings();
-  const showPortal = isSuperAdmin || (user.role === "ADMIN" && portalSettings.portal_visible_to_admin) || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN");
+  const showPortal = isSuperAdmin || (user.role === "ADMIN" && portalSettings.portal_visible_to_admin) || user.role === "OPERATOR";
 
   const { start: rangeStart, end: rangeEnd, label: rangeLabel, chartDays } = getDateRange(rangeParam, fromParam, toParam);
   const today = startOfDayUTC();
@@ -695,4 +792,10 @@ function IcSend({ className = "h-4 w-4" }: { className?: string }) {
 }
 function IcTemplate({ className = "h-4 w-4" }: { className?: string }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>;
+}
+function IcResolved({ className = "h-4 w-4" }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
+}
+function IcCustomers({ className = "h-4 w-4" }: { className?: string }) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>;
 }

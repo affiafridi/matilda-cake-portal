@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import {
+  calcSegments, SEGMENT_META, SEGMENT_ORDER,
+  type SegmentKey, type OrderStat,
+} from "@/lib/customerSegments";
 
 type Customer = {
   wa_id: string;
@@ -12,6 +16,16 @@ type Customer = {
   total_messages: number;
   tags: string[];
 };
+
+function SegmentBadge({ seg }: { seg: SegmentKey }) {
+  const m = SEGMENT_META[seg];
+  return (
+    <span title={m.description}
+      className={["inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide", m.badge].join(" ")}>
+      {m.label}
+    </span>
+  );
+}
 
 const TAG_COLORS = [
   "bg-purple-50 text-purple-700 border-purple-200",
@@ -133,25 +147,27 @@ function TagEditor({ waId, tags, allTags, onSaved }: {
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [query, setQuery]         = useState("");
-  const [tagFilter, setTagFilter] = useState("");
-  const [allTags, setAllTags]     = useState<string[]>([]);
-  const [selected, setSelected]   = useState<Set<string>>(new Set());
-  const [importing, setImporting] = useState(false);
-  const [importMsg, setImportMsg] = useState<string | null>(null);
-  const [deleting, setDeleting]   = useState(false);
-  const [sheetsReady, setSheetsReady] = useState(false);
-  const [syncing, setSyncing]         = useState(false);
-  const [syncMsg, setSyncMsg]         = useState<{ ok: boolean; text: string; url?: string } | null>(null);
+  const [customers,    setCustomers]    = useState<Customer[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [query,        setQuery]        = useState("");
+  const [tagFilter,    setTagFilter]    = useState("");
+  const [segmentFilter,setSegmentFilter]= useState<SegmentKey | "">("");
+  const [allTags,      setAllTags]      = useState<string[]>([]);
+  const [orderStats,   setOrderStats]   = useState<Record<string, OrderStat>>({});
+  const [selected,     setSelected]     = useState<Set<string>>(new Set());
+  const [importing,    setImporting]    = useState(false);
+  const [importMsg,    setImportMsg]    = useState<string | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
+  const [sheetsReady,  setSheetsReady]  = useState(false);
+  const [syncing,      setSyncing]      = useState(false);
+  const [syncMsg,      setSyncMsg]      = useState<{ ok: boolean; text: string; url?: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileRef     = useRef<HTMLInputElement>(null);
 
   const fetchCustomers = useCallback((q: string, tag: string) => {
     setLoading(true); setError(null);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ limit: "500" });
     if (q) params.set("q", q);
     if (tag) params.set("tag", tag);
     fetch(`/api/bot/customers?${params}`)
@@ -175,7 +191,10 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
   useEffect(() => {
     fetchCustomers("", "");
     fetchTags();
-    // Check if Google Sheets is connected
+    fetch("/api/admin/customers/order-stats")
+      .then((r) => r.json())
+      .then((j) => { if (j.ok) setOrderStats(j.data); })
+      .catch(() => {});
     fetch("/api/admin/integrations/google/sheets")
       .then((r) => r.json())
       .then((j) => { if (j.ok) setSheetsReady(j.data.connected && !!j.data.sheetId); })
@@ -192,10 +211,6 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
     const next = tag === tagFilter ? "" : tag;
     setTagFilter(next);
     fetchCustomers(query, next);
-  }
-
-  function toggleAll() {
-    setSelected(selected.size === customers.length ? new Set() : new Set(customers.map((c) => c.wa_id)));
   }
 
   function toggleOne(waId: string) {
@@ -262,8 +277,20 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
     }
   }
 
-  const allSelected  = customers.length > 0 && selected.size === customers.length;
-  const someSelected = selected.size > 0 && !allSelected;
+  // Client-side segment filtering
+  const visibleCustomers = segmentFilter
+    ? customers.filter((c) => {
+        const stat = orderStats[c.wa_id] ?? { orderCount: 0, totalSpend: 0, daysSinceLastOrder: null };
+        return calcSegments(stat).includes(segmentFilter);
+      })
+    : customers;
+
+  const allSelected  = visibleCustomers.length > 0 && visibleCustomers.every((c) => selected.has(c.wa_id));
+  const someSelected = visibleCustomers.some((c) => selected.has(c.wa_id)) && !allSelected;
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(visibleCustomers.map((c) => c.wa_id)));
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -351,6 +378,26 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
         </div>
       )}
 
+      {/* Segment filter bar */}
+      <div className="flex flex-wrap items-center gap-2 px-6 py-2.5 lg:px-8">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Filter by segment:</p>
+        {SEGMENT_ORDER.map((seg) => {
+          const m = SEGMENT_META[seg];
+          const active = segmentFilter === seg;
+          return (
+            <button key={seg} onClick={() => setSegmentFilter(active ? "" : seg)}
+              className={["rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide transition", active ? [m.badge, "ring-1 ring-current"].join(" ") : "border-rule bg-[#f6f8fa] text-ink-muted hover:border-current/30"].join(" ")}>
+              {m.label}
+            </button>
+          );
+        })}
+        {segmentFilter && (
+          <button onClick={() => setSegmentFilter("")} className="ml-1 text-xs text-ink-muted hover:text-danger transition">
+            Clear filter
+          </button>
+        )}
+      </div>
+
       <div className="px-6 py-5 lg:px-8">
         {/* Alerts */}
         {importMsg && (
@@ -399,7 +446,7 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
                     ref={(el) => { if (el) el.indeterminate = someSelected; }}
                     onChange={toggleAll} className="h-4 w-4 rounded border-rule accent-[#25D366]" />
                 </th>
-                {["Name", "Phone", "Tags", "Language", "Messages", "First seen", "Last seen", ""].map((h) => (
+                {["Name", "Phone", "Tags", "Segments", "Language", "Messages", "First seen", "Last seen", ""].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-muted">{h}</th>
                 ))}
               </tr>
@@ -407,14 +454,16 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
             <tbody className="divide-y divide-rule">
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i}>{Array.from({ length: 9 }).map((_, j) => (
+                  <tr key={i}>{Array.from({ length: 10 }).map((_, j) => (
                     <td key={j} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-cream/60" /></td>
                   ))}</tr>
                 ))
-              ) : customers.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-ink-muted">No customers found.</td></tr>
-              ) : customers.map((c) => {
+              ) : visibleCustomers.length === 0 ? (
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-ink-muted">No customers found.</td></tr>
+              ) : visibleCustomers.map((c) => {
                 const isSelected = selected.has(c.wa_id);
+                const stat = orderStats[c.wa_id] ?? { orderCount: 0, totalSpend: 0, daysSinceLastOrder: null };
+                const segs = calcSegments(stat);
                 return (
                   <tr key={c.wa_id} onClick={() => toggleOne(c.wa_id)}
                     className={["cursor-pointer transition-colors", isSelected ? "bg-[#f0fdf4]" : "hover:bg-[#f6f8fa]"].join(" ")}>
@@ -432,6 +481,15 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
                         allTags={allTags}
                         onSaved={(tags) => updateCustomerTags(c.wa_id, tags)}
                       />
+                    </td>
+                    <td className="px-4 py-3">
+                      {segs.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {segs.map((s) => <SegmentBadge key={s} seg={s} />)}
+                        </div>
+                      ) : (
+                        <span className="text-ink-muted text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center rounded-full bg-[#f1f5f9] px-2 py-0.5 text-xs font-medium text-ink">{c.language || "—"}</span>
@@ -453,9 +511,11 @@ export default function CustomersPage({ isSuperAdmin = false }: { isSuperAdmin?:
           </table>
         </div>
 
-        {!loading && customers.length > 0 && selected.size > 0 && (
+        {!loading && visibleCustomers.length > 0 && selected.size > 0 && (
           <p className="mt-3 text-right text-xs text-ink-muted">
-            {selected.size} selected{tagFilter && ` · filtered by "${tagFilter}"`}
+            {selected.size} selected
+            {tagFilter && ` · tag "${tagFilter}"`}
+            {segmentFilter && ` · segment "${SEGMENT_META[segmentFilter].label}"`}
           </p>
         )}
       </div>
