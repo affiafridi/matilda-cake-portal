@@ -74,6 +74,8 @@ export async function searchProducts(
     search: query,
     per_page: String(limit),
     status: "publish",
+    orderby: "title",
+    order: "asc",
   });
   const products = await wooFetch<RawProduct[]>(
     `/wp-json/wc/v3/products?${params.toString()}`,

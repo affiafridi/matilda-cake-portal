@@ -52,7 +52,13 @@ function countBodyVars(t: Template): number {
 function getDynamicUrlButton(t: Template): { btn: TemplateButton; idx: number } | null {
   const btns = getComp(t, "BUTTONS")?.buttons ?? [];
   for (let i = 0; i < btns.length; i++) {
-    if (btns[i].type === "URL" && btns[i].url?.includes("{{1}}")) return { btn: btns[i], idx: i };
+    const btn = btns[i];
+    // Meta only stores an example array for truly Dynamic buttons.
+    // Static buttons with literal {{1}} in the URL won't have one — sending a suffix
+    // to those causes #132012. Require both conditions to confirm it's truly dynamic.
+    if (btn.type === "URL" && btn.url?.includes("{{1}}") && btn.example && btn.example.length > 0) {
+      return { btn, idx: i };
+    }
   }
   return null;
 }

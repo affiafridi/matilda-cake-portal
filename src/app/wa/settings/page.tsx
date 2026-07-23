@@ -7,6 +7,7 @@ type Cred = { label: string; env: string; value: string };
 type WaProfile = {
   verified_name:                string;
   display_phone_number:         string;
+  phone_number_id:              string;
   username:                     string | null;
   is_official_business_account: boolean;
   quality_rating:               string | null;
@@ -220,6 +221,9 @@ export default function WaSettingsPage() {
   const [profileSaved,  setProfileSaved]    = useState(false);
   const [picUploading,   setPicUploading]   = useState(false);
   const [picError,       setPicError]       = useState<string | null>(null);
+  const [displayNameInput,  setDisplayNameInput]  = useState("");
+  const [displayNameSaving, setDisplayNameSaving] = useState(false);
+  const [displayNameSaved,  setDisplayNameSaved]  = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadProfile = useCallback(() => {
@@ -275,6 +279,27 @@ export default function WaSettingsPage() {
       alert(e instanceof Error ? e.message : "Save failed");
     } finally {
       setProfileSaving(false);
+    }
+  }
+
+  async function saveDisplayName() {
+    if (!displayNameInput.trim()) return;
+    setDisplayNameSaving(true);
+    try {
+      const res = await fetch("/api/wa/profile", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ display_name: displayNameInput.trim() }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error ?? "Failed");
+      setProfile((p) => p ? { ...p, verified_name: displayNameInput.trim() } : p);
+      setDisplayNameSaved(true);
+      setTimeout(() => setDisplayNameSaved(false), 3000);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setDisplayNameSaving(false);
     }
   }
 
@@ -421,16 +446,33 @@ export default function WaSettingsPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <p className="text-base font-semibold text-[#9ca3af] italic">Business name not set</p>
-                          <span className="text-[10px] bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2 py-0.5 font-semibold">From Meta</span>
+                        <div className="flex flex-col gap-1.5">
+                          <p className="text-[11px] text-amber-600 font-medium">Meta didn&apos;t return a business name. Set a display name manually:</p>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={displayNameInput}
+                              onChange={(e) => { setDisplayNameInput(e.target.value); setDisplayNameSaved(false); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") saveDisplayName(); }}
+                              placeholder="e.g. Matilda Cake"
+                              className="h-8 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-sm text-[#0f172a] placeholder:text-[#9ca3af] focus:border-[#25D366] focus:outline-none w-48"
+                            />
+                            <button
+                              onClick={saveDisplayName}
+                              disabled={displayNameSaving || !displayNameInput.trim()}
+                              className="flex h-8 items-center gap-1.5 rounded-lg bg-[#25D366] px-3 text-xs font-semibold text-white disabled:opacity-50"
+                            >
+                              {displayNameSaving ? <Spinner /> : displayNameSaved ? <Tick /> : null}
+                              {displayNameSaved ? "Saved" : "Save"}
+                            </button>
+                          </div>
                         </div>
                       )}
 
                       {profile.display_phone_number ? (
                         <p className="text-sm text-[#64748b] mt-1 font-medium">{profile.display_phone_number}</p>
                       ) : (
-                        <p className="text-sm text-[#9ca3af] mt-1 italic text-xs">Phone number unavailable</p>
+                        <p className="text-sm text-[#9ca3af] mt-1 font-mono text-xs">{profile.phone_number_id}</p>
                       )}
 
                       {profile.username && (

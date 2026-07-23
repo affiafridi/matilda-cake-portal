@@ -104,11 +104,11 @@ export default function LinkGeneratorPage() {
   const step2Done = !!selected;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] px-4 py-8 sm:px-8">
+    <div className="min-h-screen bg-[#f8fafc] px-4 py-5 sm:px-8">
       <div className="mx-auto max-w-2xl">
 
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-5">
           <div className="mb-2 flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0f172a]">
               <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4.5 w-4.5 h-[18px] w-[18px]">
@@ -139,8 +139,8 @@ export default function LinkGeneratorPage() {
         <div className="rounded-2xl border border-[#e5e7eb] bg-white shadow-sm overflow-hidden">
 
           {/* Step 1 — Campaign Name */}
-          <div className={["border-b border-[#f0f2f5] px-6 py-5 transition-all", step1Done ? "bg-white" : "bg-white"].join(" ")}>
-            <div className="mb-3.5 flex items-center gap-2.5">
+          <div className={["border-b border-[#f0f2f5] px-6 py-4 transition-all", step1Done ? "bg-white" : "bg-white"].join(" ")}>
+            <div className="mb-2.5 flex items-center gap-2.5">
               <StepBadge n={1} done={step1Done} />
               <div>
                 <p className="text-[13px] font-semibold text-[#0f172a]">Campaign Name</p>
@@ -162,8 +162,8 @@ export default function LinkGeneratorPage() {
           </div>
 
           {/* Step 2 — Product / Category */}
-          <div className="border-b border-[#f0f2f5] px-6 py-5">
-            <div className="mb-3.5 flex items-center gap-2.5">
+          <div className="border-b border-[#f0f2f5] px-6 py-4">
+            <div className="mb-2.5 flex items-center gap-2.5">
               <StepBadge n={2} done={step2Done} />
               <div>
                 <p className="text-[13px] font-semibold text-[#0f172a]">Product or Category</p>
@@ -278,8 +278,8 @@ export default function LinkGeneratorPage() {
           </div>
 
           {/* Step 3 — Generated URL */}
-          <div className="px-6 py-5">
-            <div className="mb-3.5 flex items-center gap-2.5">
+          <div className="px-6 py-4">
+            <div className="mb-2.5 flex items-center gap-2.5">
               <StepBadge n={3} done={!!generatedUrl} />
               <div>
                 <p className="text-[13px] font-semibold text-[#0f172a]">Your Tracking Link</p>

@@ -16,7 +16,7 @@ export async function GET() {
   try {
 
     const [phoneRes, profileRes, wabaRes] = await Promise.all([
-      fetch(`${GQL}/${id}?fields=verified_name,display_phone_number,quality_rating,messaging_limit_tier,status,throughput,username&access_token=${token}`, { cache: "no-store" }),
+      fetch(`${GQL}/${id}?fields=verified_name,name,display_phone_number,quality_rating,messaging_limit_tier,status,throughput,username&access_token=${token}`, { cache: "no-store" }),
       fetch(`${GQL}/${id}/whatsapp_business_profile?fields=${PROFILE_FIELDS}&access_token=${token}`, { cache: "no-store" }),
       wabaId
         ? fetch(`${GQL}/${wabaId}?fields=is_official_business_account,name&access_token=${token}`, { cache: "no-store" })
@@ -32,22 +32,25 @@ export async function GET() {
     if (phone.error)   console.error("[wa/profile phone]", JSON.stringify(phone.error));
     if (profile.error) console.error("[wa/profile profile]", JSON.stringify(profile.error));
     if (waba?.error)   console.error("[wa/profile waba]", JSON.stringify(waba.error));
-    const verifiedName = phone.verified_name || waba?.name || "";
+    const metaName    = phone.verified_name || phone.name || waba?.name || "";
     const displayPhone = phone.display_phone_number || "";
 
-    // Fallback: read username from portal_settings if Meta doesn't return it
+    // Fallback: read stored name/username from portal_settings when Meta doesn't return them
     const metaUsername = phone.username ?? null;
-    let storedUsername: string | null = null;
-    if (!metaUsername) {
-      const rows = await prisma.$queryRaw<{ value: string }[]>`SELECT value FROM portal_settings WHERE key = 'wa_username' LIMIT 1`;
-      storedUsername = rows[0]?.value ?? null;
-    }
+    const rows = await prisma.$queryRaw<{ key: string; value: string }[]>`
+      SELECT key, value FROM portal_settings WHERE key IN ('wa_username', 'wa_display_name') LIMIT 2
+    `;
+    const settingsMap = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+    const storedUsername    = metaUsername    ? null : (settingsMap["wa_username"]    ?? null);
+    const storedDisplayName = metaName       ? null : (settingsMap["wa_display_name"] ?? null);
+    const verifiedName      = metaName || storedDisplayName || "";
 
     return NextResponse.json({
       ok: true,
       data: {
         verified_name:                verifiedName,
         display_phone_number:         displayPhone,
+        phone_number_id:              id,
         username:                     metaUsername ?? storedUsername,
         quality_rating:               phone.quality_rating                   ?? null,
         messaging_limit_tier:         phone.messaging_limit_tier             ?? null,
@@ -77,6 +80,15 @@ export async function POST(req: NextRequest) {
   if (!id || !token) return NextResponse.json({ ok: false, error: "WA not configured" }, { status: 503 });
 
   const body = await req.json();
+
+  // Display name override (stored locally when Meta doesn't return verified_name)
+  if (body.display_name !== undefined) {
+    await prisma.$executeRaw`
+      INSERT INTO portal_settings (key, value) VALUES ('wa_display_name', ${body.display_name})
+      ON CONFLICT (key) DO UPDATE SET value = ${body.display_name}
+    `;
+    return NextResponse.json({ ok: true });
+  }
 
   // Username uses its own endpoint: POST /{phone-number-id}/username
   if (body.username !== undefined) {

@@ -559,7 +559,7 @@ function ButtonEditor({ btn, index, onChange, onRemove }: {
               <div className="flex gap-2">
                 {(["STATIC", "DYNAMIC"] as const).map((t) => (
                   <button key={t} type="button"
-                    onClick={() => onChange({ ...btn, urlType: t })}
+                    onClick={() => { if (btn.urlType !== t) onChange({ ...btn, urlType: t, url: "", urlExample: "" }); }}
                     className={["flex-1 rounded-lg border py-1.5 text-xs font-semibold transition", btn.urlType === t ? "border-[#25D366] bg-[#25D366]/8 text-[#075E54]" : "border-rule text-ink-muted hover:border-[#25D366]/40"].join(" ")}>
                     {t === "STATIC" ? "Static" : "Dynamic"}
                   </button>
