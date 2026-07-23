@@ -29,6 +29,27 @@ export async function GET(req: NextRequest) {
     const toDate   = to   ? new Date(to)   : (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
 
     const rows = await prisma.$queryRaw<AgentRow[]>`
+      WITH first_inbound AS (
+        SELECT "conversationId", MIN("createdAt") AS first_at
+        FROM "Message"
+        WHERE direction = 'INBOUND'
+        GROUP BY "conversationId"
+      ),
+      first_agent_reply AS (
+        SELECT m."conversationId", MIN(m."createdAt") AS reply_at
+        FROM "Message" m
+        JOIN first_inbound fi ON fi."conversationId" = m."conversationId"
+        WHERE m.direction = 'OUTBOUND'
+          AND m."sentById" IS NOT NULL
+          AND m."createdAt" > fi.first_at
+        GROUP BY m."conversationId"
+      ),
+      conv_response AS (
+        SELECT fi."conversationId",
+          EXTRACT(EPOCH FROM (far.reply_at - fi.first_at)) / 60.0 AS response_minutes
+        FROM first_inbound fi
+        JOIN first_agent_reply far ON far."conversationId" = fi."conversationId"
+      )
       SELECT
         u.id                                                             AS agent_id,
         u.name                                                           AS agent_name,
@@ -36,15 +57,10 @@ export async function GET(req: NextRequest) {
         COUNT(CASE WHEN c.status = 'RESOLVED' THEN 1 END)               AS resolved,
         COUNT(CASE WHEN c.status = 'OPEN'     THEN 1 END)               AS open_count,
         COUNT(CASE WHEN c.status = 'PENDING'  THEN 1 END)               AS pending_count,
-        AVG(
-          CASE
-            WHEN c."lastHumanReplyAt" IS NOT NULL AND c."lastInboundAt" IS NOT NULL
-              AND c."lastHumanReplyAt" > c."lastInboundAt"
-            THEN EXTRACT(EPOCH FROM (c."lastHumanReplyAt" - c."lastInboundAt")) / 60.0
-          END
-        )                                                                AS avg_response_minutes
+        AVG(cr.response_minutes)                                         AS avg_response_minutes
       FROM "Conversation" c
       JOIN "User" u ON u.id = c."assignedToId"
+      LEFT JOIN conv_response cr ON cr."conversationId" = c.id
       WHERE c."lastMessageAt" >= ${fromDate}
         AND c."lastMessageAt" <= ${toDate}
         AND c."assignedToId" IS NOT NULL
