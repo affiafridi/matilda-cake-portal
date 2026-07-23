@@ -28,6 +28,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/wa/shopify":          { title: "Shopify",             parent: "Integrations", parentHref: "/admin/integrations" },
   "/wa/flows":            { title: "Flow Builder",       parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/leads":              { title: "WA Leads",           parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/link-generator":    { title: "Link Generator",     parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/admin/reports/agents":  { title: "Agent Report",       parent: "Admin",        parentHref: "/admin/settings" },
   "/operator":              { title: "Order Queue",         parent: "Portal",       parentHref: "/dashboard" },
 };
@@ -75,6 +76,7 @@ const WA_NAV: NavItem[] = [
   { href: "/wa/settings",         label: "Channel Settings", icon: IcSettings,   roles: ["SUPER_ADMIN","ADMIN"] },
   { href: "/wa/flows",            label: "Flow Builder",     icon: IcFlow,       roles: ["SUPER_ADMIN","ADMIN"] },
   { href: "/wa/leads",            label: "WA Leads",         icon: IcLeads,      roles: ["SUPER_ADMIN","ADMIN"] },
+  { href: "/wa/link-generator",  label: "Link Generator",   icon: IcLink,       roles: ["SUPER_ADMIN","ADMIN"] },
 ];
 
 const WOO_NAV = [
@@ -568,4 +570,7 @@ function IcReport(p: SVGProps<SVGSVGElement>) {
 }
 function IcQueue(p: SVGProps<SVGSVGElement>) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/><circle cx="17" cy="17" r="3"/><path d="M17 15.5v1.5l1 1"/></svg>;
+}
+function IcLink(p: SVGProps<SVGSVGElement>) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
 }
