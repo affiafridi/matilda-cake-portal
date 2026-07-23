@@ -186,6 +186,10 @@ export async function getProductsByCategory(
     price:  p.price ?? "",
     type:   p.type ?? "simple",
     images: (p.images ?? []).slice(0, 1).map((img) => ({ id: img.id, src: img.src })),
+    attributes: (p.attributes ?? []).map((a) => ({
+      name: decodeEntities(a.name ?? ""),
+      options: (a.options ?? []).map((o) => decodeEntities(o)),
+    })),
   }));
 }
 
