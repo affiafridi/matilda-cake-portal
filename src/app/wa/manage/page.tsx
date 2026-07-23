@@ -1086,14 +1086,20 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
                       <path d="M19 12H5M12 19l-7-7 7-7"/>
                     </svg>
                     {/* Avatar */}
-                    <div className="relative shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={profile.picture ?? "/uploads/logo.png"}
-                        alt={profile.name}
-                        className="h-8 w-8 rounded-full object-cover bg-white"
-                        onError={(e) => { (e.target as HTMLImageElement).src = "/uploads/logo.png"; }}
-                      />
+                    <div className="relative h-8 w-8 shrink-0">
+                      {profile.picture ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={profile.picture}
+                          alt={profile.name}
+                          className="h-8 w-8 rounded-full object-cover bg-white"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+                          <svg viewBox="0 0 24 24" fill="white" className="h-5 w-5 opacity-80"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+                        </div>
+                      )}
                     </div>
                     {/* Name + status */}
                     <div className="min-w-0 flex-1">
@@ -1263,14 +1269,31 @@ function TemplateCard({ t, onDelete, deleting, onEdit, onDuplicate }: { t: Templ
     ].join(" ")}>
       {/* Top: image banner or gradient header */}
       <div className="relative h-36 w-full overflow-hidden">
-        {hasImage
-          ? <img src={headerImgUrl} alt="" className="h-full w-full object-cover" // eslint-disable-line @next/next/no-img-element
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-            />
-          : <div className="flex h-full w-full items-center justify-center" style={{ background: `linear-gradient(135deg, ${accent}15 0%, ${accent}08 100%)` }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-30"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            </div>
-        }
+        {hasImage ? (
+          <img src={headerImgUrl} alt="" className="h-full w-full object-cover" // eslint-disable-line @next/next/no-img-element
+            onError={(e) => {
+              const img = e.currentTarget;
+              img.style.display = "none";
+              const next = img.nextElementSibling as HTMLElement | null;
+              if (next) next.style.display = "flex";
+            }}
+          />
+        ) : null}
+        {/* Fallback shown when no image or image fails */}
+        <div className={["flex h-full w-full items-center justify-center", hasImage ? "hidden" : ""].join(" ")}
+          style={{ background: `linear-gradient(135deg, ${accent}15 0%, ${accent}08 100%)` }}>
+          {header?.format === "VIDEO" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-40"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          ) : header?.format === "DOCUMENT" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-40"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          ) : header?.format === "LOCATION" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-40"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          ) : header?.format === "IMAGE" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-40"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" className="h-12 w-12 opacity-30"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          )}
+        </div>
         {/* Status + category badges overlaid */}
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/40 to-transparent px-3 pb-2 pt-6">
           <span className={["inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold backdrop-blur-sm", statusCls].join(" ")}>
