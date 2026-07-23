@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch signed URL from Meta
     const metaRes = await fetch(
-      `https://graph.facebook.com/v20.0/${encodeURIComponent(handle)}`,
+      `https://graph.facebook.com/v22.0/${encodeURIComponent(handle)}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     const metaJson = await metaRes.json();

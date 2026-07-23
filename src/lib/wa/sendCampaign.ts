@@ -8,11 +8,15 @@ type SendPayload = {
   templateName: string;
   templateLanguage: string;
   campaignName?: string;
+  broadcastId?: string;  // pre-created broadcast record ID — skip creation if provided
   imageUrl?: string;
+  headerHandle?: string;
+  headerUrl?: string;
   headerFormat?: string;
   bodyVarCount: number;
   extraBodyVars: string[];
   urlSuffix?: string;
+  urlIsWaId?: boolean;
   urlButtonIndex?: number;
   couponCode?: string;
   couponButtonIndex?: number;
@@ -63,7 +67,7 @@ async function uploadImageToMeta(
   form.append("file", new Blob([new Uint8Array(buffer)], { type: contentType }), "header.jpg");
 
   const uploadRes = await fetch(
-    `https://graph.facebook.com/v20.0/${phoneNumberId}/media`,
+    `https://graph.facebook.com/v22.0/${phoneNumberId}/media`,
     { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form },
   ).catch(() => null);
 
@@ -78,31 +82,67 @@ async function uploadImageToMeta(
   return { id: uploadJson.id };
 }
 
+export async function createBroadcastRecord(
+  name: string, templateName: string, templateLanguage: string, totalCount: number,
+): Promise<string> {
+  const bc = await prisma.broadcast.create({
+    data: { name, templateName, templateLang: templateLanguage, totalCount, status: "SENDING" },
+    select: { id: true },
+  });
+  return bc.id;
+}
+
 export async function sendCampaign(payload: SendPayload): Promise<SendResult | { error: string }> {
   const {
     customers, templateName, templateLanguage, campaignName,
-    imageUrl, headerFormat, bodyVarCount, extraBodyVars,
-    urlSuffix, urlButtonIndex, couponCode, couponButtonIndex,
+    broadcastId: existingBroadcastId,
+    imageUrl, headerHandle, headerUrl, headerFormat, bodyVarCount, extraBodyVars,
+    urlSuffix, urlIsWaId, urlButtonIndex, couponCode, couponButtonIndex,
   } = payload;
 
   const { wa_phone_number_id: phoneNumberId, wa_access_token: token } = await getIntegrations();
   if (!phoneNumberId || !token) return { error: "WhatsApp not configured" };
 
-  // Upload image once
+  // Filter out customers who have opted out via STOP
+  const optedOut = await prisma.conversation.findMany({
+    where: { waId: { in: customers }, broadcastOptOutAt: { not: null } },
+    select: { waId: true },
+  }).catch(() => []);
+  const optedOutIds = new Set(optedOut.map((c) => c.waId));
+  const activeCustomers = customers.filter((id) => !optedOutIds.has(id));
+  const skippedCount = customers.length - activeCustomers.length;
+
+  // Resolve header image.
+  // If the template already has a stored image (headerHandle or headerUrl), Meta sends it
+  // automatically — no header component needed in the send request (the image is baked into
+  // the approved template, not a variable). Only upload when user provides a fresh imageUrl.
   let mediaId: string | undefined;
-  if (imageUrl && headerFormat) {
+  const hasStoredImage = !!(headerHandle || headerUrl);
+
+  if (!hasStoredImage && imageUrl && headerFormat) {
     const result = await uploadImageToMeta(imageUrl, phoneNumberId, token);
     if ("error" in result) return result;
     mediaId = result.id;
   }
 
-  // Fetch customer names
+  // Early exit if everyone opted out
+  if (activeCustomers.length === 0) {
+    if (existingBroadcastId) {
+      await prisma.broadcast.update({
+        where: { id: existingBroadcastId },
+        data: { totalCount: 0, skippedCount, status: "COMPLETED", completedAt: new Date() },
+      }).catch(() => {});
+    }
+    return { sent: 0, failed: 0, broadcastId: existingBroadcastId, results: [] };
+  }
+
+  // Fetch customer names (only for active customers)
   const nameMap: Record<string, string> = {};
   if (bodyVarCount >= 1) {
     try {
       const { rows } = await botQuery<{ wa_id: string; name: string }>(
         `SELECT wa_id, name FROM customers WHERE wa_id = ANY($1)`,
-        [customers],
+        [activeCustomers],
       );
       for (const row of rows) nameMap[row.wa_id] = row.name || "";
     } catch { /* proceed without names */ }
@@ -111,38 +151,46 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
   // Static components (same for all recipients)
   const staticComponents: object[] = [];
   if (mediaId && headerFormat) {
+    // Only include header component when user provided a fresh image URL to upload.
+    // For templates with stored images (headerHandle/headerUrl), Meta sends the approved
+    // template image automatically — no header component needed.
     const fmt = headerFormat.toLowerCase();
     const paramType = fmt === "video" ? "video" : fmt === "document" ? "document" : "image";
     staticComponents.push({ type: "header", parameters: [{ type: paramType, [paramType]: { id: mediaId } }] });
   }
-  if (urlSuffix !== undefined && urlButtonIndex !== undefined) {
+  // Static URL suffix (same for all customers — not waId mode)
+  if (urlSuffix !== undefined && urlButtonIndex !== undefined && !urlIsWaId) {
     staticComponents.push({ type: "button", sub_type: "url", index: String(urlButtonIndex), parameters: [{ type: "text", text: urlSuffix }] });
   }
   if (couponCode && couponButtonIndex !== undefined) {
     staticComponents.push({ type: "button", sub_type: "copy_code", index: String(couponButtonIndex), parameters: [{ type: "coupon_code", coupon_code: couponCode }] });
   }
 
-  // Create broadcast record for tracking
-  let broadcastId: string | undefined;
-  try {
-    const bc = await prisma.broadcast.create({
-      data: {
-        name: campaignName ?? templateName,
-        templateName,
-        templateLang: templateLanguage,
-        totalCount: customers.length,
-        status: "SENDING",
-      },
-      select: { id: true },
-    });
-    broadcastId = bc.id;
-  } catch { /* non-fatal — tracking is best-effort */ }
+  // Use pre-created broadcast record or create one now
+  let broadcastId: string | undefined = existingBroadcastId;
+  if (!broadcastId) {
+    try {
+      broadcastId = await createBroadcastRecord(
+        campaignName ?? templateName, templateName, templateLanguage, activeCustomers.length,
+      );
+    } catch { /* non-fatal */ }
+  } else {
+    // Update totalCount to active recipients; record how many were skipped
+    await prisma.broadcast.update({
+      where: { id: broadcastId },
+      data: { totalCount: activeCustomers.length, skippedCount },
+    }).catch(() => {});
+  }
 
   // Send per customer
   const results: { wa_id: string; status: string; error?: string }[] = [];
 
-  for (const waId of customers) {
+  for (const waId of activeCustomers) {
     const components: object[] = [...staticComponents];
+    // Per-customer URL suffix: use the customer's WhatsApp number (waId tracking links)
+    if (urlIsWaId && urlButtonIndex !== undefined) {
+      components.push({ type: "button", sub_type: "url", index: String(urlButtonIndex), parameters: [{ type: "text", text: waId }] });
+    }
     if (bodyVarCount >= 1) {
       const customerName = nameMap[waId] || waId;
       const bodyParams = [
@@ -154,7 +202,7 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
 
     try {
       const res = await fetch(
-        `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+        `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -222,7 +270,7 @@ export async function sendCampaign(payload: SendPayload): Promise<SendResult | {
     await botQuery(
       `INSERT INTO campaign_logs (template_name, template_language, total, sent, failed, results)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [templateName, templateLanguage, customers.length, sent, failed, JSON.stringify(results)],
+      [templateName, templateLanguage, activeCustomers.length, sent, failed, JSON.stringify(results)],
     );
   } catch { /* log silently */ }
 

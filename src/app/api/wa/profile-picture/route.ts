@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const GQL    = "https://graph.facebook.com/v20.0";
+const GQL    = "https://graph.facebook.com/v22.0";
 const APP_ID = process.env.WHATSAPP_APP_ID ?? "";
 
 export async function POST(req: NextRequest) {

@@ -12,17 +12,13 @@ import { useSearchParams, useRouter } from "next/navigation";
 type TemplateButton = { type: string; text: string; url?: string; example?: string[] };
 type TemplateComponent = {
   type: string; text?: string; format?: string;
-  example?: { body_text?: string[][] };
+  example?: { body_text?: string[][]; header_handle?: string[]; header_url?: string[] };
   buttons?: TemplateButton[];
 };
 type Template = {
   id: string; name: string; status: string;
   language: string; category: string;
   components: TemplateComponent[];
-};
-type CampaignResult = {
-  sent: number; failed: number;
-  results: { wa_id: string; status: string; error?: string }[];
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -36,6 +32,14 @@ function hasImageHeader(t: Template) {
   return h?.format === "IMAGE" || h?.format === "VIDEO" || h?.format === "DOCUMENT";
 }
 
+function getHeaderHandle(t: Template): string | undefined {
+  return getComp(t, "HEADER")?.example?.header_handle?.[0];
+}
+
+function getHeaderUrl(t: Template): string | undefined {
+  return getComp(t, "HEADER")?.example?.header_url?.[0];
+}
+
 // Count unique {{n}} variables in body text
 function countBodyVars(t: Template): number {
   const body = getComp(t, "BODY");
@@ -44,13 +48,18 @@ function countBodyVars(t: Template): number {
   return new Set(matches.map((m) => m.replace(/\{|\}/g, ""))).size;
 }
 
-// Find dynamic URL button (url contains {{1}}) and its index in the buttons array
+// Only truly dynamic buttons have {{1}} in the URL — Meta requires it for the variable part
 function getDynamicUrlButton(t: Template): { btn: TemplateButton; idx: number } | null {
   const btns = getComp(t, "BUTTONS")?.buttons ?? [];
   for (let i = 0; i < btns.length; i++) {
     if (btns[i].type === "URL" && btns[i].url?.includes("{{1}}")) return { btn: btns[i], idx: i };
   }
   return null;
+}
+
+// If the URL ends with wa_id={{1}}, the suffix should be the customer's WhatsApp number (auto-filled per customer)
+function isWaIdButton(btn: TemplateButton): boolean {
+  return !!btn.url?.includes("wa_id={{1}}") || !!btn.url?.includes("wa_id=");
 }
 
 // Find COPY_CODE button and its index
@@ -713,7 +722,6 @@ function TemplatesContent() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Template | null>(null);
   const [sending, setSending]         = useState(false);
-  const [result, setResult]           = useState<CampaignResult | null>(null);
   const [search, setSearch]           = useState("");
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduledAt, setScheduledAt]   = useState("");
@@ -722,6 +730,8 @@ function TemplatesContent() {
 
   // Per-campaign inputs
   const [imageUrl, setImageUrl] = useState("");
+  const [storedHandle, setStoredHandle] = useState<string | undefined>(undefined);
+  const [storedHeaderUrl, setStoredHeaderUrl] = useState<string | undefined>(undefined);
   const [extraBodyVars, setExtraBodyVars] = useState<string[]>([]); // values for {{2}}, {{3}} ...
   const [urlSuffix, setUrlSuffix] = useState("");
   const [couponCode, setCouponCode] = useState("");
@@ -739,6 +749,8 @@ function TemplatesContent() {
           const match = list.find((t) => t.id === savedId);
           if (match) {
             setSelected(match);
+            setStoredHandle(getHeaderHandle(match));
+            setStoredHeaderUrl(getHeaderUrl(match));
             const savedForm = sessionStorage.getItem("wa_campaign_form");
             if (savedForm) {
               try {
@@ -760,12 +772,14 @@ function TemplatesContent() {
   }, []);
 
   function selectTemplate(t: Template) {
-    setSelected((p) => p?.id === t.id ? null : t);
+    const toggled = selected?.id === t.id ? null : t;
+    setSelected(toggled);
     setImageUrl("");
+    setStoredHandle(toggled ? getHeaderHandle(toggled) : undefined);
+    setStoredHeaderUrl(toggled ? getHeaderUrl(toggled) : undefined);
     setExtraBodyVars([]);
     setUrlSuffix("");
     setCouponCode("");
-    setResult(null);
     setError(null);
     setScheduleSuccess(null);
     setScheduleMode(false);
@@ -774,13 +788,13 @@ function TemplatesContent() {
 
   async function sendCampaign() {
     if (!selected || preselected.length === 0) return;
-    if (hasImageHeader(selected) && !imageUrl.trim()) {
+    if (hasImageHeader(selected) && !storedHandle && !storedHeaderUrl && !imageUrl.trim()) {
       setError("Please paste a public image URL for the header.");
       return;
     }
     const dynUrl = getDynamicUrlButton(selected);
-    if (dynUrl && !urlSuffix.trim()) {
-      setError(`Please fill in the URL for button "${dynUrl.btn.text}".`);
+    if (dynUrl && !isWaIdButton(dynUrl.btn) && !urlSuffix.trim()) {
+      setError(`Please fill in the URL suffix for button "${dynUrl.btn.text}".`);
       return;
     }
     const coupon = getCouponButton(selected);
@@ -789,7 +803,7 @@ function TemplatesContent() {
       return;
     }
 
-    setSending(true); setResult(null); setError(null);
+    setSending(true); setError(null);
     try {
       const bv = countBodyVars(selected);
       const campaignName = `${selected.name} — ${new Date().toLocaleDateString("en-AE", { day: "numeric", month: "short", year: "numeric" })}`;
@@ -801,15 +815,18 @@ function TemplatesContent() {
           templateName: selected.name,
           templateLanguage: selected.language,
           campaignName,
-          // Image header
-          imageUrl: hasImageHeader(selected) ? imageUrl.trim() : undefined,
+          // Image header — use stored handle/url first, fall back to user-provided URL
+          headerHandle: hasImageHeader(selected) ? storedHandle : undefined,
+          headerUrl: hasImageHeader(selected) && !storedHandle ? storedHeaderUrl : undefined,
+          imageUrl: hasImageHeader(selected) && !storedHandle && !storedHeaderUrl ? imageUrl.trim() : undefined,
           headerFormat: getComp(selected, "HEADER")?.format,
           // Body variables
           bodyVarCount: bv,
           // extraBodyVars covers {{2}}, {{3}} etc — {{1}} is auto-filled with customer name
           extraBodyVars: extraBodyVars.map((v) => v.trim()),
           // Dynamic URL button
-          urlSuffix: dynUrl ? urlSuffix.trim() : undefined,
+          urlSuffix: dynUrl && !isWaIdButton(dynUrl.btn) ? urlSuffix.trim() : undefined,
+          urlIsWaId: dynUrl ? isWaIdButton(dynUrl.btn) : undefined,
           urlButtonIndex: dynUrl?.idx,
           // Coupon code button
           couponCode: coupon ? couponCode.trim() : undefined,
@@ -818,10 +835,9 @@ function TemplatesContent() {
       });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error);
-      setResult(json.data);
-      // Redirect to broadcast detail if we have an ID, otherwise list
+      // Redirect immediately — sending runs in background, detail page shows live progress
       const dest = json.data?.broadcastId ? `/wa/campaigns/${json.data.broadcastId}` : "/wa/campaigns";
-      setTimeout(() => router.push(dest), 1800);
+      router.push(dest);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to send");
     } finally { setSending(false); }
@@ -831,9 +847,9 @@ function TemplatesContent() {
     if (!selected || preselected.length === 0) return;
     if (!scheduledAt) { setError("Please pick a date and time to schedule."); return; }
     if (new Date(scheduledAt) <= new Date()) { setError("Schedule time must be in the future."); return; }
-    if (hasImageHeader(selected) && !imageUrl.trim()) { setError("Please paste a public image URL for the header."); return; }
+    if (hasImageHeader(selected) && !storedHandle && !storedHeaderUrl && !imageUrl.trim()) { setError("Please paste a public image URL for the header."); return; }
     const dynUrl = getDynamicUrlButton(selected);
-    if (dynUrl && !urlSuffix.trim()) { setError(`Please fill in the URL for button "${dynUrl.btn.text}".`); return; }
+    if (dynUrl && !isWaIdButton(dynUrl.btn) && !urlSuffix.trim()) { setError(`Please fill in the URL suffix for button "${dynUrl.btn.text}".`); return; }
     const coupon = getCouponButton(selected);
     if (coupon && !couponCode.trim()) { setError(`Please fill in the coupon code for button "${coupon.btn.text}".`); return; }
 
@@ -848,11 +864,14 @@ function TemplatesContent() {
           templateName:     selected.name,
           templateLanguage: selected.language,
           sendAt:           new Date(scheduledAt).toISOString(),
-          imageUrl:         hasImageHeader(selected) ? imageUrl.trim() : undefined,
+          headerHandle:     hasImageHeader(selected) ? storedHandle : undefined,
+          headerUrl:        hasImageHeader(selected) && !storedHandle ? storedHeaderUrl : undefined,
+          imageUrl:         hasImageHeader(selected) && !storedHandle && !storedHeaderUrl ? imageUrl.trim() : undefined,
           headerFormat:     getComp(selected, "HEADER")?.format,
           bodyVarCount:     bv,
           extraBodyVars:    extraBodyVars.map((v) => v.trim()),
-          urlSuffix:        dynUrl ? urlSuffix.trim() : undefined,
+          urlSuffix:        dynUrl && !isWaIdButton(dynUrl.btn) ? urlSuffix.trim() : undefined,
+          urlIsWaId:        dynUrl ? isWaIdButton(dynUrl.btn) : undefined,
           urlButtonIndex:   dynUrl?.idx,
           couponCode:       coupon ? couponCode.trim() : undefined,
           couponButtonIndex:coupon?.idx,
@@ -913,27 +932,6 @@ function TemplatesContent() {
           <div className="mt-4 flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             <span>{error}</span>
-          </div>
-        )}
-        {result && (
-          <div className={["mt-4 rounded-xl border px-4 py-3", result.failed === 0 ? "border-success/30 bg-success/5" : "border-amber-200 bg-amber-50"].join(" ")}>
-            <div className="flex items-center gap-3">
-              {result.sent > 0 && (
-                <span className="flex items-center gap-1.5 text-sm font-medium text-success">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M20 6L9 17l-5-5"/></svg>
-                  {result.sent} sent
-                </span>
-              )}
-              {result.failed > 0 && (
-                <span className="flex items-center gap-1.5 text-sm font-medium text-danger">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  {result.failed} failed
-                </span>
-              )}
-            </div>
-            {result.results.filter((r) => r.error).map((r, i) => (
-              <p key={i} className="mt-1.5 text-xs text-ink-muted">{r.wa_id}: {r.error}</p>
-            ))}
           </div>
         )}
       </div>
@@ -1035,14 +1033,24 @@ function TemplatesContent() {
                     </div>
                     <div className="space-y-4 p-4">
 
-                      {/* Image URL */}
+                      {/* Image header */}
                       {hasImageHeader(selected) && (
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-ink">Header Image URL <span className="text-danger">*</span></label>
-                          <input type="url" value={imageUrl} placeholder="https://example.com/images/offer.jpg"
-                            onChange={(e) => setImageUrl(e.target.value)} className={inputCls} />
-                          <p className="mt-1 text-[11px] text-ink-muted">Direct JPG/PNG link from your website.</p>
-                        </div>
+                        storedHandle || storedHeaderUrl ? (
+                          <div className="flex items-center gap-2.5 rounded-lg border border-[#25D366]/30 bg-[#25D366]/5 px-3 py-2.5">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="M20 6L9 17l-5-5"/></svg>
+                            <div>
+                              <p className="text-xs font-medium text-[#075E54]">Using template&apos;s stored image</p>
+                              <p className="text-[11px] text-[#075E54]/70">The approved image will be sent automatically.</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-ink">Header Image URL <span className="text-danger">*</span></label>
+                            <input type="url" value={imageUrl} placeholder="https://example.com/images/offer.jpg"
+                              onChange={(e) => setImageUrl(e.target.value)} className={inputCls} />
+                            <p className="mt-1 text-[11px] text-ink-muted">Direct JPG/PNG link from your website.</p>
+                          </div>
+                        )
                       )}
 
                       {/* {{1}} = customer name — automatic, shown as info only */}
@@ -1075,19 +1083,29 @@ function TemplatesContent() {
 
                       {/* Dynamic URL button */}
                       {dynUrl && (
-                        <div>
-                          <label className="mb-1 block text-xs font-medium text-ink">
-                            Button &ldquo;{dynUrl.btn.text}&rdquo; — URL suffix <span className="text-danger">*</span>
-                          </label>
-                          <div className="flex w-full overflow-hidden rounded-lg border border-rule focus-within:border-[#25D366] focus-within:ring-2 focus-within:ring-[#25D366]/20">
-                            <span className="flex shrink-0 items-center border-r border-rule bg-canvas px-3 py-2 text-xs text-ink-muted max-w-[140px] truncate">
-                              {dynUrl.btn.url?.replace(/\{\{1\}\}.*$/, "")}
-                            </span>
-                            <input type="text" value={urlSuffix} placeholder="e.g. summer-sale"
-                              onChange={(e) => setUrlSuffix(e.target.value.replace(/^\/+/, ""))}
-                              className="min-w-0 flex-1 bg-white px-3 py-2 text-sm text-ink focus:outline-none" />
+                        isWaIdButton(dynUrl.btn) ? (
+                          <div className="flex items-start gap-2.5 rounded-lg border border-[#25D366]/30 bg-[#25D366]/5 px-3 py-2.5">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 mt-0.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.8a19.79 19.79 0 01-3.07-8.68A2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92v2z"/></svg>
+                            <div>
+                              <p className="text-xs font-medium text-[#075E54]">Button &ldquo;{dynUrl.btn.text}&rdquo; — auto-fills per customer</p>
+                              <p className="text-[11px] text-[#075E54]/70">Each customer gets the link with their own WhatsApp number. No input needed.</p>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-ink">
+                              Button &ldquo;{dynUrl.btn.text}&rdquo; — URL suffix <span className="text-danger">*</span>
+                            </label>
+                            <div className="flex w-full overflow-hidden rounded-lg border border-rule focus-within:border-[#25D366] focus-within:ring-2 focus-within:ring-[#25D366]/20">
+                              <span className="flex shrink-0 items-center border-r border-rule bg-canvas px-3 py-2 text-xs text-ink-muted max-w-[140px] truncate" title={dynUrl.btn.url?.replace(/\{\{1\}\}.*$/, "")}>
+                                {dynUrl.btn.url?.replace(/\{\{1\}\}.*$/, "")}
+                              </span>
+                              <input type="text" value={urlSuffix} placeholder="e.g. summer-sale"
+                                onChange={(e) => setUrlSuffix(e.target.value.replace(/^\/+/, ""))}
+                                className="min-w-0 flex-1 bg-white px-3 py-2 text-sm text-ink focus:outline-none" />
+                            </div>
+                          </div>
+                        )
                       )}
 
                       {/* Coupon code button */}
@@ -1207,7 +1225,12 @@ function TemplatesContent() {
                 {/* Preview — at the bottom */}
                 <div>
                   <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-ink-muted">Preview</p>
-                  <WAPreview template={selected} imageUrl={imageUrl || undefined} />
+                  <WAPreview template={selected} imageUrl={
+                    imageUrl.trim() ||
+                    (storedHandle?.startsWith("https://") ? storedHandle : storedHandle ? `/api/bot/media/preview?handle=${encodeURIComponent(storedHandle)}` : undefined) ||
+                    storedHeaderUrl ||
+                    undefined
+                  } />
                 </div>
 
               </div>

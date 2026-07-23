@@ -620,7 +620,14 @@ const LANGUAGES = [
 function apiButtonToButtonDef(btn: NonNullable<TemplateComponent["buttons"]>[0]): ButtonDef {
   switch (btn.type) {
     case "QUICK_REPLY":   return { type: "QUICK_REPLY", text: btn.text };
-    case "URL":           return { type: "URL", text: btn.text, url: btn.url ?? "", urlType: btn.url?.includes("{{1}}") ? "DYNAMIC" : "STATIC", urlExample: btn.example?.[0] ?? "" };
+    case "URL": {
+      const baseUrl    = btn.url ?? "";
+      const isDynamic  = !!btn.example && btn.example.length > 0 && !baseUrl.includes("{{1}}");
+      const rawExample = btn.example?.[0] ?? "";
+      // Meta returns the full example URL; strip the base to recover just the suffix
+      const urlExample = rawExample.startsWith(baseUrl) ? rawExample.slice(baseUrl.length) : rawExample;
+      return { type: "URL", text: btn.text, url: baseUrl, urlType: isDynamic ? "DYNAMIC" : "STATIC", urlExample };
+    }
     case "PHONE_NUMBER":  return { type: "PHONE_NUMBER", text: btn.text, phone: btn.phone_number ?? "" };
     case "COPY_CODE":     return { type: "COPY_CODE", text: btn.text, example: btn.example?.[0] ?? "" };
     case "VOICE_CALL":    return { type: "VOICE_CALL", text: btn.text };
@@ -660,12 +667,15 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
       const url = h.example?.header_url?.[0];
       const handle = h.example?.header_handle?.[0];
       const mimeFromFormat: Record<string, string> = { IMAGE: "image/jpeg", VIDEO: "video/mp4", DOCUMENT: "application/pdf" };
-      if (url) return { url, mimeType: mimeFromFormat[h.format ?? ""] };
-      if (handle) return {
-        handle: handle.startsWith("h:") || /^\d:/.test(handle) ? handle : undefined,
-        mimeType: mimeFromFormat[h.format ?? ""],
-        // Don't set previewUrl — Meta 4: handles don't support GET requests
-      };
+      if (url) return { url, previewUrl: url, mimeType: mimeFromFormat[h.format ?? ""] };
+      if (handle) {
+        const validHandle = (handle.startsWith("h:") || /^\d:/.test(handle)) ? handle : undefined;
+        return {
+          handle: validHandle,
+          previewUrl: validHandle ? `/api/bot/media/preview?handle=${encodeURIComponent(validHandle)}` : undefined,
+          mimeType: mimeFromFormat[h.format ?? ""],
+        };
+      }
       return {};
     })();
     const initialType = (() => {

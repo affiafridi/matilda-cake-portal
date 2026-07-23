@@ -33,7 +33,7 @@ async function postToWhatsApp(
   interactive:        Record<string, unknown>,
 ): Promise<string> {
   const res = await fetch(
-    `https://graph.facebook.com/v20.0/${wa_phone_number_id}/messages`,
+    `https://graph.facebook.com/v22.0/${wa_phone_number_id}/messages`,
     {
       method:  "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${wa_access_token}` },

@@ -6,7 +6,7 @@ import { getIntegrations } from "@/lib/integrations";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const IG_API = "https://graph.facebook.com/v20.0";
+const IG_API = "https://graph.facebook.com/v22.0";
 
 /** POST /api/admin/fix-ig-names — re-fetch real usernames for IG conversations with generic names */
 export async function POST() {

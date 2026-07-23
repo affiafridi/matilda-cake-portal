@@ -38,7 +38,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const firstName = conversation.customerName.split(" ")[0] || conversation.customerName;
 
     const waRes = await fetch(
-      `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
       {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     uploadForm.append("messaging_product", "whatsapp");
 
     const uploadRes = await fetch(
-      `https://graph.facebook.com/v20.0/${phoneNumberId}/media`,
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/media`,
       { method: "POST", headers: { Authorization: `Bearer ${accessToken}` }, body: uploadForm },
     );
     const uploadJson = await uploadRes.json().catch(() => ({})) as { id?: string; error?: { message: string } };
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       [mediaType]:       { id: mediaId, ...(caption && mediaType === "image" ? { caption } : {}) },
     };
 
-    const sendRes  = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
+    const sendRes  = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify(messagePayload),
     });

@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { jsonOk, jsonError, handleApiError } from "@/lib/api/http";
 import { botQuery } from "@/lib/botdb";
-import { sendCampaign } from "@/lib/wa/sendCampaign";
+import { sendCampaign, createBroadcastRecord } from "@/lib/wa/sendCampaign";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth/server";
 import { z } from "zod";
 
@@ -15,10 +16,13 @@ const schema = z.object({
   templateLanguage:  z.string().default("en"),
   campaignName:      z.string().optional(),
   imageUrl:          z.string().optional(),
+  headerHandle:      z.string().optional(),
+  headerUrl:         z.string().optional(),
   headerFormat:      z.string().optional(),
   bodyVarCount:      z.number().int().min(0).default(0),
   extraBodyVars:     z.array(z.string()).default([]),
   urlSuffix:         z.string().optional(),
+  urlIsWaId:         z.boolean().optional(),
   urlButtonIndex:    z.number().int().optional(),
   couponCode:        z.string().optional(),
   couponButtonIndex: z.number().int().optional(),
@@ -46,10 +50,40 @@ export async function POST(req: NextRequest) {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )`).catch(() => {});
 
-    const result = await sendCampaign(parsed.data);
-    if ("error" in result) return jsonError(result.error, 400);
+    const { customers, templateName, templateLanguage, campaignName } = parsed.data;
+    const name = campaignName ?? templateName;
 
-    return jsonOk(result);
+    // Pre-flight: check for opted-out customers before creating any record
+    const optedOutCheck = await prisma.conversation.findMany({
+      where: { waId: { in: customers }, broadcastOptOutAt: { not: null } },
+      select: { waId: true },
+    }).catch(() => [] as { waId: string }[]);
+    const optedOutIds = new Set(optedOutCheck.map((c) => c.waId));
+    const activeCount = customers.filter((id) => !optedOutIds.has(id)).length;
+
+    if (activeCount === 0) {
+      const n = customers.length;
+      return jsonError(
+        n === 1
+          ? "This customer has unsubscribed from broadcast messages and cannot be reached."
+          : `All ${n} selected customers have unsubscribed from broadcast messages. No messages were sent.`,
+        400,
+      );
+    }
+
+    // Create the broadcast record immediately so we can return the ID right away
+    const broadcastId = await createBroadcastRecord(name, templateName, templateLanguage, customers.length);
+
+    // Fire-and-forget: send runs in the background while admin is redirected
+    void sendCampaign({ ...parsed.data, broadcastId }).catch(async () => {
+      // If sendCampaign throws unexpectedly, mark the broadcast as failed so it doesn't hang
+      await prisma.broadcast.update({
+        where: { id: broadcastId },
+        data: { status: "FAILED", completedAt: new Date() },
+      }).catch(() => {});
+    });
+
+    return jsonOk({ broadcastId, status: "SENDING" });
   } catch (err) {
     return handleApiError(err);
   }

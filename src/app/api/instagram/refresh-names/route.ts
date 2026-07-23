@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const IG_API = "https://graph.facebook.com/v20.0";
+const IG_API = "https://graph.facebook.com/v22.0";
 
 async function resolveIgName(psid: string, token: string): Promise<string | null> {
   const headers = { Authorization: `Bearer ${token}` };

@@ -27,14 +27,14 @@ async function uploadImageToMeta(imageUrl: string, token: string): Promise<strin
 
     // Step 1: Create upload session
     const sessionRes = await fetch(
-      `https://graph.facebook.com/v20.0/app/uploads?file_length=${fileLength}&file_type=${encodeURIComponent(contentType)}&access_token=${token}`,
+      `https://graph.facebook.com/v22.0/app/uploads?file_length=${fileLength}&file_type=${encodeURIComponent(contentType)}&access_token=${token}`,
       { method: "POST" },
     );
     const sessionJson = await sessionRes.json() as { id?: string; error?: { message: string } };
     if (!sessionJson.id) return null;
 
     // Step 2: Upload bytes — Authorization must be "OAuth", not "Bearer"
-    const uploadRes = await fetch(`https://graph.facebook.com/v20.0/${sessionJson.id}`, {
+    const uploadRes = await fetch(`https://graph.facebook.com/v22.0/${sessionJson.id}`, {
       method: "POST",
       headers: {
         Authorization: `OAuth ${token}`,
@@ -52,16 +52,23 @@ async function uploadImageToMeta(imageUrl: string, token: string): Promise<strin
   }
 }
 
+function isMetaHandle(s: string | undefined): boolean {
+  if (!s) return false;
+  // Meta resumable upload returns handles like "h:AQH...", "2:abc...", "4:xyz..."
+  return s.startsWith("h:") || /^\d:/.test(s);
+}
+
 function buildMetaButton(btn: { type: string; text: string; url?: string; urlType?: string; urlExample?: string; phone?: string; example?: string }) {
   switch (btn.type) {
     case "QUICK_REPLY":  return { type: "QUICK_REPLY", text: btn.text };
     case "URL": {
       if (btn.urlType === "DYNAMIC") {
         const exampleSuffix = btn.urlExample?.trim() || "example";
-        // Build full example URL: replace {{1}} in the stored URL with the suffix
+        // Strip any existing {{1}} then re-append it — Meta requires {{1}} for the variable part
         const baseUrl = (btn.url ?? "").replace(/\{\{1\}\}.*$/, "");
+        const urlWithVar = `${baseUrl}{{1}}`;
         const fullExample = exampleSuffix.startsWith("http") ? exampleSuffix : `${baseUrl}${exampleSuffix}`;
-        return { type: "URL", text: btn.text, url: btn.url, example: [fullExample] };
+        return { type: "URL", text: btn.text, url: urlWithVar, example: [fullExample] };
       }
       return { type: "URL", text: btn.text, url: btn.url };
     }
@@ -119,7 +126,7 @@ export async function POST(req: NextRequest) {
     const rawHandle = headerHandle?.trim();
     const rawUrl = headerImageUrl?.trim();
 
-    if (rawHandle?.startsWith("h:")) {
+    if (isMetaHandle(rawHandle)) {
       // Already uploaded via MediaInput drag-drop — use the declared format (VIDEO/DOCUMENT/IMAGE)
       const fmt = headerFormat ?? "IMAGE";
       components.push({ type: "HEADER", format: fmt, example: { header_handle: [rawHandle] } });
@@ -169,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${businessId}/message_templates`,
+      `https://graph.facebook.com/v22.0/${businessId}/message_templates`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -216,7 +223,7 @@ export async function PATCH(req: NextRequest) {
     // Header
     const rawHandle = headerHandle?.trim();
     const rawUrl = headerImageUrl?.trim();
-    if (rawHandle?.startsWith("h:")) {
+    if (isMetaHandle(rawHandle)) {
       const fmt = headerFormat ?? "IMAGE";
       components.push({ type: "HEADER", format: fmt, example: { header_handle: [rawHandle] } });
     } else if (rawUrl) {
@@ -260,7 +267,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${templateId}`,
+      `https://graph.facebook.com/v22.0/${templateId}`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -290,7 +297,7 @@ export async function DELETE(req: NextRequest) {
     if (!name) return jsonError("name required", 400);
 
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${businessId}/message_templates?name=${encodeURIComponent(name as string)}`,
+      `https://graph.facebook.com/v22.0/${businessId}/message_templates?name=${encodeURIComponent(name as string)}`,
       { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
     );
     const json = await res.json() as { error?: { message: string } };

@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback, useRef, use } from "react";
 type Broadcast = {
   id: string; name: string; templateName: string; templateLang: string;
   status: string; totalCount: number; sentCount: number;
-  deliveredCount: number; readCount: number; failedCount: number;
+  deliveredCount: number; readCount: number; failedCount: number; skippedCount: number;
   createdAt: string; completedAt: string | null;
   sentBy: { id: string; name: string } | null;
 };
@@ -92,6 +92,13 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
 
   useEffect(() => { load(1); }, [load]);
 
+  // Auto-refresh every 3 s while campaign is still sending
+  useEffect(() => {
+    if (!broadcast || broadcast.status !== "SENDING") return;
+    const timer = setInterval(() => load(page, statusFilter, search), 3000);
+    return () => clearInterval(timer);
+  }, [broadcast, load, page, statusFilter, search]);
+
   const b = broadcast;
   const delivPct = b ? pct(b.deliveredCount, b.totalCount) : 0;
   const readPct  = b ? pct(b.readCount,      b.totalCount) : 0;
@@ -114,38 +121,75 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
           )}
         </div>
         {b && (
-          <span className={[
-            "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold",
-            b.status === "COMPLETED" ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : b.status === "FAILED" ? "border-red-200 bg-red-50 text-red-600"
-              : "border-amber-200 bg-amber-50 text-amber-700",
-          ].join(" ")}>
-            {b.status}
-          </span>
+          b.status === "SENDING" ? (
+            <span className="inline-flex items-center gap-2 shrink-0 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Sending… {b.sentCount + b.failedCount}/{b.totalCount}
+            </span>
+          ) : (
+            <span className={[
+              "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold",
+              b.status === "COMPLETED" ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : b.status === "FAILED" ? "border-red-200 bg-red-50 text-red-600"
+                : "border-amber-200 bg-amber-50 text-amber-700",
+            ].join(" ")}>
+              {b.status}
+            </span>
+          )
         )}
       </div>
+
+      {/* Live progress bar while sending */}
+      {b?.status === "SENDING" && b.totalCount > 0 && (
+        <div className="px-6 lg:px-8 pb-1">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-blue-100">
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-500"
+              style={{ width: `${Math.round(((b.sentCount + b.failedCount) / b.totalCount) * 100)}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-blue-600">
+            Sending in background — {b.sentCount + b.failedCount} of {b.totalCount} processed. You can navigate away freely.
+          </p>
+        </div>
+      )}
 
       <div className="px-6 pb-8 lg:px-8 space-y-5">
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
         )}
 
+        {/* ── Opted-out notice ── */}
+        {b && b.skippedCount > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span className="font-semibold">{b.skippedCount} customer{b.skippedCount !== 1 ? "s" : ""} skipped</span>
+            {" — "}
+            {b.skippedCount === 1
+              ? "this customer had previously unsubscribed and did not receive this message."
+              : "these customers had previously unsubscribed and did not receive this message."}
+          </div>
+        )}
+
         {/* ── Stat cards ── */}
         {b && (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className={["grid gap-3", b.skippedCount > 0 ? "grid-cols-2 lg:grid-cols-6" : "grid-cols-2 lg:grid-cols-5"].join(" ")}>
             {[
               { label: "Recipients", value: b.totalCount,     p: 100 },
               { label: "Sent",       value: b.sentCount,      p: pct(b.sentCount,      b.totalCount) },
               { label: "Delivered",  value: b.deliveredCount, p: delivPct },
               { label: "Read",       value: b.readCount,      p: readPct },
               { label: "Failed",     value: b.failedCount,    p: failPct, danger: b.failedCount > 0 },
+              ...(b.skippedCount > 0 ? [{ label: "Skipped", value: b.skippedCount, p: pct(b.skippedCount, b.totalCount + b.skippedCount), warn: true }] : []),
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-[#e5e7eb] bg-[#f6f8fa] px-5 py-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748b]">{s.label}</p>
-                <p className={["mt-2 text-2xl font-bold tabular-nums tracking-tight", s.danger ? "text-red-600" : "text-[#0f172a]"].join(" ")}>
+              <div key={s.label} className={[
+                "rounded-xl border px-5 py-4",
+                "warn" in s && s.warn ? "border-amber-200 bg-amber-50" : "border-[#e5e7eb] bg-[#f6f8fa]",
+              ].join(" ")}>
+                <p className={["text-[11px] font-semibold uppercase tracking-wider", "warn" in s && s.warn ? "text-amber-700" : "text-[#64748b]"].join(" ")}>{s.label}</p>
+                <p className={["mt-2 text-2xl font-bold tabular-nums tracking-tight", "danger" in s && s.danger ? "text-red-600" : "warn" in s && s.warn ? "text-amber-800" : "text-[#0f172a]"].join(" ")}>
                   {s.value.toLocaleString()}
                 </p>
-                <p className="mt-0.5 text-[11px] text-[#64748b]">{s.p}%</p>
+                <p className={["mt-0.5 text-[11px]", "warn" in s && s.warn ? "text-amber-600" : "text-[#64748b]"].join(" ")}>{s.p}%</p>
               </div>
             ))}
           </div>

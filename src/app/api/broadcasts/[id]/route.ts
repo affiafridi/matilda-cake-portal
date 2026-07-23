@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       select: {
         id: true, name: true, templateName: true, templateLang: true,
         status: true, totalCount: true, sentCount: true,
-        deliveredCount: true, readCount: true, failedCount: true,
+        deliveredCount: true, readCount: true, failedCount: true, skippedCount: true,
         createdAt: true, completedAt: true,
         sentBy: { select: { id: true, name: true } },
       },

@@ -29,10 +29,13 @@ const createSchema = z.object({
   sendAt:           z.string().datetime(),
   // optional campaign payload fields
   imageUrl:         z.string().optional(),
+  headerHandle:     z.string().optional(),
+  headerUrl:        z.string().optional(),
   headerFormat:     z.string().optional(),
   bodyVarCount:     z.number().int().min(0).default(0),
   extraBodyVars:    z.array(z.string()).default([]),
   urlSuffix:        z.string().optional(),
+  urlIsWaId:        z.boolean().optional(),
   urlButtonIndex:   z.number().int().optional(),
   couponCode:       z.string().optional(),
   couponButtonIndex:z.number().int().optional(),
@@ -78,8 +81,8 @@ export async function POST(req: NextRequest) {
 
     const {
       templateName, templateLanguage, customers, sendAt,
-      imageUrl, headerFormat, bodyVarCount, extraBodyVars,
-      urlSuffix, urlButtonIndex, couponCode, couponButtonIndex,
+      imageUrl, headerHandle, headerUrl, headerFormat, bodyVarCount, extraBodyVars,
+      urlSuffix, urlIsWaId, urlButtonIndex, couponCode, couponButtonIndex,
     } = parsed.data;
 
     // Reject past dates
@@ -88,8 +91,8 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = {
-      imageUrl, headerFormat, bodyVarCount, extraBodyVars,
-      urlSuffix, urlButtonIndex, couponCode, couponButtonIndex,
+      imageUrl, headerHandle, headerUrl, headerFormat, bodyVarCount, extraBodyVars,
+      urlSuffix, urlIsWaId, urlButtonIndex, couponCode, couponButtonIndex,
     };
 
     const result = await botQuery(

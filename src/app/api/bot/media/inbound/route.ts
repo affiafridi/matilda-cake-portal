@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     // Step 1 — resolve media ID to a signed CDN URL
     const metaRes = await fetch(
-      `https://graph.facebook.com/v20.0/${mediaId}`,
+      `https://graph.facebook.com/v22.0/${mediaId}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     const metaJson = await metaRes.json() as { url?: string; mime_type?: string; error?: { message: string } };

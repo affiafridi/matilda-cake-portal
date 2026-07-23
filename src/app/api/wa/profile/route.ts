@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PROFILE_FIELDS = "about,address,description,email,profile_picture_url,websites,vertical";
-const GQL = "https://graph.facebook.com/v20.0";
+const GQL = "https://graph.facebook.com/v22.0";
 
 export async function GET() {
   const { wa_phone_number_id: id, wa_access_token: token, wa_business_account_id: wabaId } = await getIntegrations();

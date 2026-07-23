@@ -31,7 +31,7 @@ async function creds() {
 async function uploadToMeta(buffer: Buffer, mimeType: string, filename: string, token: string): Promise<string> {
   // Step 1 — create upload session
   const sessionRes = await fetch(
-    `https://graph.facebook.com/v20.0/app/uploads?file_length=${buffer.byteLength}&file_type=${encodeURIComponent(mimeType)}&file_name=${encodeURIComponent(filename)}`,
+    `https://graph.facebook.com/v22.0/app/uploads?file_length=${buffer.byteLength}&file_type=${encodeURIComponent(mimeType)}&file_name=${encodeURIComponent(filename)}`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
@@ -43,7 +43,7 @@ async function uploadToMeta(buffer: Buffer, mimeType: string, filename: string, 
 
   // Step 2 — upload file bytes
   const uploadRes = await fetch(
-    `https://graph.facebook.com/v20.0/${sessionId}`,
+    `https://graph.facebook.com/v22.0/${sessionId}`,
     {
       method: "POST",
       headers: {
@@ -68,7 +68,7 @@ async function uploadToMeta(buffer: Buffer, mimeType: string, filename: string, 
 async function getPreviewUrl(handle: string, token: string): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://graph.facebook.com/v20.0/${encodeURIComponent(handle)}`,
+      `https://graph.facebook.com/v22.0/${encodeURIComponent(handle)}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     const json = await res.json();

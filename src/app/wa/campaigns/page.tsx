@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 type Broadcast = {
   id: string; name: string; templateName: string; templateLang: string;
   status: string; totalCount: number; sentCount: number;
-  deliveredCount: number; readCount: number; failedCount: number;
+  deliveredCount: number; readCount: number; failedCount: number; skippedCount: number;
   createdAt: string; completedAt: string | null;
   sentBy: { name: string } | null;
 };
@@ -438,6 +438,11 @@ function CampaignsPage() {
                             <p className={`font-semibold tabular-nums ${b.failedCount > 0 ? "text-red-600" : "text-ink-muted"}`}>
                               {b.failedCount.toLocaleString()}
                             </p>
+                            {b.skippedCount > 0 && (
+                              <p className="text-xs font-medium text-amber-600 tabular-nums">
+                                +{b.skippedCount} unsub
+                              </p>
+                            )}
                           </td>
                         </tr>
                       );

@@ -451,6 +451,7 @@ model Broadcast {
   deliveredCount Int                  @default(0)
   readCount      Int                  @default(0)
   failedCount    Int                  @default(0)
+  skippedCount   Int                  @default(0)
   createdAt      DateTime             @default(now())
   completedAt    DateTime?
   recipients     BroadcastRecipient[]
