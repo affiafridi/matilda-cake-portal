@@ -483,18 +483,21 @@ export default function WaSettingsPage() {
                       {picError && <p className="text-xs text-red-500 mt-1.5">{picError}</p>}
                     </div>
 
-                    {/* Health stats */}
-                    <div className="flex items-stretch rounded-xl overflow-hidden border border-[#e5e7eb] shrink-0 bg-white">
+                    {/* Health stats — only show if Meta returned at least one value */}
+                    {(profile.status || profile.quality_rating || profile.messaging_limit_tier) && <div className="flex items-stretch rounded-xl overflow-hidden border border-[#e5e7eb] shrink-0 bg-white">
                       {[
-                        { label: "Status",  value: profile.status,              fallback: "Live" },
-                        { label: "Quality", value: profile.quality_rating,       fallback: "Good" },
-                        { label: "Limit",   value: profile.messaging_limit_tier, fallback: "Default" },
-                      ].map(({ label, value, fallback }, i) => {
+                        { label: "Status",  value: profile.status              },
+                        { label: "Quality", value: profile.quality_rating       },
+                        { label: "Limit",   value: profile.messaging_limit_tier },
+                      ].map(({ label, value }, i) => {
                         const raw = value ?? "";
-                        const display = raw.replace(/^TIER_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || fallback;
-                        const dot = !raw || /GREEN|CONNECTED|UNLIMITED|LIVE/i.test(raw) ? "bg-emerald-400"
-                          : /YELLOW|FLAGGED/i.test(raw)                                  ? "bg-amber-400"
-                          : /RED|DISCONNECTED|RESTRICTED|RATE_LIMITED/i.test(raw)        ? "bg-red-400"
+                        const display = raw
+                          ? raw.replace(/^TIER_/, "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                          : "—";
+                        const dot = !raw                                              ? "bg-[#d1d5db]"
+                          : /GREEN|CONNECTED|UNLIMITED|LIVE/i.test(raw)              ? "bg-emerald-400"
+                          : /YELLOW|FLAGGED/i.test(raw)                              ? "bg-amber-400"
+                          : /RED|DISCONNECTED|RESTRICTED|RATE_LIMITED/i.test(raw)   ? "bg-red-400"
                           : "bg-sky-400";
                         return (
                           <div key={label} className={["flex flex-col items-center justify-center px-5 py-3.5 min-w-[80px]", i > 0 ? "border-l border-[#e5e7eb]" : ""].join(" ")}>
@@ -506,7 +509,7 @@ export default function WaSettingsPage() {
                           </div>
                         );
                       })}
-                    </div>
+                    </div>}
                   </div>
 
                   {/* ── Form ── */}

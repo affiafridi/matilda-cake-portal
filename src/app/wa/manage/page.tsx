@@ -717,6 +717,7 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
   });
   const [savingDraft, setSavingDraft] = useState(false);
   const [draftSaved, setDraftSaved]   = useState(false);
+  const savedDraftId = useRef<number | null>(initialDraft?.id ?? null);
   const [showBtnMenu, setShowBtnMenu] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -750,11 +751,13 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
     setSavingDraft(true); setError(null);
     try {
       const payload = { name, category, language, headerType, headerText, headerMedia, locationName, locationAddress, locationLat, locationLng, body, footerText, buttons, examples };
-      const method  = initialDraft ? "PUT" : "POST";
-      const body2   = initialDraft ? JSON.stringify({ ...payload, id: initialDraft.id }) : JSON.stringify(payload);
+      const existingId = savedDraftId.current;
+      const method  = existingId ? "PUT" : "POST";
+      const body2   = existingId ? JSON.stringify({ ...payload, id: existingId }) : JSON.stringify(payload);
       const res = await fetch("/api/bot/template-drafts", { method, headers: { "Content-Type": "application/json" }, body: body2 });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error ?? "Failed to save draft");
+      if (!existingId && json.data?.id) savedDraftId.current = json.data.id;
       setDraftSaved(true);
       setTimeout(() => setDraftSaved(false), 3000);
       onDraftSaved?.();
