@@ -52,7 +52,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "SUPER_ADMIN") return jsonError("Forbidden", 403);
+    if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
     const { id } = await params;
     const flowId = parseInt(id);
@@ -200,7 +200,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "SUPER_ADMIN") return jsonError("Forbidden", 403);
+    if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
     const { id } = await params;
     await prisma.botFlow.delete({ where: { id: parseInt(id) } });

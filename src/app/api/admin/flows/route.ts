@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const user = await getCurrentUser();
-    if (!user || user.role !== "SUPER_ADMIN") return jsonError("Forbidden", 403);
+    if (!user || !["SUPER_ADMIN", "ADMIN"].includes(user.role)) return jsonError("Forbidden", 403);
 
     const body = await req.json() as { name: string; description?: string; triggerKeywords?: string };
     if (!body.name?.trim()) return jsonError("name required", 400);
