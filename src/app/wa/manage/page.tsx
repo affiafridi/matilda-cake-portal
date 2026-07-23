@@ -207,7 +207,7 @@ const HEADER_OPTIONS: { type: HeaderType; label: string; desc: string; icon: Rea
   },
 ];
 
-const SUPER_ADMIN_ONLY_HEADERS = new Set(["VIDEO", "DOCUMENT", "LOCATION"]);
+const SUPER_ADMIN_ONLY_HEADERS = new Set<string>(); // VIDEO, DOCUMENT, LOCATION now available to ADMIN too
 
 function HeaderTypeSelector({ value, onChange, isSuperAdmin }: { value: HeaderType; onChange: (v: HeaderType) => void; isSuperAdmin: boolean }) {
   return (
