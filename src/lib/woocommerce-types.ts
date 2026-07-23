@@ -12,6 +12,7 @@ export type WooProductSummary = {
   /** "simple" | "variable" | "grouped" | "external". */
   type: string;
   images: { id: number; src: string }[];
+  attributes: { name: string; options: string[] }[];
 };
 
 export type WooVariationAttribute = {

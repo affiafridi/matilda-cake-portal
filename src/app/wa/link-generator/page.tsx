@@ -9,6 +9,7 @@ type SearchResult = {
   type:  "product" | "category";
   price?: string;
   image?: string;
+  attributes?: { name: string; options: string[] }[];
 };
 
 export default function LinkGeneratorPage() {
@@ -48,12 +49,13 @@ export default function LinkGeneratorPage() {
     setSearching(true);
     try {
       const [pRes, cRes] = await Promise.all([
-        fetch(`/api/woocommerce/products/search?q=${encodeURIComponent(q)}`).then(r => r.json()),
+        fetch(`/api/woocommerce/products/search?q=${encodeURIComponent(q)}&limit=20`).then(r => r.json()),
         fetch(`/api/woocommerce/categories/search?q=${encodeURIComponent(q)}`).then(r => r.json()),
       ]);
-      const products: SearchResult[] = (pRes.data ?? []).map((p: { id: number; name: string; price?: string; images?: { src: string }[] }) => ({
+      const products: SearchResult[] = (pRes.data ?? []).map((p: { id: number; name: string; price?: string; images?: { src: string }[]; attributes?: { name: string; options: string[] }[] }) => ({
         id: p.id, name: p.name, slug: "", type: "product" as const, price: p.price,
         image: p.images?.[0]?.src,
+        attributes: p.attributes ?? [],
       }));
       const categories: SearchResult[] = (cRes.data ?? []).map((c: { id: number; name: string; slug: string }) => ({
         id: c.id, name: c.name, slug: c.slug, type: "category" as const,
@@ -136,7 +138,33 @@ export default function LinkGeneratorPage() {
         )}
 
         {/* Form card */}
-        <div className="rounded-2xl border border-[#e5e7eb] bg-white shadow-sm overflow-hidden">
+        <div className="relative rounded-2xl border border-[#e5e7eb] bg-white shadow-sm overflow-visible">
+
+          {/* Product preview — centered inside card, above search */}
+          {hoveredId && (() => {
+            const r = results.find(x => `${x.type}-${x.id}` === hoveredId && x.type === "product");
+            if (!r) return null;
+            return (
+              <div className="absolute left-1/2 top-4 z-40 w-72 -translate-x-1/2 rounded-2xl border border-[#e5e7eb] bg-white shadow-2xl overflow-hidden pointer-events-none">
+                {r.image && <img src={r.image} alt={r.name} className="h-44 w-full object-cover" />}
+                <div className="p-4">
+                  <p className="text-[14px] font-bold leading-snug text-[#0f172a]">{r.name}</p>
+                  {r.price && <p className="mt-1 text-[20px] font-extrabold text-emerald-600">AED {r.price}</p>}
+                  {(r.attributes ?? []).filter(a => a.options?.length > 0).map(a => (
+                    <div key={a.name} className="mt-3">
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#94a3b8]">{a.name}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {a.options.map(opt => (
+                          <span key={opt} className="rounded-full border border-[#e5e7eb] bg-[#f8fafc] px-2.5 py-0.5 text-[11px] font-medium text-[#374151]">{opt}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <p className="mt-3 text-[11px] text-[#94a3b8]">Click to select</p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Step 1 — Campaign Name */}
           <div className={["border-b border-[#f0f2f5] px-6 py-4 transition-all", step1Done ? "bg-white" : "bg-white"].join(" ")}>
@@ -227,47 +255,34 @@ export default function LinkGeneratorPage() {
                 )}
 
                 {results.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-[#e5e7eb] bg-white shadow-xl">
+                  <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-96 overflow-y-auto rounded-xl border border-[#e5e7eb] bg-white shadow-xl">
                     {results.map(r => {
                       const key = `${r.type}-${r.id}`;
-                      const isHovered = hoveredId === key;
                       return (
                         <button key={key} onClick={() => select(r)}
                           onMouseEnter={() => setHoveredId(key)}
                           onMouseLeave={() => setHoveredId(null)}
-                          className="flex w-full flex-col text-left transition-colors hover:bg-[#f8fafc]">
-                          <div className="flex w-full items-center gap-3 px-4 py-3">
-                            {r.type === "product" && r.image ? (
-                              <img src={r.image} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover border border-[#e5e7eb]" />
-                            ) : (
-                              <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center border ${r.type === "category" ? "bg-violet-50 border-violet-200" : "bg-[#f1f5f9] border-[#e5e7eb]"}`}>
-                                {r.type === "category" ? (
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-violet-400">
-                                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                                  </svg>
-                                ) : (
-                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#94a3b8]">
-                                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
-                                  </svg>
-                                )}
-                              </div>
-                            )}
-                            <span className={["shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
-                              r.type === "category" ? "bg-violet-50 text-violet-700 border border-violet-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200",
-                            ].join(" ")}>{r.type === "category" ? "Cat" : "Prod"}</span>
-                            <span className="flex-1 truncate text-[13px] font-medium text-[#0f172a]">{r.name}</span>
-                            {r.price && <span className="shrink-0 text-[12px] font-semibold text-[#64748b]">{r.price}</span>}
-                          </div>
-                          {r.type === "product" && isHovered && r.image && (
-                            <div className="mx-4 mb-3 flex items-start gap-3 rounded-xl border border-[#e5e7eb] bg-white p-3 shadow-sm">
-                              <img src={r.image} alt={r.name} className="h-20 w-20 shrink-0 rounded-xl object-cover border border-[#e5e7eb]" />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-semibold leading-snug text-[#0f172a]">{r.name}</p>
-                                {r.price && <p className="mt-1 text-[15px] font-bold text-emerald-600">{r.price}</p>}
-                                <p className="mt-1.5 text-[11px] text-[#94a3b8]">Click to select</p>
-                              </div>
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-[#f8fafc]">
+                          {r.type === "product" && r.image ? (
+                            <img src={r.image} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover border border-[#e5e7eb]" />
+                          ) : (
+                            <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center border ${r.type === "category" ? "bg-violet-50 border-violet-200" : "bg-[#f1f5f9] border-[#e5e7eb]"}`}>
+                              {r.type === "category" ? (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-violet-400">
+                                  <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-[#94a3b8]">
+                                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                              )}
                             </div>
                           )}
+                          <span className={["shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                            r.type === "category" ? "bg-violet-50 text-violet-700 border border-violet-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200",
+                          ].join(" ")}>{r.type === "category" ? "Category" : "Product"}</span>
+                          <span className="flex-1 truncate text-[13px] font-medium text-[#0f172a]">{r.name}</span>
+                          {r.price && <span className="shrink-0 text-[12px] font-semibold text-[#64748b]">{r.price}</span>}
                         </button>
                       );
                     })}

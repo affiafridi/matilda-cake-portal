@@ -9,11 +9,12 @@ import { handleApiError, jsonError, jsonOk } from "@/lib/api/http";
  */
 export async function GET(req: NextRequest) {
   try {
-    const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
+    const q     = (req.nextUrl.searchParams.get("q")     ?? "").trim();
+    const limit = parseInt(req.nextUrl.searchParams.get("limit") ?? "10", 10);
     if (q.length < 2) {
       return jsonOk([]);
     }
-    const products = await searchProducts(q, 10);
+    const products = await searchProducts(q, Math.min(limit, 50));
     return jsonOk(products);
   } catch (error) {
     if (error instanceof Error && error.name === "WooConfigError") {

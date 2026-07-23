@@ -63,6 +63,7 @@ type RawProduct = {
   name: string;
   price?: string;
   type?: string;
+  attributes?: { name?: string; options?: string[] }[];
   images?: { id: number; src: string }[];
 };
 
@@ -89,6 +90,10 @@ export async function searchProducts(
     images: (p.images ?? []).slice(0, 1).map((img) => ({
       id: img.id,
       src: img.src,
+    })),
+    attributes: (p.attributes ?? []).map((a) => ({
+      name: decodeEntities(a.name ?? ""),
+      options: (a.options ?? []).map((o) => decodeEntities(o)),
     })),
   }));
 }
