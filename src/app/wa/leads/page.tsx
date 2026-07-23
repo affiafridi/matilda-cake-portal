@@ -277,8 +277,10 @@ export default function LeadsPage() {
                             <p className="text-[11px] text-[#94a3b8]">Order #{lead.orderId}</p>
                           )}
                         </>
+                      ) : lead.orderId ? (
+                        <p className="text-[11px] text-[#94a3b8]">Order #{lead.orderId}</p>
                       ) : (
-                        <p className="text-[12px] text-[#94a3b8] truncate">{lead.orderDetails || "—"}</p>
+                        <p className="text-[12px] text-[#94a3b8]">—</p>
                       )}
                       {lead.campaignId && (
                         <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-1.5 py-0 text-[10px] font-semibold text-violet-700">
