@@ -622,7 +622,7 @@ function apiButtonToButtonDef(btn: NonNullable<TemplateComponent["buttons"]>[0])
     case "QUICK_REPLY":   return { type: "QUICK_REPLY", text: btn.text };
     case "URL": {
       const baseUrl    = btn.url ?? "";
-      const isDynamic  = !!btn.example && btn.example.length > 0 && !baseUrl.includes("{{1}}");
+      const isDynamic  = baseUrl.includes("{{1}}") || (!!btn.example && btn.example.length > 0);
       const rawExample = btn.example?.[0] ?? "";
       // Meta returns the full example URL; strip the base to recover just the suffix
       const urlExample = rawExample.startsWith(baseUrl) ? rawExample.slice(baseUrl.length) : rawExample;
@@ -669,6 +669,10 @@ function CreateForm({ onCreated, onCancel, initialTemplate, isSuperAdmin, isDupl
       const mimeFromFormat: Record<string, string> = { IMAGE: "image/jpeg", VIDEO: "video/mp4", DOCUMENT: "application/pdf" };
       if (url) return { url, previewUrl: url, mimeType: mimeFromFormat[h.format ?? ""] };
       if (handle) {
+        if (handle.startsWith("https://")) {
+          // Meta returned a full CDN URL in header_handle — treat as a plain URL
+          return { url: handle, previewUrl: handle, mimeType: mimeFromFormat[h.format ?? ""] };
+        }
         const validHandle = (handle.startsWith("h:") || /^\d:/.test(handle)) ? handle : undefined;
         return {
           handle: validHandle,

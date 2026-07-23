@@ -62,9 +62,10 @@ function buildMetaButton(btn: { type: string; text: string; url?: string; urlTyp
   switch (btn.type) {
     case "QUICK_REPLY":  return { type: "QUICK_REPLY", text: btn.text };
     case "URL": {
-      if (btn.urlType === "DYNAMIC") {
+      // Treat as Dynamic if explicitly selected OR if the URL contains {{1}} (safety net)
+      const isDynamic = btn.urlType === "DYNAMIC" || (btn.url ?? "").includes("{{1}}");
+      if (isDynamic) {
         const exampleSuffix = btn.urlExample?.trim() || "example";
-        // Strip any existing {{1}} then re-append it — Meta requires {{1}} for the variable part
         const baseUrl = (btn.url ?? "").replace(/\{\{1\}\}.*$/, "");
         const urlWithVar = `${baseUrl}{{1}}`;
         const fullExample = exampleSuffix.startsWith("http") ? exampleSuffix : `${baseUrl}${exampleSuffix}`;

@@ -2,14 +2,28 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ReactElement, type SVGProps } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactElement, type SVGProps } from "react";
 import { SearchBar } from "./SearchBar";
+
+// ── Dynamic breadcrumb context ─────────────────────────────────────────────
+// Pages with dynamic titles (e.g. campaign detail, order detail) call
+// usePageTitle(name) to push a label into the third breadcrumb slot.
+
+type BreadcrumbCtx = { dynamicTitle: string; setDynamicTitle: (t: string) => void };
+const BreadcrumbContext = createContext<BreadcrumbCtx>({ dynamicTitle: "", setDynamicTitle: () => {} });
+export function usePageTitle(title: string) {
+  const { setDynamicTitle } = useContext(BreadcrumbContext);
+  useEffect(() => {
+    if (title) setDynamicTitle(title);
+    return () => setDynamicTitle("");
+  }, [title, setDynamicTitle]);
+}
 
 type Role = "SUPER_ADMIN" | "ADMIN" | "AGENT" | "OPERATOR";
 
 // ── Page title map ─────────────────────────────────────────────────────────
 
-const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?: string }> = {
+const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?: string; grandParent?: string; grandParentHref?: string }> = {
   "/dashboard":           { title: "Dashboard" },
   "/new-order":           { title: "New Order",         parent: "Orders",       parentHref: "/orders" },
   "/orders":              { title: "Orders" },
@@ -21,6 +35,7 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
   "/customers":           { title: "Customers",          parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/templates":        { title: "Send Campaign",      parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/campaigns":        { title: "Campaign History",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
+  "/wa/campaigns/":       { title: "",                   parent: "Campaign History", parentHref: "/wa/campaigns", grandParent: "WhatsApp", grandParentHref: "/wa/inbox" },
   "/wa/manage":           { title: "Manage Templates",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/settings":         { title: "Channel Settings",   parent: "WhatsApp",     parentHref: "/wa/inbox" },
   "/wa/inbox":            { title: "Team Inbox",         parent: "WhatsApp",     parentHref: "/dashboard" },
@@ -36,6 +51,9 @@ const PAGE_TITLES: Record<string, { title: string; parent?: string; parentHref?:
 function getPageMeta(pathname: string) {
   const exact = PAGE_TITLES[pathname];
   if (exact) return exact;
+  // Check nested-route entries (keys ending with "/") first — more specific match wins
+  const nested = Object.entries(PAGE_TITLES).find(([k]) => k.endsWith("/") && pathname.startsWith(k));
+  if (nested) return nested[1];
   const partial = Object.entries(PAGE_TITLES).find(([k]) => k !== "/" && pathname.startsWith(k + "/"));
   return partial?.[1] ?? { title: "Portal" };
 }
@@ -167,9 +185,10 @@ export default function AppShell({
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [signing,     setSigning]     = useState(false);
-  const [inboxUnread, setInboxUnread] = useState(0);
+  const [sidebarOpen,   setSidebarOpen]   = useState(false);
+  const [signing,       setSigning]       = useState(false);
+  const [inboxUnread,   setInboxUnread]   = useState(0);
+  const [dynamicTitle,  setDynamicTitle]  = useState("");
   const [navPct,  setNavPct]  = useState(0);
   const [navShow, setNavShow] = useState(false);
   const navMounted = useRef(false);
@@ -429,6 +448,7 @@ export default function AppShell({
   }
 
   return (
+    <BreadcrumbContext.Provider value={{ dynamicTitle, setDynamicTitle }}>
     <div className="flex min-h-screen bg-white">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -460,15 +480,25 @@ export default function AppShell({
 
             {/* Breadcrumb */}
             <div className="hidden items-center gap-1.5 sm:flex">
-              {meta.parent && meta.parentHref ? (
+              {meta.grandParent && meta.grandParentHref && (
+                <>
+                  <Link href={meta.grandParentHref} className="text-[13px] font-medium text-[#9ca3af] transition hover:text-[#6b7280]">
+                    {meta.grandParent}
+                  </Link>
+                  <span className="text-[#d1d5db] select-none">/</span>
+                </>
+              )}
+              {meta.parent && meta.parentHref && (
                 <>
                   <Link href={meta.parentHref} className="text-[13px] font-medium text-[#9ca3af] transition hover:text-[#6b7280]">
                     {meta.parent}
                   </Link>
                   <span className="text-[#d1d5db] select-none">/</span>
                 </>
-              ) : null}
-              <span className="text-[13px] font-semibold text-[#0f172a]">{meta.title}</span>
+              )}
+              <span className="max-w-[200px] truncate text-[13px] font-semibold text-[#0f172a]">
+                {dynamicTitle || meta.title || "—"}
+              </span>
             </div>
 
             {/* Mobile: logo */}
@@ -503,6 +533,7 @@ export default function AppShell({
         </main>
       </div>
     </div>
+    </BreadcrumbContext.Provider>
   );
 }
 

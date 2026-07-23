@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, use } from "react";
+import { usePageTitle } from "@/components/app-shell/AppShell";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,7 @@ export default function BroadcastDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
 
   const [broadcast,     setBroadcast]     = useState<Broadcast | null>(null);
+  usePageTitle(broadcast?.name ?? "");
   const [recipients,    setRecipients]    = useState<Recipient[]>([]);
   const [total,         setTotal]         = useState(0);
   const [page,          setPage]          = useState(1);
