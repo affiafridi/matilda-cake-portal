@@ -20,7 +20,7 @@ type Step = {
   _x?: number; _y?: number; disabled?: boolean; _imgH?: number;
   captureVar?: string; label?: string; isFallback?: boolean;
   orderButtonLabel?: string; variationListLabel?: string; useCCAvenue?: boolean;
-  backButtonEnabled?: boolean; backButtonLabel?: string;
+  backButtonEnabled?: boolean; backButtonLabel?: string; backButtonFooter?: string;
 };
 type StepIssue = { severity: "error" | "warn"; label: string };
 function validateFlow(flow: Flow): Map<string, StepIssue[]> {
@@ -66,7 +66,7 @@ function normaliseFlow(d: any): Flow {
   return {
     ...d, description: d.description ?? "", triggerKeywords: d.triggerKeywords ?? "", isFallback: d.isFallback ?? false,
     steps: (d.steps ?? []).map((s: Step, i: number) => ({
-      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false, orderButtonLabel: s.orderButtonLabel ?? "Order Today", variationListLabel: s.variationListLabel ?? "Choose Options", useCCAvenue: s.useCCAvenue ?? false, backButtonEnabled: s.backButtonEnabled ?? false, backButtonLabel: s.backButtonLabel ?? "⬅️ Back",
+      ...s, showProductCard: s.showProductCard ?? false, handoffToAgent: s.handoffToAgent ?? false, imageUrl: s.imageUrl ?? "", isFallback: s.isFallback ?? false, orderButtonLabel: s.orderButtonLabel ?? "Order Today", variationListLabel: s.variationListLabel ?? "Choose Options", useCCAvenue: s.useCCAvenue ?? false, backButtonEnabled: s.backButtonEnabled ?? false, backButtonLabel: s.backButtonLabel ?? "⬅️ Back", backButtonFooter: s.backButtonFooter ?? "Explore more options:",
       label: s.label ?? undefined, captureVar: s.captureVar ?? undefined,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       _x: s._x ?? (s as any).positionX ?? 80 + i * 320, _y: s._y ?? (s as any).positionY ?? 120,
@@ -79,7 +79,7 @@ function normaliseFlow(d: any): Flow {
   };
 }
 function newOption(n = 0): Option { return { label: "", value: "", description: "", nextStepKey: "", dataSource: "static", sortOrder: n, customApiUrl: "", customApiPath: "", customApiLabel: "", customApiValue: "" }; }
-function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y, orderButtonLabel: "Order Today", variationListLabel: "Choose Options", useCCAvenue: false, backButtonEnabled: false, backButtonLabel: "⬅️ Back" }; }
+function newStep(n = 0, x = 80, y = 120): Step { return { stepKey: `step_${n + 1}`, message: "", inputType: "button", isEntry: n === 0, isFallback: false, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [newOption()], _x: x, _y: y, orderButtonLabel: "Order Today", variationListLabel: "Choose Options", useCCAvenue: false, backButtonEnabled: false, backButtonLabel: "⬅️ Back", backButtonFooter: "Explore more options:" }; }
 function newFallbackStep(n = 1): Step { return { stepKey: "fallback", message: "Sorry, I didn't understand that.\n\nHere's what I can help you with:", inputType: "button", isEntry: false, isFallback: true, showProductCard: false, handoffToAgent: false, imageUrl: "", sortOrder: n, options: [{ ...newOption(0), label: "Main Menu", value: "main_menu", nextStepKey: "step_1" }], _x: 80, _y: 340 }; }
 
 type IP = { size?: number; className?: string };
@@ -955,9 +955,15 @@ function EditPanel({ step, allSteps, onChange, onClose, ccavenueConfigured }: {
               </div>
             </div>
             {step.backButtonEnabled && (
-              <div className="mt-2.5 pt-2.5 border-t border-blue-200">
-                <label className={LBL}>Button label</label>
-                <input type="text" value={step.backButtonLabel ?? "⬅️ Back"} onChange={(e) => onChange({ ...step, backButtonLabel: e.target.value })} placeholder="⬅️ Back" className={INP} />
+              <div className="mt-2.5 pt-2.5 border-t border-blue-200 space-y-2">
+                <div>
+                  <label className={LBL}>Footer text</label>
+                  <input type="text" value={step.backButtonFooter ?? "Explore more options:"} onChange={(e) => onChange({ ...step, backButtonFooter: e.target.value })} placeholder="Explore more options:" className={INP} />
+                </div>
+                <div>
+                  <label className={LBL}>Button label</label>
+                  <input type="text" value={step.backButtonLabel ?? "⬅️ Back"} onChange={(e) => onChange({ ...step, backButtonLabel: e.target.value })} placeholder="⬅️ Back" className={INP} />
+                </div>
               </div>
             )}
           </div>
@@ -1058,7 +1064,7 @@ function StepBubble({ step, onChoose, vars }: { step: Step; onChoose: (nextKey: 
         {step.backButtonEnabled && (
           <div className="bg-white rounded-2xl rounded-tl-none shadow-md overflow-hidden w-full">
             <div className="px-3 pt-2 pb-1">
-              <p className="text-[10px] text-gray-400 italic">Explore more options:</p>
+              <p className="text-[10px] text-gray-400 italic">{step.backButtonFooter || "Explore more options:"}</p>
             </div>
             <div className="border-t border-gray-100">
               <div className="w-full flex items-center justify-center gap-1.5 text-[10px] font-semibold text-[#0a82ff] py-2">

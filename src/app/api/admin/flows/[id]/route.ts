@@ -23,7 +23,7 @@ type StepInput = {
   positionX?: number; positionY?: number;
   label?: string | null; captureVar?: string | null;
   useCCAvenue?: boolean; orderButtonLabel?: string | null; variationListLabel?: string | null;
-  backButtonEnabled?: boolean; backButtonLabel?: string | null;
+  backButtonEnabled?: boolean; backButtonLabel?: string | null; backButtonFooter?: string | null;
 };
 
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -108,6 +108,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
               variationListLabel: step.variationListLabel ?? null,
               backButtonEnabled:  step.backButtonEnabled  ?? false,
               backButtonLabel:    step.backButtonLabel    ?? null,
+              backButtonFooter:   step.backButtonFooter   ?? null,
               imageUrl:           step.imageUrl || null,
               sortOrder:          step.sortOrder ?? si,
               positionX:          step.positionX ?? 80,
@@ -132,6 +133,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
               variationListLabel: step.variationListLabel ?? null,
               backButtonEnabled:  step.backButtonEnabled  ?? false,
               backButtonLabel:    step.backButtonLabel    ?? null,
+              backButtonFooter:   step.backButtonFooter   ?? null,
               imageUrl:           step.imageUrl || null,
               sortOrder:          step.sortOrder ?? si,
               positionX:          step.positionX ?? 80,
