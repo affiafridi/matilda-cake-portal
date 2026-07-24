@@ -1626,18 +1626,19 @@ export default function InboxClient({
                 <div ref={bottomRef} />
               </div>
 
-              {/* ── Scroll-to-bottom button ── */}
+              {/* ── Scroll-to-bottom button — sits between chat feed and reply box ── */}
               {showScrollBtn && (
-                <button
-                  type="button"
-                  onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
-                  className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md border border-[#e5e7eb] text-[#64748b] hover:text-[#0f172a] hover:shadow-lg transition-all"
-                  title="Scroll to bottom"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
+                <div className="flex justify-center py-1.5 bg-transparent pointer-events-none">
+                  <button
+                    type="button"
+                    onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
+                    className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#e5e7eb] text-[#64748b] hover:text-[#0f172a] hover:shadow-lg transition-all"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                </div>
               )}
 
               {/* ── Reply / Note box ── */}
