@@ -253,12 +253,17 @@ export default async function DashboardPage({
     prisma.whatsappLead.count({ where: { status: "CONVERTED" } }),
   ]);
 
+  // ADMIN only sees WhatsApp conversations; SUPER_ADMIN sees all channels
+  const convChannelFilter = isSuperAdmin
+    ? {}
+    : { OR: [{ channel: "whatsapp" }, { channel: null }] };
+
   const [waActiveConversations, waPendingConversations, waResolvedConversations, waUnread, waRecentConversations] = await Promise.all([
-    prisma.conversation.count({ where: { status: "OPEN" } }),
-    prisma.conversation.count({ where: { status: "PENDING" } }),
-    prisma.conversation.count({ where: { status: "RESOLVED" } }),
-    prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { unreadCount: { gt: 0 } } }),
-    prisma.conversation.findMany({ where: { status: "OPEN" }, orderBy: { lastMessageAt: "desc" }, take: 6, select: { id: true, waId: true, customerName: true, lastMessageBody: true, lastMessageAt: true, unreadCount: true } }),
+    prisma.conversation.count({ where: { ...convChannelFilter, status: "OPEN" } }),
+    prisma.conversation.count({ where: { ...convChannelFilter, status: "PENDING" } }),
+    prisma.conversation.count({ where: { ...convChannelFilter, status: "RESOLVED" } }),
+    prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { ...convChannelFilter, unreadCount: { gt: 0 } } }),
+    prisma.conversation.findMany({ where: { ...convChannelFilter, status: "OPEN" }, orderBy: { lastMessageAt: "desc" }, take: 6, select: { id: true, waId: true, customerName: true, lastMessageBody: true, lastMessageAt: true, unreadCount: true } }),
   ]);
   const waTotalUnread = waUnread._sum.unreadCount ?? 0;
 
