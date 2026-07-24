@@ -985,7 +985,7 @@ export default function InboxClient({
                 { key: "all",        label: "All Active" },
               ] as { key: typeof view; label: string }[]).map(({ key, label }) => (
                 <button key={key} onClick={() => setView(key)}
-                  className={["relative flex flex-1 items-center justify-center gap-1 pb-2 pt-1.5 text-[11px] font-medium transition-colors",
+                  className={["relative flex flex-1 items-center justify-center gap-1 pb-2 pt-1.5 text-[12px] font-medium transition-colors",
                     view === key ? "text-brand" : "text-gray-500 hover:text-gray-700",
                   ].join(" ")}>
                   {view === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-brand" />}
@@ -1012,7 +1012,7 @@ export default function InboxClient({
                 { key: "paused",   label: "Bot Paused", dot: "bg-amber-400" },
               ] as { key: typeof view; label: string; dot: string }[]).map(({ key, label, dot }) => (
                 <button key={key} onClick={() => setView(key)}
-                  className={["relative flex flex-1 items-center justify-center gap-1 pb-2 pt-1.5 text-[11px] font-medium transition-colors",
+                  className={["relative flex flex-1 items-center justify-center gap-1 pb-2 pt-1.5 text-[12px] font-medium transition-colors",
                     view === key ? "text-brand" : "text-gray-500 hover:text-gray-700",
                   ].join(" ")}>
                   {view === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-brand" />}
