@@ -224,8 +224,8 @@ export async function POST(req: NextRequest) {
 
       // Store system message so agents can see the opt-out event in the thread
       const systemBody = optOut
-        ? "🚫 Customer replied STOP — unsubscribed from broadcasts."
-        : "✅ Customer replied START — re-subscribed to broadcasts.";
+        ? "Customer replied STOP — unsubscribed from broadcasts."
+        : "Customer replied START — re-subscribed to broadcasts.";
       await prisma.message.create({
         data: {
           id:             crypto.randomUUID(),

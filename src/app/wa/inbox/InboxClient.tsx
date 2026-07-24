@@ -191,38 +191,50 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
   );
 }
 
-// ── Delivery tick icon ─────────────────────────────────────────────────────
+// ── Delivery tick icon + label ──────────────────────────────────────────────
 
 function DeliveryTick({ status }: { status: string | null }) {
   if (!status || status === "SENT") {
     return (
-      <svg viewBox="0 0 16 11" fill="none" className="h-3 w-3 text-white/50" aria-label="Sent">
-        <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+      <span className="flex items-center gap-0.5 text-[10px] text-[#667781]" aria-label="Sent">
+        <svg viewBox="0 0 16 11" fill="none" className="h-3 w-3" aria-hidden="true">
+          <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Sent
+      </span>
     );
   }
   if (status === "DELIVERED") {
     return (
-      <svg viewBox="0 0 20 11" fill="none" className="h-3.5 w-3 text-white/70" aria-label="Delivered">
-        <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M6 5.5L10.5 10L20 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+      <span className="flex items-center gap-0.5 text-[10px] text-[#667781]" aria-label="Delivered">
+        <svg viewBox="0 0 20 11" fill="none" className="h-3 w-3.5" aria-hidden="true">
+          <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 5.5L10.5 10L20 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Delivered
+      </span>
     );
   }
   if (status === "READ") {
     return (
-      <svg viewBox="0 0 20 11" fill="none" className="h-3.5 w-3 text-blue-200" aria-label="Read">
-        <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M6 5.5L10.5 10L20 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+      <span className="flex items-center gap-0.5 text-[10px] text-[#53bdeb] font-medium" aria-label="Read">
+        <svg viewBox="0 0 20 11" fill="none" className="h-3 w-3.5" aria-hidden="true">
+          <path d="M1 5.5L5.5 10L15 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M6 5.5L10.5 10L20 1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        Read
+      </span>
     );
   }
   if (status === "FAILED") {
     return (
-      <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3 text-red-300" aria-label="Failed">
-        <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
-        <path d="M6 3.5V6.5M6 8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-      </svg>
+      <span className="flex items-center gap-0.5 text-[10px] text-red-500 font-medium" aria-label="Failed to deliver">
+        <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3" aria-hidden="true">
+          <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.5"/>
+          <path d="M6 3.5V6.5M6 8h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        Failed
+      </span>
     );
   }
   return null;
@@ -1282,7 +1294,8 @@ export default function InboxClient({
 
                     // ── System event bubble ──
                     if ((m.direction as string) === "SYSTEM") {
-                      const isOptEvent = m.body?.includes("replied STOP") || m.body?.includes("replied START");
+                      const isOptEvent = m.body?.includes("replied STOP") || m.body?.includes("replied START") ||
+                        m.body?.includes("🚫") || m.body?.includes("✅ Customer");
                       return (
                         <Fragment key={`msg-${m.id}`}>
                           {showSep && (
@@ -1293,6 +1306,15 @@ export default function InboxClient({
                           <div className="flex justify-center py-1">
                             {isOptEvent ? (
                               <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                                {m.body?.includes("replied STOP") ? (
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 text-slate-400">
+                                    <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                                  </svg>
+                                ) : (
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 text-slate-400">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                  </svg>
+                                )}
                                 <span className="opacity-80">{m.body}</span>
                               </div>
                             ) : (
