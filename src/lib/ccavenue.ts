@@ -73,6 +73,12 @@ export type CCAvenueQuickBillParams = {
   validPeriod?:  "days" | "hours" | "minutes"; // default "days"
   termsAndConditions?: string;
   /**
+   * URL where CCAvenue will POST payment notifications for this invoice.
+   * Must be the same /api/ccavenue/webhook endpoint used by the gateway.
+   * Without this, Quick Bill payments cannot auto-confirm in the portal.
+   */
+  callbackUrl?: string;
+  /**
    * CCAvenue MARS API base URL.
    * UAE merchants: https://api.ccavenue.ae/apis/servlet/DoWebTrans
    * India merchants: https://api.ccavenue.com/apis/servlet/DoWebTrans
@@ -131,19 +137,21 @@ export async function createCCAvenueQuickBill(
   params: CCAvenueQuickBillParams,
 ): Promise<CCAvenueQuickBillResult> {
   const payload: Record<string, string | number> = {
-    merchant_id:        params.merchantId,
-    bill_to_name:       params.customerName,
-    bill_to_email:      params.customerEmail,
-    bill_to_mobile:     params.customerMobile,
-    reference_no:       params.referenceNo,
-    amount:             params.amount,
-    currency:           params.currency,
-    billing_type:       params.deliveryType,
-    description:        params.description,
-    email_subject:      params.emailSubject ?? params.description,
-    valid_for:          params.validFor ?? 10,
-    valid_type:         params.validPeriod ?? "days",
+    merchant_id:          params.merchantId,
+    bill_to_name:         params.customerName,
+    bill_to_email:        params.customerEmail,
+    bill_to_mobile:       params.customerMobile,
+    reference_no:         params.referenceNo,
+    amount:               params.amount,
+    currency:             params.currency,
+    billing_type:         params.deliveryType,
+    description:          params.description,
+    email_subject:        params.emailSubject ?? params.description,
+    valid_for:            params.validFor ?? 10,
+    valid_type:           params.validPeriod ?? "days",
     terms_and_conditions: params.termsAndConditions ?? "",
+    // Payment result callback — CCAvenue POSTs to this URL when customer pays
+    ...(params.callbackUrl ? { callback_url: params.callbackUrl } : {}),
   };
 
   const encRequest = encrypt(JSON.stringify(payload), params.workingKey);
@@ -169,7 +177,13 @@ export async function createCCAvenueQuickBill(
     throw new Error(`CCAvenue API HTTP error: ${res.status}`);
   }
 
-  const outer = await res.json() as { enc_response?: string; error?: string };
+  let outer: { enc_response?: string; error?: string };
+  try {
+    outer = await res.json() as { enc_response?: string; error?: string };
+  } catch {
+    const text = await res.text().catch(() => "(unreadable)");
+    throw new Error(`CCAvenue API: non-JSON response — ${text.slice(0, 200)}`);
+  }
 
   if (!outer.enc_response) {
     throw new Error(outer.error ?? "CCAvenue API: empty enc_response");

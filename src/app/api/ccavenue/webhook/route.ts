@@ -43,22 +43,31 @@ export async function POST(req: NextRequest) {
 
     if (!order_id) return jsonError("Missing order_id in response", 400);
 
-    // Find order by our generated gateway order ID
-    const order = await prisma.order.findFirst({
-      where: { paymentGatewayOrderId: order_id },
-      select: {
-        id:             true,
-        orderNumber:    true,
-        trackingCode:   true,
-        whatsappNumber: true,
-        customerName:   true,
-        paymentStatus:  true,
-        orderStatus:    true,
-        totalAmount:    true,
-        deliveryDate:   true,
-        deliveryTime:   true,
-      },
+    const SELECT_ORDER = {
+      id:             true,
+      orderNumber:    true,
+      trackingCode:   true,
+      whatsappNumber: true,
+      customerName:   true,
+      paymentStatus:  true,
+      orderStatus:    true,
+      totalAmount:    true,
+      deliveryDate:   true,
+      deliveryTime:   true,
+    } as const;
+
+    // Primary lookup: our reference_no stored as paymentGatewayOrderId
+    // Fallback: CCAvenue Quick Bill sends invoice_id as order_id — stored in paymentGatewayRef
+    let order = await prisma.order.findFirst({
+      where:  { paymentGatewayOrderId: order_id },
+      select: SELECT_ORDER,
     });
+    if (!order) {
+      order = await prisma.order.findFirst({
+        where:  { paymentGatewayRef: order_id },
+        select: SELECT_ORDER,
+      });
+    }
 
     if (!order) {
       console.error(`[ccavenue/webhook] Order not found for gateway order ID: ${order_id}`);

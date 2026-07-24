@@ -58,6 +58,7 @@ const INTEGRATION_KEYS = [
   "ccavenue_access_code",
   "ccavenue_working_key",
   "ccavenue_website_url",
+  "ccavenue_api_url",
   "flows_private_key",
   "wa_flow_id",
   "instagram_page_access_token",

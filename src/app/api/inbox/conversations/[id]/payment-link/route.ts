@@ -161,7 +161,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         workingKey:    ccavenue_working_key,
         apiUrl:        ccavenue_api_url,
         customerName:  conversation.customerName,
-        customerEmail: customerEmail || conversation.waId,
+        // Only pass email/mobile when the delivery type actually needs them
+        // Never fall back to waId as email — a phone number is not a valid email
+        customerEmail:  customerEmail || "",
         customerMobile: customerMobile || conversation.waId,
         referenceNo,
         amount,
@@ -172,6 +174,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         validFor,
         validPeriod:   "days",
         termsAndConditions: body.termsAndConditions ?? "",
+        // Tell CCAvenue where to POST payment notifications
+        callbackUrl: `${appUrl}/api/ccavenue/webhook`,
       });
     } catch (err) {
       // Roll back order so no ghost record
