@@ -45,6 +45,7 @@ export function OpenConversationsPanel({ initial }: { initial: Conv[] }) {
   }, [lastSeen]);
 
   useEffect(() => {
+    refresh(); // immediately correct any stale initial data
     const id = setInterval(refresh, 30_000);
     return () => clearInterval(id);
   }, [refresh]);
