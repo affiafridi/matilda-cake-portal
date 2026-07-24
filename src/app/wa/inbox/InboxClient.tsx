@@ -839,9 +839,12 @@ export default function InboxClient({
   const isIgSelected  = selected?.channel === "instagram" || (selected?.waId?.startsWith("ig_") ?? false);
 
   // All image URLs in current conversation (for lightbox navigation)
+  // If mediaUrl is a numeric Meta media ID, resolve via proxy
   const convImages = messages
     .filter((m) => m.mediaType === "image" && m.mediaUrl)
-    .map((m) => m.mediaUrl as string);
+    .map((m) => /^\d+$/.test(m.mediaUrl!)
+      ? `/api/bot/media/inbound?id=${m.mediaUrl}`
+      : m.mediaUrl as string);
 
   function openLightbox(url: string) {
     const idx = convImages.indexOf(url);
@@ -1480,12 +1483,15 @@ export default function InboxClient({
                                     const buttons = meta.buttons as { id: string; title: string }[] | undefined;
                                     return (
                                       <div className="min-w-[180px]">
-                                        {m.mediaUrl && m.mediaType === "image" && (
-                                          <button type="button" onClick={() => openLightbox(m.mediaUrl!)} className="block cursor-zoom-in">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover mb-2" />
-                                          </button>
-                                        )}
+                                        {m.mediaUrl && m.mediaType === "image" && (() => {
+                                          const s = /^\d+$/.test(m.mediaUrl!) ? `/api/bot/media/inbound?id=${m.mediaUrl}` : m.mediaUrl!;
+                                          return (
+                                            <button type="button" onClick={() => openLightbox(s)} className="block cursor-zoom-in">
+                                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                                              <img src={s} alt="image" className="max-w-[220px] rounded-xl object-cover mb-2" />
+                                            </button>
+                                          );
+                                        })()}
                                         {m.body && <p className="text-[13px] whitespace-pre-wrap mb-2">{m.body}</p>}
                                         <div className="flex flex-col gap-1">
                                           {buttons?.map((b) => (
@@ -1500,26 +1506,39 @@ export default function InboxClient({
                                 }
 
                                 // Image
-                                if (m.mediaUrl && m.mediaType === "image") return (
-                                  <button type="button" onClick={() => openLightbox(m.mediaUrl!)} className="block cursor-zoom-in text-left">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={m.mediaUrl} alt="image" className="max-w-[220px] rounded-xl object-cover" />
-                                    {m.body && m.body !== "[image]" && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
-                                  </button>
-                                );
+                                if (m.mediaUrl && m.mediaType === "image") {
+                                  const imgSrc = /^\d+$/.test(m.mediaUrl)
+                                    ? `/api/bot/media/inbound?id=${m.mediaUrl}`
+                                    : m.mediaUrl;
+                                  return (
+                                    <button type="button" onClick={() => openLightbox(imgSrc)} className="block cursor-zoom-in text-left">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={imgSrc} alt="image" className="max-w-[220px] rounded-xl object-cover" />
+                                      {m.body && m.body !== "[image]" && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                    </button>
+                                  );
+                                }
 
                                 // Sticker
-                                if (m.mediaUrl && m.mediaType === "sticker") return (
-                                  <img src={m.mediaUrl} alt="sticker" className="max-w-[120px]" />
-                                );
+                                if (m.mediaUrl && m.mediaType === "sticker") {
+                                  const stickerSrc = /^\d+$/.test(m.mediaUrl)
+                                    ? `/api/bot/media/inbound?id=${m.mediaUrl}`
+                                    : m.mediaUrl;
+                                  return <img src={stickerSrc} alt="sticker" className="max-w-[120px]" />;
+                                }
 
                                 // Video
-                                if (m.mediaUrl && m.mediaType === "video") return (
-                                  <div>
-                                    <video src={m.mediaUrl} controls className="max-w-[260px] rounded-xl" preload="metadata" />
-                                    {m.body && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
-                                  </div>
-                                );
+                                if (m.mediaUrl && m.mediaType === "video") {
+                                  const videoSrc = /^\d+$/.test(m.mediaUrl)
+                                    ? `/api/bot/media/inbound?id=${m.mediaUrl}`
+                                    : m.mediaUrl;
+                                  return (
+                                    <div>
+                                      <video src={videoSrc} controls className="max-w-[260px] rounded-xl" preload="metadata" />
+                                      {m.body && <p className="mt-1.5 text-sm whitespace-pre-wrap opacity-90">{m.body}</p>}
+                                    </div>
+                                  );
+                                }
 
                                 // Audio / voice
                                 if (m.mediaUrl && m.mediaType === "audio") return (
@@ -1530,7 +1549,7 @@ export default function InboxClient({
                                         <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
                                       </svg>
                                     </div>
-                                    <audio src={m.mediaUrl} controls style={{ height: "32px", flex: 1, accentColor: "#00a884" }} />
+                                    <audio src={/^\d+$/.test(m.mediaUrl ?? "") ? `/api/bot/media/inbound?id=${m.mediaUrl}` : m.mediaUrl!} controls style={{ height: "32px", flex: 1, accentColor: "#00a884" }} />
                                   </div>
                                 );
 
