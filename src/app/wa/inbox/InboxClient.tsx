@@ -299,12 +299,19 @@ export default function InboxClient({
   const [savingNote, setSavingNote] = useState(false);
 
   // Payment link modal
-  const [showPayModal,   setShowPayModal]   = useState(false);
-  const [payAmount,      setPayAmount]      = useState("");
-  const [payCurrency,    setPayCurrency]    = useState("AED");
-  const [payDesc,        setPayDesc]        = useState("");
-  const [sendingPay,     setSendingPay]     = useState(false);
-  const [payError,       setPayError]       = useState<string | null>(null);
+  const [showPayModal,    setShowPayModal]    = useState(false);
+  const [payAmount,       setPayAmount]       = useState("");
+  const [payCurrency,     setPayCurrency]     = useState("AED");
+  const [payDesc,         setPayDesc]         = useState("");
+  const [payEmail,        setPayEmail]        = useState("");
+  const [payMobile,       setPayMobile]       = useState("");
+  const [payDeliveryEmail, setPayDeliveryEmail] = useState(false);
+  const [payDeliverySms,   setPayDeliverySms]   = useState(false);
+  const [payValidFor,     setPayValidFor]     = useState(10);
+  const [payTerms,        setPayTerms]        = useState("");
+  const [sendingPay,      setSendingPay]      = useState(false);
+  const [payError,        setPayError]        = useState<string | null>(null);
+  const [paySuccess,      setPaySuccess]      = useState<string | null>(null);
 
   // Voice recorder overlay
   const [showVoice,  setShowVoice]  = useState(false);
@@ -655,25 +662,45 @@ export default function InboxClient({
   async function sendPaymentLink(e: FormEvent) {
     e.preventDefault();
     if (!selectedId || sendingPay) return;
-    const amount = payAmount.trim();
-    const desc   = payDesc.trim();
-    if (!amount || !desc) return;
+    if (!payDeliveryEmail && !payDeliverySms) {
+      setPayError("Please select at least one delivery method (Email or SMS).");
+      return;
+    }
     setSendingPay(true);
-    setPayError(null);
+    setPayError(null); setPaySuccess(null);
     try {
+      const deliveryType = payDeliveryEmail && payDeliverySms ? "B" : payDeliveryEmail ? "E" : "S";
       const res  = await fetch(`/api/inbox/conversations/${selectedId}/payment-link`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, currency: payCurrency, description: desc }),
+        body: JSON.stringify({
+          amount:              payAmount.trim(),
+          currency:            payCurrency,
+          description:         payDesc.trim(),
+          deliveryType,
+          customerEmail:       payEmail.trim(),
+          customerMobile:      payMobile.trim(),
+          validFor:            payValidFor,
+          termsAndConditions:  payTerms.trim(),
+        }),
       });
-      const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
+      const json = await res.json().catch(() => null) as { ok: boolean; error?: string; data?: { invoiceId: string } } | null;
       if (!json?.ok) { setPayError(json?.error ?? "Failed to send payment link"); return; }
-      // Success — close modal, reset fields, refresh messages
-      setShowPayModal(false);
-      setPayAmount(""); setPayDesc(""); setPayError(null);
-      const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
-      const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
-      if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
+      setPaySuccess(`Invoice sent! CCAvenue Invoice ID: ${json.data?.invoiceId ?? ""}`);
+      // Refresh messages after short delay so agent sees the WA message
+      setTimeout(async () => {
+        const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
+        const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
+        if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
+      }, 800);
     } finally { setSendingPay(false); }
+  }
+
+  function resetPayModal() {
+    setShowPayModal(false);
+    setPayAmount(""); setPayDesc(""); setPayEmail(""); setPayMobile("");
+    setPayDeliveryEmail(false); setPayDeliverySms(false);
+    setPayValidFor(10); setPayTerms("");
+    setPayError(null); setPaySuccess(null);
   }
 
   function stageMedia(files: FileList | File[]) {
@@ -1682,7 +1709,11 @@ export default function InboxClient({
 
                           {/* Payment link — WhatsApp only */}
                           {!isIgSelected && (
-                            <button type="button" onClick={() => { setShowPayModal(true); setPayError(null); }}
+                            <button type="button" onClick={() => {
+                              setShowPayModal(true);
+                              setPayError(null); setPaySuccess(null);
+                              setPayMobile(convDetail?.waId ?? "");
+                            }}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
                               title="Send payment link">
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -2076,10 +2107,11 @@ export default function InboxClient({
       {/* Payment Link modal */}
       {showPayModal && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) { setShowPayModal(false); setPayError(null); } }}>
-          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+          onClick={(e) => { if (e.target === e.currentTarget) resetPayModal(); }}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00a884]/10">
                   <svg viewBox="0 0 24 24" fill="none" stroke="#00a884" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
@@ -2087,11 +2119,11 @@ export default function InboxClient({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-[13.5px] font-semibold text-gray-900">Send Payment Link</p>
-                  <p className="text-[11px] text-gray-400">via CCAvenue · WhatsApp</p>
+                  <p className="text-[13.5px] font-semibold text-gray-900">Quick Invoice</p>
+                  <p className="text-[11px] text-gray-400">CCAvenue · WhatsApp</p>
                 </div>
               </div>
-              <button type="button" onClick={() => { setShowPayModal(false); setPayError(null); }}
+              <button type="button" onClick={resetPayModal}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
                   <path d="M18 6L6 18M6 6l12 12"/>
@@ -2099,85 +2131,166 @@ export default function InboxClient({
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={(e) => { void sendPaymentLink(e); }} className="px-5 py-4 flex flex-col gap-3.5">
-              {/* Amount + Currency */}
-              <div>
-                <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Amount</label>
-                <div className="flex gap-2">
-                  <select value={payCurrency} onChange={(e) => setPayCurrency(e.target.value)}
-                    className="w-24 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 focus:border-[#00a884] focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition">
-                    {["AED","USD","EUR","GBP","SAR","INR"].map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                  <input type="number" min="0.01" max="999999" step="0.01"
-                    value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
-                    placeholder="0.00" required
-                    className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+            {/* Success state */}
+            {paySuccess ? (
+              <div className="flex flex-col items-center gap-4 px-6 py-8">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <p className="text-[14px] font-semibold text-gray-800">Invoice Sent!</p>
+                  <p className="mt-1 text-[12px] text-gray-500">CCAvenue has delivered the invoice and the payment link was sent via WhatsApp.</p>
+                  <p className="mt-2 text-[11px] text-gray-400">{paySuccess}</p>
+                </div>
+                <button type="button" onClick={resetPayModal}
+                  className="mt-2 rounded-xl bg-[#00a884] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#00916e] transition">
+                  Done
+                </button>
+              </div>
+            ) : (
+              /* Form */
+              <form onSubmit={(e) => { void sendPaymentLink(e); }} className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
+
+                {/* Description */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Description / Invoice For</label>
+                  <input type="text" maxLength={200} value={payDesc} onChange={(e) => setPayDesc(e.target.value)}
+                    placeholder="e.g. Custom cake — 2kg chocolate" required
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
                   />
                 </div>
-              </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Description</label>
-                <input type="text" maxLength={200}
-                  value={payDesc} onChange={(e) => setPayDesc(e.target.value)}
-                  placeholder="e.g. Custom cake order — 2kg chocolate"
-                  required
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
-                />
-                <p className="mt-1 text-[10.5px] text-gray-400">{payDesc.length}/200</p>
-              </div>
+                {/* Amount + Currency */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Invoice Amount</label>
+                  <div className="flex gap-2">
+                    <select value={payCurrency} onChange={(e) => setPayCurrency(e.target.value)}
+                      className="w-24 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 focus:border-[#00a884] focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition">
+                      {["AED","USD","EUR","GBP","SAR","INR"].map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input type="number" min="0.01" max="999999" step="0.01"
+                      value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                      placeholder="0.00" required
+                      className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                    />
+                  </div>
+                </div>
 
-              {/* Info note */}
-              <div className="flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 mt-0.5">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <p className="text-[11px] text-blue-600 leading-relaxed">
-                  A secure payment link will be sent to the customer via WhatsApp. The order will appear in your portal automatically.
-                </p>
-              </div>
+                {/* Delivery Type */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-2 uppercase tracking-wide">Delivery Type</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={payDeliveryEmail} onChange={(e) => setPayDeliveryEmail(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#00a884] accent-[#00a884] cursor-pointer" />
+                      <span className="text-sm text-gray-700 font-medium">Email</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={payDeliverySms} onChange={(e) => setPayDeliverySms(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-[#00a884] accent-[#00a884] cursor-pointer" />
+                      <span className="text-sm text-gray-700 font-medium">SMS</span>
+                    </label>
+                  </div>
+                  {!payDeliveryEmail && !payDeliverySms && (
+                    <p className="mt-1.5 text-[11px] text-amber-500">Select at least one delivery method</p>
+                  )}
+                </div>
 
-              {/* Error */}
-              {payError && (
-                <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2.5">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+                {/* Email field */}
+                {payDeliveryEmail && (
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Customer Email ID</label>
+                    <input type="email" value={payEmail} onChange={(e) => setPayEmail(e.target.value)}
+                      placeholder="customer@example.com" required={payDeliveryEmail}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                    />
+                  </div>
+                )}
+
+                {/* Mobile field */}
+                {payDeliverySms && (
+                  <div>
+                    <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Customer Mobile Number</label>
+                    <input type="tel" value={payMobile} onChange={(e) => setPayMobile(e.target.value)}
+                      placeholder="971XXXXXXXXX (with country code)" required={payDeliverySms}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                    />
+                    <p className="mt-1 text-[10.5px] text-gray-400">Include country code, e.g. 97150XXXXXXX</p>
+                  </div>
+                )}
+
+                {/* Invoice Valid For */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Invoice Valid For</label>
+                  <div className="flex gap-2 items-center">
+                    <input type="number" min={1} max={365} value={payValidFor}
+                      onChange={(e) => setPayValidFor(Number(e.target.value))}
+                      className="w-24 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                    />
+                    <span className="text-sm text-gray-500">Days</span>
+                  </div>
+                </div>
+
+                {/* Terms & Conditions */}
+                <div>
+                  <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Terms &amp; Conditions <span className="normal-case font-normal">(optional)</span></label>
+                  <input type="text" maxLength={300} value={payTerms} onChange={(e) => setPayTerms(e.target.value)}
+                    placeholder="e.g. No refunds after delivery"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                  />
+                </div>
+
+                {/* Info */}
+                <div className="flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 mt-0.5">
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
-                  <p className="text-[11.5px] text-red-600">{payError}</p>
+                  <p className="text-[11px] text-blue-600 leading-relaxed">
+                    CCAvenue will send the invoice via the selected channels. The payment link will also be sent via WhatsApp automatically.
+                  </p>
                 </div>
-              )}
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => { setShowPayModal(false); setPayError(null); }}
-                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
-                  Cancel
-                </button>
-                <button type="submit" disabled={sendingPay || !payAmount.trim() || !payDesc.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#00a884] py-2.5 text-sm font-semibold text-white hover:bg-[#00916e] disabled:cursor-not-allowed disabled:opacity-40 transition">
-                  {sendingPay ? (
-                    <>
-                      <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                      </svg>
-                      Sending…
-                    </>
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                      </svg>
-                      Send Link
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+                {/* Error */}
+                {payError && (
+                  <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2.5">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 mt-0.5">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <p className="text-[11.5px] text-red-600">{payError}</p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-1 pb-1">
+                  <button type="button" onClick={resetPayModal}
+                    className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                    Cancel
+                  </button>
+                  <button type="submit"
+                    disabled={sendingPay || !payAmount.trim() || !payDesc.trim() || (!payDeliveryEmail && !payDeliverySms)}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#00a884] py-2.5 text-sm font-semibold text-white hover:bg-[#00916e] disabled:cursor-not-allowed disabled:opacity-40 transition">
+                    {sendingPay ? (
+                      <>
+                        <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                        Send Invoice
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

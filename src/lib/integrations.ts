@@ -16,6 +16,7 @@ export type IntegrationSettings = {
   ccavenue_access_code:     string;
   ccavenue_working_key:     string;
   ccavenue_website_url:     string;
+  ccavenue_api_url:         string;
   flows_private_key:        string;
   wa_flow_id:               string;
   wc_webhook_secret:        string;
@@ -41,6 +42,7 @@ const KEYS: (keyof IntegrationSettings)[] = [
   "ccavenue_access_code",
   "ccavenue_working_key",
   "ccavenue_website_url",
+  "ccavenue_api_url",
   "flows_private_key",
   "wa_flow_id",
   "wc_webhook_secret",
@@ -62,7 +64,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
         'wc_url', 'wc_consumer_key', 'wc_consumer_secret', 'wc_webhook_secret',
         'bot_url', 'sync_secret', 'inbox_webhook_secret',
         'openai_api_key',
-        'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url',
+        'ccavenue_merchant_id', 'ccavenue_access_code', 'ccavenue_working_key', 'ccavenue_website_url', 'ccavenue_api_url',
         'flows_private_key', 'wa_flow_id',
         'instagram_page_access_token', 'instagram_verify_token',
         'shopify_domain', 'shopify_access_token', 'shopify_api_version'
@@ -87,6 +89,7 @@ export async function getIntegrations(): Promise<IntegrationSettings> {
     ccavenue_access_code:   map["ccavenue_access_code"]   || process.env.CCAVENUE_ACCESS_CODE          || "",
     ccavenue_working_key:   map["ccavenue_working_key"]   || process.env.CCAVENUE_WORKING_KEY          || "",
     ccavenue_website_url:   map["ccavenue_website_url"]   || process.env.CCAVENUE_WEBSITE_URL          || "",
+    ccavenue_api_url:       map["ccavenue_api_url"]       || process.env.CCAVENUE_API_URL              || "https://api.ccavenue.ae/apis/servlet/DoWebTrans",
     flows_private_key:      map["flows_private_key"]      || process.env.WA_FLOWS_PRIVATE_KEY          || "",
     wa_flow_id:             map["wa_flow_id"]             || process.env.WA_FLOW_ID                    || "",
     wc_webhook_secret:           map["wc_webhook_secret"]           || process.env.WC_WEBHOOK_SECRET             || "",

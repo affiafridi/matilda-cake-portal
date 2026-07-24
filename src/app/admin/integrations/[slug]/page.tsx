@@ -268,6 +268,7 @@ const FIELDS: Record<string, Field[]> = {
     { key: "ccavenue_access_code",  label: "Access Code",  hint: "CCAvenue dashboard → Payment Gateway → Access Code" },
     { key: "ccavenue_working_key",  label: "Working Key",  type: "password", hint: "CCAvenue dashboard → Payment Gateway → Working Key — keep this secret" },
     { key: "ccavenue_website_url",  label: "Website URL",  type: "url", hint: "Your website URL as registered with CCAvenue, e.g. https://yourstore.com" },
+    { key: "ccavenue_api_url",      label: "API URL",      type: "url", hint: "CCAvenue MARS API endpoint. UAE: https://api.ccavenue.ae/apis/servlet/DoWebTrans — India: https://api.ccavenue.com/apis/servlet/DoWebTrans" },
   ],
   "stripe": [
     { key: "stripe_secret_key",      label: "Secret Key",      type: "password", hint: "Stripe Dashboard → Developers → API keys → Secret key (sk_live_… or sk_test_…)" },
