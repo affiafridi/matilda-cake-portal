@@ -1280,8 +1280,9 @@ export default function InboxClient({
 
                     const m = item.data as Message;
 
-                    // ── System event bubble (agent handoff trigger) ──
+                    // ── System event bubble ──
                     if ((m.direction as string) === "SYSTEM") {
+                      const isOptEvent = m.body?.includes("replied STOP") || m.body?.includes("replied START");
                       return (
                         <Fragment key={`msg-${m.id}`}>
                           {showSep && (
@@ -1290,16 +1291,22 @@ export default function InboxClient({
                             </div>
                           )}
                           <div className="flex justify-center py-1">
-                            <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
-                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                              </svg>
-                              <span>
-                                <span className="font-bold">Needs Support</span>
-                                {m.body && <span className="ml-1 opacity-80">— &ldquo;{m.body}&rdquo;</span>}
-                              </span>
-                            </div>
+                            {isOptEvent ? (
+                              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                                <span className="opacity-80">{m.body}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs text-rose-700">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+                                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                                <span>
+                                  <span className="font-bold">Needs Support</span>
+                                  {m.body && <span className="ml-1 opacity-80">— &ldquo;{m.body}&rdquo;</span>}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </Fragment>
                       );
