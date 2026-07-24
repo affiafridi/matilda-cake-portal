@@ -260,6 +260,7 @@ export async function POST(req: NextRequest) {
         }).catch(() => {});
       }
 
+      pgNotify({ type: "conv_updated", conversationId: conversation.id }).catch(() => {});
       return jsonOk({ ok: true, action: optOut ? "opted_out" : "opted_in" });
     }
 

@@ -1,16 +1,3 @@
-/**
- * GET /api/stream
- *
- * Server-Sent Events endpoint. Each authenticated client holds one
- * long-lived connection here. When any server route calls pgNotify(),
- * Postgres broadcasts to all connected pg clients which then push the
- * event to their SSE response stream.
- *
- * Event shape sent to browser:
- *   data: {"type":"message_new","conversationId":"...","waId":"..."}
- *
- * The browser-side hook (useSSE) listens and triggers refetches.
- */
 import { Client } from "pg";
 import { getCurrentUser } from "@/lib/auth/server";
 
@@ -25,10 +12,21 @@ export async function GET() {
 
   let pgClient: Client | null = null;
   let closed = false;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    if (heartbeat !== null) { clearInterval(heartbeat); heartbeat = null; }
+    if (pgClient) {
+      pgClient.query("UNLISTEN portal_events").catch(() => {});
+      pgClient.end().catch(() => {});
+      pgClient = null;
+    }
+  };
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Send an initial heartbeat so the browser knows the connection is live
       const enc = new TextEncoder();
       const send = (data: string) => {
         if (!closed) {
@@ -37,9 +35,8 @@ export async function GET() {
       };
 
       // Keep-alive comment every 25 s (Cloud Run times out idle connections at 60 s)
-      const heartbeat = setInterval(() => send(": heartbeat\n\n"), 25_000);
+      heartbeat = setInterval(() => send(": heartbeat\n\n"), 25_000);
 
-      // Open a dedicated pg connection for LISTEN (cannot use the shared pool)
       pgClient = new Client({ connectionString: process.env.DATABASE_URL });
       try {
         await pgClient.connect();
@@ -53,35 +50,28 @@ export async function GET() {
 
         pgClient.on("error", (err) => {
           console.error("[stream] pg error:", err.message);
-          clearInterval(heartbeat);
-          if (!closed) { closed = true; try { controller.close(); } catch { /* ok */ } }
+          cleanup();
+          try { controller.close(); } catch { /* ok */ }
         });
       } catch (err) {
         console.error("[stream] pg connect error:", err);
-        clearInterval(heartbeat);
-        closed = true;
+        cleanup();
         try { controller.close(); } catch { /* ok */ }
       }
+    },
 
-      // Cleanup when the browser disconnects
-      return () => {
-        closed = true;
-        clearInterval(heartbeat);
-        if (pgClient) {
-          pgClient.query("UNLISTEN portal_events").catch(() => {});
-          pgClient.end().catch(() => {});
-          pgClient = null;
-        }
-      };
+    // Called when the browser disconnects or the response is garbage-collected
+    cancel() {
+      cleanup();
     },
   });
 
   return new Response(stream, {
     headers: {
-      "Content-Type":  "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "Connection":    "keep-alive",
-      "X-Accel-Buffering": "no", // disable nginx/proxy buffering
+      "Content-Type":      "text/event-stream",
+      "Cache-Control":     "no-cache, no-transform",
+      "Connection":        "keep-alive",
+      "X-Accel-Buffering": "no",
     },
   });
 }
