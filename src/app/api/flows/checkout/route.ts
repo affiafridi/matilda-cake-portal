@@ -35,6 +35,10 @@ export const dynamic = "force-dynamic";
  * }
  */
 export async function POST(req: NextRequest) {
+  // Keep aesKey+iv in outer scope so catch block can return encrypted error
+  let _aesKey: Buffer | undefined;
+  let _iv:     Buffer | undefined;
+
   try {
     const {
       flows_private_key,
@@ -65,6 +69,8 @@ export async function POST(req: NextRequest) {
     }
 
     const { payload, aesKey, iv } = decrypted;
+    _aesKey = aesKey;
+    _iv     = iv;
 
     // Health check from Meta — response is just { data: { status: "active" } }
     if (payload.action === "ping") {
@@ -92,7 +98,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid flow_token" }, { status: 400 });
     }
 
-    const dates = buildDeliveryDates(14);
+    const dates      = buildDeliveryDates(14);
+    const allSlots   = getAvailableTimeSlots("future"); // all slots for pre-fill
 
     // ── INIT ────────────────────────────────────────────────────────────────
     if (payload.action === "INIT") {
@@ -109,7 +116,20 @@ export async function POST(req: NextRequest) {
         data: {
           date:            dates,
           is_date_enabled: true,
-          time:            [],   // empty until date is picked
+          time:            allSlots, // pre-fill all slots; updates after date pick
+        },
+      }, aesKey, iv);
+    }
+
+    // ── BACK ────────────────────────────────────────────────────────────────
+    if (payload.action === "BACK") {
+      return sendEncrypted({
+        version: "3.0",
+        screen:  "ORDER",
+        data: {
+          date:            dates,
+          is_date_enabled: true,
+          time:            allSlots,
         },
       }, aesKey, iv);
     }
@@ -277,6 +297,22 @@ export async function POST(req: NextRequest) {
     }, aesKey, iv);
 
   } catch (err) {
+    console.error("[flows/checkout] unhandled error:", err);
+    // If we have the AES key, return an encrypted error so Meta doesn't show a white screen
+    if (_aesKey && _iv) {
+      try {
+        return sendEncrypted({
+          version: "3.0",
+          screen:  "ORDER",
+          data: {
+            error_message: "Something went wrong. Please try again.",
+            date:          buildDeliveryDates(14),
+            is_date_enabled: true,
+            time:          getAvailableTimeSlots("future"),
+          },
+        }, _aesKey, _iv);
+      } catch { /* fall through to JSON error */ }
+    }
     return handleApiError(err);
   }
 }

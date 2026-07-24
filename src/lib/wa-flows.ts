@@ -130,7 +130,10 @@ export function getAvailableTimeSlots(
   }
 
   // Same-day order — filter slots that are at least `gapHours` ahead
-  const nowHour = now.getHours() + now.getMinutes() / 60;
+  // Use Dubai timezone for current hour, not server UTC
+  const dubaiTimeStr = now.toLocaleTimeString("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit" });
+  const [h, m]  = dubaiTimeStr.split(":").map(Number);
+  const nowHour = h + (m ?? 0) / 60;
   const cutoff  = nowHour + gapHours;
 
   return ALL_SLOTS
