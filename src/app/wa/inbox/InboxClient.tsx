@@ -250,6 +250,7 @@ export default function InboxClient({
   templateConfigured,
   wcConfigured,
   igConfigured,
+  ccConfigured,
 }: {
   initialConversations: ConvSummary[];
   agents:               Agent[];
@@ -258,6 +259,7 @@ export default function InboxClient({
   templateConfigured:   boolean;
   wcConfigured:         boolean;
   igConfigured:         boolean;
+  ccConfigured:         boolean;
 }) {
   const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConvSummary[]>(initialConversations);
@@ -1689,37 +1691,49 @@ export default function InboxClient({
 
                           {/* Attach — WhatsApp only */}
                           {!isIgSelected && (
-                            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
-                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40"
-                              title="Attach images or files">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                            </button>
+                            <div className="group relative">
+                              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingMedia}
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100 disabled:opacity-40">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                              </button>
+                              <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-[11px] text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
+                                Attach image or file
+                              </span>
+                            </div>
                           )}
 
                           {/* Product card — WhatsApp only */}
                           {wcConfigured && !isIgSelected && (
-                            <button type="button" onClick={() => setShowProductPicker(true)}
-                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
-                              title="Send product card">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
-                              </svg>
-                            </button>
+                            <div className="group relative">
+                              <button type="button" onClick={() => setShowProductPicker(true)}
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/>
+                                </svg>
+                              </button>
+                              <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-[11px] text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
+                                Send product card
+                              </span>
+                            </div>
                           )}
 
-                          {/* Payment link — WhatsApp only */}
-                          {!isIgSelected && (
-                            <button type="button" onClick={() => {
-                              setShowPayModal(true);
-                              setPayError(null); setPaySuccess(null);
-                              setPayMobile(convDetail?.waId ?? "");
-                            }}
-                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
-                              title="Send payment link">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-                              </svg>
-                            </button>
+                          {/* Payment link — WhatsApp only, hidden if CCAvenue not configured */}
+                          {ccConfigured && !isIgSelected && (
+                            <div className="group relative">
+                              <button type="button" onClick={() => {
+                                setShowPayModal(true);
+                                setPayError(null); setPaySuccess(null);
+                                setPayMobile(convDetail?.waId ?? "");
+                              }}
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                                </svg>
+                              </button>
+                              <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-[11px] text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
+                                Send payment link (CCAvenue)
+                              </span>
+                            </div>
                           )}
 
                           {/* Compose pill */}
