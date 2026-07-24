@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/server";
 import { handleApiError, jsonOk, jsonError } from "@/lib/api/http";
+import { pgNotify } from "@/lib/sse-notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -166,6 +167,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await prisma.conversationEvent.createMany({ data: eventsToCreate });
     }
 
+    pgNotify({ type: "conv_updated", conversationId: id }).catch(() => {});
     return jsonOk(updated);
   } catch (err) {
     return handleApiError(err);

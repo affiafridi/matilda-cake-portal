@@ -1,9 +1,10 @@
 "use client";
 
-import React, { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import React, { Fragment, useEffect, useRef, useState, useCallback, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import ProductPicker from "./ProductPicker";
 import VoiceRecorder from "./VoiceRecorder";
+import { useSSE, type SSEPayload } from "@/hooks/useSSE";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -344,40 +345,68 @@ export default function InboxClient({
     setTimeout(() => setToasts((p) => p.filter((t) => t.id !== id)), 5000);
   }
 
-  // ── Poll conversation list — always fetch ALL so counts stay accurate ──
-  useEffect(() => {
-    async function fetchConvs() {
-      try {
-        const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all&channel=all`, { cache: "no-store" });
-        const json = await res.json().catch(() => null) as { ok: boolean; data: ConvSummary[] } | null;
-        if (!json?.ok) return;
-        const newConvs = json.data;
-        if (!isFirstFetchRef.current) {
-          let ping = false;
-          for (const c of newConvs) {
-            const prev = prevConvsRef.current.get(c.id);
-            if (prev && c.unreadCount > prev.unreadCount && c.id !== selectedIdRef.current) ping = true;
-            if (prev && c.assignedTo?.id === currentUserId && prev.assignedTo?.id !== currentUserId)
-              addToast(`Assigned to you: ${c.customerName}`);
-          }
-          if (ping) playPing();
+  // ── Fetch conversation list ───────────────────────────────────────────────
+  const fetchConvs = useCallback(async () => {
+    try {
+      const res  = await fetch(`/api/inbox/conversations?status=ALL&botPaused=all&channel=all`, { cache: "no-store" });
+      const json = await res.json().catch(() => null) as { ok: boolean; data: ConvSummary[] } | null;
+      if (!json?.ok) return;
+      const newConvs = json.data;
+      if (!isFirstFetchRef.current) {
+        let ping = false;
+        for (const c of newConvs) {
+          const prev = prevConvsRef.current.get(c.id);
+          if (prev && c.unreadCount > prev.unreadCount && c.id !== selectedIdRef.current) ping = true;
+          if (prev && c.assignedTo?.id === currentUserId && prev.assignedTo?.id !== currentUserId)
+            addToast(`Assigned to you: ${c.customerName}`);
         }
-        isFirstFetchRef.current = false;
-        prevConvsRef.current = new Map(newConvs.map((c) => [c.id, c]));
-        setConversations(newConvs);
-      } catch { /* network */ }
-    }
-    fetchConvs();
-    const t = setInterval(fetchConvs, 15000);
+        if (ping) playPing();
+      }
+      isFirstFetchRef.current = false;
+      prevConvsRef.current = new Map(newConvs.map((c) => [c.id, c]));
+      setConversations(newConvs);
+    } catch { /* network */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId]);
 
-    // Immediately re-fetch when the tab becomes visible again (browser throttles
-    // setInterval in background tabs, so the list can be stale when switching back)
+  // ── Fetch messages for selected conversation ──────────────────────────────
+  const fetchMsgs = useCallback(async () => {
+    const id = selectedIdRef.current;
+    if (!id) return;
+    try {
+      const [mr, nr] = await Promise.all([
+        fetch(`/api/inbox/conversations/${id}`, { cache: "no-store" }),
+        fetch(`/api/inbox/conversations/${id}/notes`, { cache: "no-store" }),
+      ]);
+      const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[]; events: ConversationEvent[] } } | null;
+      const nj = await nr.json().catch(() => null) as { ok: boolean; data: Note[] } | null;
+      if (mj?.ok) { setMessages(mj.data.messages); setEvents(mj.data.events ?? []); setConvDetail(mj.data.conversation); }
+      if (nj?.ok) setNotes(nj.data);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ── SSE — real-time updates replace all polling ───────────────────────────
+  useSSE(useCallback((payload: SSEPayload) => {
+    if (payload.type === "message_new" || payload.type === "conv_updated" || payload.type === "conv_new") {
+      fetchConvs();
+      // If the event is for the open conversation, also refresh messages
+      if (payload.conversationId && payload.conversationId === selectedIdRef.current) {
+        fetchMsgs();
+      }
+    }
+    if (payload.type === "message_status" && payload.conversationId === selectedIdRef.current) {
+      fetchMsgs();
+    }
+  }, [fetchConvs, fetchMsgs]));
+
+  // Initial load + fallback 60s poll (keeps things fresh if SSE misses an event)
+  useEffect(() => {
+    fetchConvs();
+    const t = setInterval(fetchConvs, 60_000);
     function onVisible() { if (document.visibilityState === "visible") fetchConvs(); }
     document.addEventListener("visibilitychange", onVisible);
-
     return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchConvs]);
 
   // ── Load Instagram bot enabled setting ───────────────────────────────────
   useEffect(() => {
@@ -387,7 +416,7 @@ export default function InboxClient({
       .catch(() => {});
   }, []);
 
-  // ── Load messages + notes ─────────────────────────────────────────────────
+  // ── Load messages + notes when conversation changes ───────────────────────
   useEffect(() => {
     if (!selectedId) return;
     async function loadMsgs() {
@@ -408,27 +437,11 @@ export default function InboxClient({
         if (nj?.ok) setNotes(nj.data);
       } finally { setLoadingMsgs(false); }
     }
-    async function pollMsgs() {
-      try {
-        const [mr, nr] = await Promise.all([
-          fetch(`/api/inbox/conversations/${selectedId}`, { cache: "no-store" }),
-          fetch(`/api/inbox/conversations/${selectedId}/notes`, { cache: "no-store" }),
-        ]);
-        const mj = await mr.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[]; events: ConversationEvent[] } } | null;
-        const nj = await nr.json().catch(() => null) as { ok: boolean; data: Note[] } | null;
-        if (mj?.ok) { setMessages(mj.data.messages); setEvents(mj.data.events ?? []); setConvDetail(mj.data.conversation); }
-        if (nj?.ok) setNotes(nj.data);
-      } catch { /* ignore */ }
-    }
     loadMsgs();
-    const t = setInterval(pollMsgs, 4000);
-
-    // Re-fetch messages immediately when tab regains focus
-    function onVisible() { if (document.visibilityState === "visible") pollMsgs(); }
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
-  }, [selectedId]);
+    // SSE handles real-time updates; keep a slow fallback poll (30s) for resilience
+    const t = setInterval(fetchMsgs, 30_000);
+    return () => clearInterval(t);
+  }, [selectedId, fetchMsgs]);
 
   // ── Customer profile ──────────────────────────────────────────────────────
   useEffect(() => {

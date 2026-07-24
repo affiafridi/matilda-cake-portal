@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonOk, jsonError } from "@/lib/api/http";
 import { getIntegrations } from "@/lib/integrations";
 import { appendCustomerRow, isSheetsConfigured } from "@/lib/googlesheets";
+import { pgNotify } from "@/lib/sse-notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,6 +91,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Notify SSE clients of status change
+      const statusConv = await prisma.message.findUnique({ where: { waMessageId }, select: { conversationId: true } });
+      if (statusConv) pgNotify({ type: "message_status", conversationId: statusConv.conversationId }).catch(() => {});
+
       return jsonOk({ ok: true });
     }
 
@@ -138,6 +143,7 @@ export async function POST(req: NextRequest) {
           where: { id: conv.id },
           data:  { lastMessageAt: msgTime, lastMessageBody: text ?? mediaType ?? "Bot message" },
         });
+        pgNotify({ type: "message_new", conversationId: conv.id, waId }).catch(() => {});
       }
       return jsonOk({ ok: true });
     }
@@ -275,6 +281,7 @@ export async function POST(req: NextRequest) {
           createdAt:      msgTime,
         },
       });
+      pgNotify({ type: "message_new", conversationId: conversation.id, waId }).catch(() => {});
     }
 
     return jsonOk({ ok: true });

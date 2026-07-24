@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getPortalSettings } from "@/lib/portalSettings";
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/orders/status-badges";
 import { DashboardFilters } from "./filters";
@@ -254,18 +255,18 @@ export default async function DashboardPage({
   ]);
 
   // ADMIN only sees WhatsApp conversations; SUPER_ADMIN sees all channels
-  const convChannelFilter = isSuperAdmin
+  const waChFilter: Prisma.ConversationWhereInput = isSuperAdmin
     ? {}
-    : { OR: [{ channel: "whatsapp" }, { channel: null }] };
+    : { NOT: { channel: "instagram" } };
 
   const [waActiveConversations, waPendingConversations, waResolvedConversations, waUnread, waRecentConversations] = await Promise.all([
-    prisma.conversation.count({ where: { ...convChannelFilter, status: "OPEN" } }),
-    prisma.conversation.count({ where: { ...convChannelFilter, status: "PENDING" } }),
-    prisma.conversation.count({ where: { ...convChannelFilter, status: "RESOLVED" } }),
-    prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { ...convChannelFilter, unreadCount: { gt: 0 } } }),
-    prisma.conversation.findMany({ where: { ...convChannelFilter, status: "OPEN" }, orderBy: { lastMessageAt: "desc" }, take: 6, select: { id: true, waId: true, customerName: true, lastMessageBody: true, lastMessageAt: true, unreadCount: true } }),
+    prisma.conversation.count({ where: { status: "OPEN",    ...waChFilter } }),
+    prisma.conversation.count({ where: { status: "PENDING", ...waChFilter } }),
+    prisma.conversation.count({ where: { status: "RESOLVED",...waChFilter } }),
+    prisma.conversation.aggregate({ _sum: { unreadCount: true }, where: { unreadCount: { gt: 0 }, ...waChFilter } }),
+    prisma.conversation.findMany({ where: { status: "OPEN", ...waChFilter }, orderBy: { lastMessageAt: "desc" }, take: 6, select: { id: true, waId: true, customerName: true, lastMessageBody: true, lastMessageAt: true, unreadCount: true } }),
   ]);
-  const waTotalUnread = waUnread._sum.unreadCount ?? 0;
+  const waTotalUnread = waUnread._sum?.unreadCount ?? 0;
 
   let waCustomers = 0, waMsgSent = 0;
   let recentCampaigns: { template_name: string; sent: number; failed: number; total: number; created_at: string }[] = [];

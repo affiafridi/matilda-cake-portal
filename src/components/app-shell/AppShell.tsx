@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useRef, useState, type ReactElement, type SVGProps } from "react";
+import { createContext, useContext, useCallback, useEffect, useRef, useState, type ReactElement, type SVGProps } from "react";
 import { SearchBar } from "./SearchBar";
+import { useSSE } from "@/hooks/useSSE";
 
 // ── Dynamic breadcrumb context ─────────────────────────────────────────────
 // Pages with dynamic titles (e.g. campaign detail, order detail) call
@@ -230,20 +231,25 @@ export default function AppShell({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Poll unread count
-  useEffect(() => {
+  // Real-time unread count via SSE (falls back to 60s poll for resilience)
+  const fetchUnread = useCallback(() => {
     if (!waNavItems.some((i) => i.href === "/wa/inbox")) return;
-    function fetchUnread() {
-      fetch("/api/inbox/unread-count")
-        .then((r) => r.json())
-        .then((j: { ok: boolean; data: { count: number } }) => { if (j.ok) setInboxUnread(j.data.count); })
-        .catch(() => {});
-    }
-    fetchUnread();
-    const t = setInterval(fetchUnread, 10000);
-    return () => clearInterval(t);
+    fetch("/api/inbox/unread-count")
+      .then((r) => r.json())
+      .then((j: { ok: boolean; data: { count: number } }) => { if (j.ok) setInboxUnread(j.data.count); })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useSSE(useCallback((payload) => {
+    if (payload.type === "message_new" || payload.type === "conv_updated") fetchUnread();
+  }, [fetchUnread]));
+
+  useEffect(() => {
+    fetchUnread();
+    const t = setInterval(fetchUnread, 60_000);
+    return () => clearInterval(t);
+  }, [fetchUnread]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;

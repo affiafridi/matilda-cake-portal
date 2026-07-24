@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth/server";
 import { handleApiError, jsonOk, jsonError } from "@/lib/api/http";
 import { getIntegrations } from "@/lib/integrations";
+import { pgNotify } from "@/lib/sse-notify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }),
     ]);
 
+    pgNotify({ type: "message_new", conversationId: id, waId: conversation.waId }).catch(() => {});
     return jsonOk({ ok: true });
   } catch (err) {
     return handleApiError(err);
