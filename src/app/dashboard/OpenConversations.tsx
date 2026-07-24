@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 type Conv = {
   id: string;
@@ -22,9 +22,10 @@ function timeAgo(iso: string) {
 }
 
 export function OpenConversationsPanel({ initial }: { initial: Conv[] }) {
-  const [convs, setConvs]     = useState<Conv[]>(initial);
-  const [pulse, setPulse]     = useState(false);
-  const [lastSeen, setLastSeen] = useState(() => initial[0]?.lastMessageAt ?? "");
+  const [convs, setConvs] = useState<Conv[]>(initial);
+  const [pulse, setPulse] = useState(false);
+  // Use a ref for lastSeen so refresh() is stable and never recreated
+  const lastSeenRef = useRef(initial[0]?.lastMessageAt ?? "");
 
   const refresh = useCallback(async () => {
     try {
@@ -32,25 +33,23 @@ export function OpenConversationsPanel({ initial }: { initial: Conv[] }) {
       if (!res.ok) return;
       const data: Conv[] = await res.json();
 
-      // Check if anything actually changed
       const newest = data[0]?.lastMessageAt ?? "";
-      if (newest && newest !== lastSeen) {
+      if (newest && newest !== lastSeenRef.current) {
+        lastSeenRef.current = newest;
         setPulse(true);
         setTimeout(() => setPulse(false), 1200);
-        setLastSeen(newest);
       }
 
       setConvs(data);
     } catch { /* silent fail */ }
-  }, [lastSeen]);
+  }, []); // stable — lastSeen access via ref
 
   useEffect(() => {
-    refresh(); // immediately correct any stale initial data
+    refresh();
     const id = setInterval(refresh, 30_000);
     return () => clearInterval(id);
   }, [refresh]);
 
-  // Also refresh when tab becomes visible after being hidden
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
     document.addEventListener("visibilitychange", onVisible);

@@ -231,6 +231,8 @@ export default function AppShell({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  const isFlowEditor = /^\/wa\/flows\/\d+/.test(pathname);
+
   // Real-time unread count via SSE (falls back to 60s poll for resilience)
   const fetchUnread = useCallback(() => {
     if (!waNavItems.some((i) => i.href === "/wa/inbox")) return;
@@ -243,7 +245,7 @@ export default function AppShell({
 
   useSSE(useCallback((payload) => {
     if (payload.type === "message_new" || payload.type === "conv_updated") fetchUnread();
-  }, [fetchUnread]));
+  }, [fetchUnread]), { enabled: !isFlowEditor });
 
   useEffect(() => {
     fetchUnread();
@@ -276,7 +278,6 @@ export default function AppShell({
 
   const meta     = getPageMeta(pathname);
   const initials = user.name.split(" ").map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-  const isFlowEditor = /^\/wa\/flows\/\d+/.test(pathname);
 
   function isActive(href: string) {
     if (href === "/orders") return pathname === "/orders" || (pathname.startsWith("/orders/") && !pathname.startsWith("/orders/new"));
