@@ -1003,7 +1003,7 @@ export default function InboxClient({
           </div>
 
           {/* STATUS button group */}
-          <div className="px-3 pt-3 pb-0">
+          <div className="px-3 pt-3 pb-3">
             <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-gray-400">Status</p>
             <div className="flex rounded-md border border-gray-200 overflow-hidden">
               {([
