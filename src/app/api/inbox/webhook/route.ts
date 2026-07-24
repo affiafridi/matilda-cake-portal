@@ -270,6 +270,44 @@ export async function POST(req: NextRequest) {
     });
 
     if (!existing) {
+      // If bot sent a body placeholder like "image"/"video"/"audio"/"sticker"/"document"
+      // but no mediaUrl, try to resolve the media ID from Meta using the messageId.
+      // Meta message ID (wamid.xxx) → GET /v22.0/{messageId} is NOT a valid media endpoint.
+      // Instead the bot should send the media_id. If mediaUrl is a numeric string, it IS the media_id.
+      let resolvedMediaUrl = mediaUrl ?? null;
+      let resolvedMediaType = mediaType ?? null;
+      const MEDIA_BODIES = new Set(["image", "video", "audio", "sticker", "document", "voice"]);
+
+      // If bot sent numeric media ID as mediaUrl OR as body with no mediaUrl, store as proxy URL
+      if (resolvedMediaUrl && /^\d+$/.test(resolvedMediaUrl)) {
+        resolvedMediaUrl = `/api/bot/media/inbound?id=${resolvedMediaUrl}`;
+      }
+
+      // If no mediaUrl but body is a media type placeholder, try to fetch media ID from Meta
+      if (!resolvedMediaUrl && text && MEDIA_BODIES.has(text.toLowerCase())) {
+        resolvedMediaType = resolvedMediaType ?? text.toLowerCase();
+        // Fetch media details via message ID from Meta
+        try {
+          const { wa_access_token: token } = await getIntegrations();
+          if (token && messageId) {
+            const msgRes = await fetch(
+              `https://graph.facebook.com/v22.0/${messageId}?fields=type,image,video,audio,sticker,document,voice`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
+            const msgJson = await msgRes.json() as Record<string, { id?: string; mime_type?: string } | string>;
+            const mediaTypes = ["image", "video", "audio", "sticker", "document", "voice"] as const;
+            for (const t of mediaTypes) {
+              const obj = msgJson[t];
+              if (obj && typeof obj === "object" && obj.id) {
+                resolvedMediaUrl = `/api/bot/media/inbound?id=${obj.id}`;
+                resolvedMediaType = t === "voice" ? "audio" : t;
+                break;
+              }
+            }
+          }
+        } catch { /* don't fail the webhook if media resolution fails */ }
+      }
+
       await prisma.message.create({
         data: {
           id:             crypto.randomUUID(),
@@ -277,8 +315,8 @@ export async function POST(req: NextRequest) {
           waMessageId:    messageId,
           direction:      "INBOUND",
           body:           text ?? null,
-          mediaUrl:       mediaUrl ?? null,
-          mediaType:      mediaType ?? null,
+          mediaUrl:       resolvedMediaUrl,
+          mediaType:      resolvedMediaType,
           createdAt:      msgTime,
         },
       });
