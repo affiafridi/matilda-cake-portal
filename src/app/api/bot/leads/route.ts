@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     // or create a new one. Exclude PAID/ABANDONED so returning customers get a fresh lead.
     const existing = await prisma.whatsappLead.findFirst({
       where: { waId: cleanWaId, stage: { notIn: ["PAID", "ABANDONED"] } },
-      orderBy: { createdAt: "desc" },
+      orderBy: { updatedAt: "desc" },
     });
 
     let lead;
@@ -52,9 +52,9 @@ export async function POST(req: NextRequest) {
           ...(customerName !== undefined && { customerName }),
           ...(phone          && { phone: phone.replace(/^\+/, "") }),
           ...(orderDetails   && { orderDetails }),
-          // Always overwrite product fields so a new click with a different product replaces the old one
-          productName:  productName ?? existing.productName,
-          productPrice: productPrice ?? existing.productPrice,
+          // Always overwrite product fields when bot sends them (even null clears the old value)
+          productName:  productName !== undefined ? productName : existing.productName,
+          productPrice: productPrice !== undefined ? productPrice : existing.productPrice,
           updatedAt:    new Date(),
         },
       });
