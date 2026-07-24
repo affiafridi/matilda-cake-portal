@@ -975,47 +975,62 @@ export default function InboxClient({
 
         {/* Nav sections */}
         <div className="overflow-y-auto flex-shrink-0">
-          {/* CONVERSATIONS section */}
-          <p className="px-4 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Conversations</p>
-          {([
-            { key: "unassigned", label: "Unassigned", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/> },
-            { key: "mine",       label: "Assigned to me", icon: <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></> },
-            { key: "all",        label: "All Active",  icon: <path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/> },
-          ] as { key: typeof view; label: string; icon: React.ReactNode }[]).map(({ key, label, icon }) => (
-            <button key={key} onClick={() => setView(key)}
-              className={["flex w-full items-center gap-3 px-4 py-2.5 text-sm transition",
-                view === key ? "bg-brand/8 text-brand font-semibold" : "text-gray-600 hover:bg-gray-50",
-              ].join(" ")}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={["h-4 w-4 shrink-0", view === key ? "text-brand" : "text-gray-400"].join(" ")}>{icon}</svg>
-              <span className="flex-1 text-left">{label}</span>
-              {counts[key as keyof typeof counts] > 0 && (
-                <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", view === key ? "bg-brand/15 text-brand" : "bg-gray-100 text-gray-500"].join(" ")}>
-                  {counts[key as keyof typeof counts]}
-                </span>
-              )}
-            </button>
-          ))}
+          {/* CONVERSATIONS pill row */}
+          <div className="px-3 pt-2 pb-1">
+            <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">Conversations</p>
+            <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+              {([
+                { key: "unassigned", label: "Unassigned" },
+                { key: "mine",       label: "Assigned" },
+                { key: "all",        label: "All Active" },
+              ] as { key: typeof view; label: string }[]).map(({ key, label }) => (
+                <button key={key} onClick={() => setView(key)}
+                  className={["relative flex-1 flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-medium transition-all",
+                    view === key
+                      ? "bg-white text-brand shadow-sm font-semibold"
+                      : "text-gray-500 hover:text-gray-700",
+                  ].join(" ")}>
+                  <span className="truncate">{label}</span>
+                  {(counts[key as keyof typeof counts] ?? 0) > 0 && (
+                    <span className={["rounded-full px-1.5 py-px text-[9px] font-bold leading-none",
+                      view === key ? "bg-brand/15 text-brand" : "bg-gray-200 text-gray-500",
+                    ].join(" ")}>
+                      {counts[key as keyof typeof counts]}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          {/* STATUS section */}
-          <p className="px-4 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400">Status</p>
-          {([
-            { key: "open",     label: "Open",     dot: "bg-emerald-400", icon: <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/> },
-            { key: "resolved", label: "Resolved", dot: "bg-gray-300",    icon: <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/> },
-            { key: "paused",   label: "Bot Paused", dot: "bg-amber-400", icon: <><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></> },
-          ] as { key: typeof view; label: string; dot: string; icon: React.ReactNode }[]).map(({ key, label, dot, icon }) => (
-            <button key={key} onClick={() => setView(key)}
-              className={["flex w-full items-center gap-3 px-4 py-2.5 text-sm transition",
-                view === key ? "bg-brand/8 text-brand font-semibold" : "text-gray-600 hover:bg-gray-50",
-              ].join(" ")}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={["h-4 w-4 shrink-0", view === key ? "text-brand" : "text-gray-400"].join(" ")}>{icon}</svg>
-              <span className="flex-1 text-left">{label}</span>
-              {counts[key as keyof typeof counts] > 0 && (
-                <span className={["rounded-full px-2 py-0.5 text-[10px] font-bold", view === key ? "bg-brand/15 text-brand" : "bg-gray-100 text-gray-500"].join(" ")}>
-                  {counts[key as keyof typeof counts]}
-                </span>
-              )}
-            </button>
-          ))}
+          {/* STATUS pill row */}
+          <div className="px-3 pt-3 pb-1">
+            <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">Status</p>
+            <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+              {([
+                { key: "open",     label: "Open",       dot: "bg-emerald-400" },
+                { key: "resolved", label: "Resolved",   dot: "bg-gray-300" },
+                { key: "paused",   label: "Bot Paused", dot: "bg-amber-400" },
+              ] as { key: typeof view; label: string; dot: string }[]).map(({ key, label, dot }) => (
+                <button key={key} onClick={() => setView(key)}
+                  className={["relative flex-1 flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-medium transition-all",
+                    view === key
+                      ? "bg-white text-brand shadow-sm font-semibold"
+                      : "text-gray-500 hover:text-gray-700",
+                  ].join(" ")}>
+                  <span className={["h-1.5 w-1.5 shrink-0 rounded-full", dot].join(" ")} />
+                  <span className="truncate">{label}</span>
+                  {(counts[key as keyof typeof counts] ?? 0) > 0 && (
+                    <span className={["rounded-full px-1.5 py-px text-[9px] font-bold leading-none",
+                      view === key ? "bg-brand/15 text-brand" : "bg-gray-200 text-gray-500",
+                    ].join(" ")}>
+                      {counts[key as keyof typeof counts]}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mx-4 my-3 h-px bg-gray-100" />
 
           {/* Global Instagram bot toggle */}
