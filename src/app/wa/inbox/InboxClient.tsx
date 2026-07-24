@@ -1029,7 +1029,6 @@ export default function InboxClient({
               ))}
             </div>
           </div>
-          <div className="mx-4 my-3 h-px bg-gray-100" />
 
           {/* Global Instagram bot toggle */}
           {activeChannel === "instagram" && igConfigured && (
