@@ -48,13 +48,14 @@ export async function POST(req: NextRequest) {
       lead = await prisma.whatsappLead.update({
         where: { id: existing.id },
         data: {
-          stage:       leadStage,
-          ...(customerName   && { customerName }),
+          stage:        leadStage,
+          ...(customerName !== undefined && { customerName }),
           ...(phone          && { phone: phone.replace(/^\+/, "") }),
           ...(orderDetails   && { orderDetails }),
-          ...(productName    && { productName }),
-          ...(productPrice   && { productPrice }),
-          updatedAt: new Date(),
+          // Always overwrite product fields so a new click with a different product replaces the old one
+          productName:  productName ?? existing.productName,
+          productPrice: productPrice ?? existing.productPrice,
+          updatedAt:    new Date(),
         },
       });
     } else {
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
     const [leads, total, funnelRaw, paidByCustomer] = await Promise.all([
       prisma.whatsappLead.findMany({
         where,
-        orderBy: { createdAt: "desc" },
+        orderBy: { updatedAt: "desc" },
         skip:    (page - 1) * limit,
         take:    limit,
       }),
