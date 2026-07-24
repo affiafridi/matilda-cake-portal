@@ -298,6 +298,14 @@ export default function InboxClient({
   const [noteText,   setNoteText]   = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
+  // Payment link modal
+  const [showPayModal,   setShowPayModal]   = useState(false);
+  const [payAmount,      setPayAmount]      = useState("");
+  const [payCurrency,    setPayCurrency]    = useState("AED");
+  const [payDesc,        setPayDesc]        = useState("");
+  const [sendingPay,     setSendingPay]     = useState(false);
+  const [payError,       setPayError]       = useState<string | null>(null);
+
   // Voice recorder overlay
   const [showVoice,  setShowVoice]  = useState(false);
   const [sendingVoice, setSendingVoice] = useState(false);
@@ -642,6 +650,30 @@ export default function InboxClient({
       const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
       if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
     } finally { setSending(false); }
+  }
+
+  async function sendPaymentLink(e: FormEvent) {
+    e.preventDefault();
+    if (!selectedId || sendingPay) return;
+    const amount = payAmount.trim();
+    const desc   = payDesc.trim();
+    if (!amount || !desc) return;
+    setSendingPay(true);
+    setPayError(null);
+    try {
+      const res  = await fetch(`/api/inbox/conversations/${selectedId}/payment-link`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, currency: payCurrency, description: desc }),
+      });
+      const json = await res.json().catch(() => null) as { ok: boolean; error?: string } | null;
+      if (!json?.ok) { setPayError(json?.error ?? "Failed to send payment link"); return; }
+      // Success — close modal, reset fields, refresh messages
+      setShowPayModal(false);
+      setPayAmount(""); setPayDesc(""); setPayError(null);
+      const r2 = await fetch(`/api/inbox/conversations/${selectedId}`);
+      const j2 = await r2.json().catch(() => null) as { ok: boolean; data: { conversation: ConvSummary; messages: Message[] } } | null;
+      if (j2?.ok) { setMessages(j2.data.messages); setConvDetail(j2.data.conversation); }
+    } finally { setSendingPay(false); }
   }
 
   function stageMedia(files: FileList | File[]) {
@@ -1648,6 +1680,17 @@ export default function InboxClient({
                             </button>
                           )}
 
+                          {/* Payment link — WhatsApp only */}
+                          {!isIgSelected && (
+                            <button type="button" onClick={() => { setShowPayModal(true); setPayError(null); }}
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-[#54656f] shadow-sm transition hover:bg-gray-100"
+                              title="Send payment link">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                              </svg>
+                            </button>
+                          )}
+
                           {/* Compose pill */}
                           <div className="flex-1 rounded-[24px] bg-white shadow-sm overflow-hidden">
                             {pendingMedia.length > 0 && (
@@ -2028,6 +2071,115 @@ export default function InboxClient({
           onClose={() => setShowProductPicker(false)}
           onSent={(_count) => setShowProductPicker(false)}
         />
+      )}
+
+      {/* Payment Link modal */}
+      {showPayModal && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowPayModal(false); setPayError(null); } }}>
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00a884]/10">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#00a884" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[13.5px] font-semibold text-gray-900">Send Payment Link</p>
+                  <p className="text-[11px] text-gray-400">via CCAvenue · WhatsApp</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => { setShowPayModal(false); setPayError(null); }}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={(e) => { void sendPaymentLink(e); }} className="px-5 py-4 flex flex-col gap-3.5">
+              {/* Amount + Currency */}
+              <div>
+                <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Amount</label>
+                <div className="flex gap-2">
+                  <select value={payCurrency} onChange={(e) => setPayCurrency(e.target.value)}
+                    className="w-24 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-semibold text-gray-700 focus:border-[#00a884] focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition">
+                    {["AED","USD","EUR","GBP","SAR","INR"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <input type="number" min="0.01" max="999999" step="0.01"
+                    value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
+                    placeholder="0.00" required
+                    className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-[11.5px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Description</label>
+                <input type="text" maxLength={200}
+                  value={payDesc} onChange={(e) => setPayDesc(e.target.value)}
+                  placeholder="e.g. Custom cake order — 2kg chocolate"
+                  required
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:border-[#00a884] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00a884]/20 transition"
+                />
+                <p className="mt-1 text-[10.5px] text-gray-400">{payDesc.length}/200</p>
+              </div>
+
+              {/* Info note */}
+              <div className="flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0 mt-0.5">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <p className="text-[11px] text-blue-600 leading-relaxed">
+                  A secure payment link will be sent to the customer via WhatsApp. The order will appear in your portal automatically.
+                </p>
+              </div>
+
+              {/* Error */}
+              {payError && (
+                <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-100 px-3 py-2.5">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <p className="text-[11.5px] text-red-600">{payError}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { setShowPayModal(false); setPayError(null); }}
+                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                  Cancel
+                </button>
+                <button type="submit" disabled={sendingPay || !payAmount.trim() || !payDesc.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#00a884] py-2.5 text-sm font-semibold text-white hover:bg-[#00916e] disabled:cursor-not-allowed disabled:opacity-40 transition">
+                  {sendingPay ? (
+                    <>
+                      <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                      </svg>
+                      Send Link
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
