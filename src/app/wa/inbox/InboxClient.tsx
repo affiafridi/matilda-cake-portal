@@ -1626,9 +1626,9 @@ export default function InboxClient({
                 <div ref={bottomRef} />
               </div>
 
-              {/* ── Scroll-to-bottom button — sits between chat feed and reply box ── */}
+              {/* ── Scroll-to-bottom button — floats above reply box, centered ── */}
               {showScrollBtn && (
-                <div className="flex justify-center py-1.5 bg-transparent pointer-events-none">
+                <div className="absolute bottom-3 left-0 right-0 flex justify-center pointer-events-none z-10">
                   <button
                     type="button"
                     onClick={() => bottomRef.current?.scrollIntoView({ behavior: "smooth" })}
