@@ -975,25 +975,24 @@ export default function InboxClient({
 
         {/* Nav sections */}
         <div className="overflow-y-auto flex-shrink-0">
-          {/* CONVERSATIONS pill row */}
-          <div className="px-3 pt-2 pb-1">
-            <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">Conversations</p>
-            <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+          {/* CONVERSATIONS tab row */}
+          <div className="px-3 pt-2 pb-0">
+            <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-gray-400">Conversations</p>
+            <div className="flex border-b border-gray-200">
               {([
                 { key: "unassigned", label: "Unassigned" },
                 { key: "mine",       label: "Assigned" },
                 { key: "all",        label: "All Active" },
               ] as { key: typeof view; label: string }[]).map(({ key, label }) => (
                 <button key={key} onClick={() => setView(key)}
-                  className={["relative flex-1 flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-medium transition-all",
-                    view === key
-                      ? "bg-white text-brand shadow-sm font-semibold"
-                      : "text-gray-500 hover:text-gray-700",
+                  className={["relative flex flex-1 items-center justify-center gap-1 pb-2 pt-1.5 text-[11px] font-medium transition-colors",
+                    view === key ? "text-brand" : "text-gray-500 hover:text-gray-700",
                   ].join(" ")}>
+                  {view === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-brand" />}
                   <span className="truncate">{label}</span>
                   {(counts[key as keyof typeof counts] ?? 0) > 0 && (
                     <span className={["rounded-full px-1.5 py-px text-[9px] font-bold leading-none",
-                      view === key ? "bg-brand/15 text-brand" : "bg-gray-200 text-gray-500",
+                      view === key ? "bg-brand/10 text-brand" : "bg-gray-100 text-gray-400",
                     ].join(" ")}>
                       {counts[key as keyof typeof counts]}
                     </span>
@@ -1003,26 +1002,25 @@ export default function InboxClient({
             </div>
           </div>
 
-          {/* STATUS pill row */}
-          <div className="px-3 pt-3 pb-1">
-            <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-gray-400">Status</p>
-            <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+          {/* STATUS tab row */}
+          <div className="px-3 pt-3 pb-0">
+            <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-gray-400">Status</p>
+            <div className="flex border-b border-gray-200">
               {([
                 { key: "open",     label: "Open",       dot: "bg-emerald-400" },
                 { key: "resolved", label: "Resolved",   dot: "bg-gray-300" },
                 { key: "paused",   label: "Bot Paused", dot: "bg-amber-400" },
               ] as { key: typeof view; label: string; dot: string }[]).map(({ key, label, dot }) => (
                 <button key={key} onClick={() => setView(key)}
-                  className={["relative flex-1 flex items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-medium transition-all",
-                    view === key
-                      ? "bg-white text-brand shadow-sm font-semibold"
-                      : "text-gray-500 hover:text-gray-700",
+                  className={["relative flex flex-1 items-center justify-center gap-1 pb-2 pt-1.5 text-[11px] font-medium transition-colors",
+                    view === key ? "text-brand" : "text-gray-500 hover:text-gray-700",
                   ].join(" ")}>
+                  {view === key && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t bg-brand" />}
                   <span className={["h-1.5 w-1.5 shrink-0 rounded-full", dot].join(" ")} />
                   <span className="truncate">{label}</span>
                   {(counts[key as keyof typeof counts] ?? 0) > 0 && (
                     <span className={["rounded-full px-1.5 py-px text-[9px] font-bold leading-none",
-                      view === key ? "bg-brand/15 text-brand" : "bg-gray-200 text-gray-500",
+                      view === key ? "bg-brand/10 text-brand" : "bg-gray-100 text-gray-400",
                     ].join(" ")}>
                       {counts[key as keyof typeof counts]}
                     </span>
