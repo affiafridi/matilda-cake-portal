@@ -8,8 +8,10 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Non-SUPER_ADMIN roles don't have access to Instagram — exclude those conversations
-  const channelFilter = user.role === "SUPER_ADMIN" ? {} : { NOT: { channel: "instagram" } };
+  // ADMIN role: only show WhatsApp conversations (exclude Instagram, including old null-channel rows)
+  const channelFilter = user.role === "SUPER_ADMIN"
+    ? {}
+    : { OR: [{ channel: "whatsapp" }, { channel: null }] };
 
   const conversations = await prisma.conversation.findMany({
     where: { status: "OPEN", ...channelFilter },
